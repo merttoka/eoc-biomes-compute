@@ -1,0 +1,152 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!181963792 &2655988077585873504
+Preset:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: SimulationManager
+  m_TargetType:
+    m_NativeTypeID: 114
+    m_ManagedTypePPtr: {fileID: 11500000, guid: edb3361b7755f481d966e7c7fc66efc2, type: 3}
+    m_ManagedTypeFallback: 
+  m_Properties:
+  - target: {fileID: 0}
+    propertyPath: m_Enabled
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_EditorHideFlags
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_EditorClassIdentifier
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: rezX
+    value: 7680
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: rezY
+    value: 2160
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: stepsPerFrame
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: stepMod
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_compositeOutMat
+    value: 
+    objectReference: {fileID: 2100000, guid: 2ecf9d3704d0f458c90d15f60f33db61, type: 2}
+  - target: {fileID: 0}
+    propertyPath: recordingCamera
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: limitFPS
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: targetFPS
+    value: 60
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_compositeOutMatRight
+    value: 
+    objectReference: {fileID: 2100000, guid: 0bd722b510a56424ba6aad7352dd91a7, type: 2}
+  - target: {fileID: 0}
+    propertyPath: m_compositeOutMatLeft
+    value: 
+    objectReference: {fileID: 2100000, guid: 5c2a8338ccd504a6e8e2288274491d92, type: 2}
+  - target: {fileID: 0}
+    propertyPath: cs
+    value: 
+    objectReference: {fileID: 7200000, guid: 7c2dfe7e1c3f741cabd16eaff0f9a6d7, type: 3}
+  - target: {fileID: 0}
+    propertyPath: simPhysarum
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: simBoids
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: sendNdi
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: ndiSender
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: _ndiResources
+    value: 
+    objectReference: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
+  - target: {fileID: 0}
+    propertyPath: sendSpout
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: spoutSender
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: _spoutResources
+    value: 
+    objectReference: {fileID: 11400000, guid: f449ebbe2051c2e4d993eaa773a410de, type: 2}
+  - target: {fileID: 0}
+    propertyPath: spoutReceiver
+    value: 
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DebugUseVideoInput
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DebugVideoClip
+    value: 
+    objectReference: {fileID: 32900000, guid: 9f005a1ca82fb46b4aa0ea56b86eb6f9, type: 3}
+  - target: {fileID: 0}
+    propertyPath: m_DebugLoopVideo
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DebugPlaybackSpeed
+    value: 1
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DebugApplyGaussianBlur
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_BlurKernelSize
+    value: 3
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_BlurStrength
+    value: 1.47
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_BlurCompute
+    value: 
+    objectReference: {fileID: 7200000, guid: a19c6334dbc084caa82db2c4abbd547e, type: 3}
+  - target: {fileID: 0}
+    propertyPath: m_DebugOverlayVideoOnOutput
+    value: 0
+    objectReference: {fileID: 0}
+  - target: {fileID: 0}
+    propertyPath: m_DebugOverlayStrength
+    value: 0.62
+    objectReference: {fileID: 0}
+  m_ExcludedProperties: []
+  m_CoupledType:
+    m_NativeTypeID: 0
+    m_ManagedTypePPtr: {fileID: 0}
+    m_ManagedTypeFallback: 
+  m_CoupledProperties: []
