@@ -173,3 +173,9 @@ Assets/Workspace/10.0 Metaesthetica/data/videos.meta
 Recordings/
 Assets/_Recovery/
 Assets/_Recovery.meta
+
+# macOS Finder / Unity import duplicates
+*\ 2.meta
+*\ 3.meta
+*\ 2.asset
+*\ 3.asset
