@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a217af1bb38404f9986446fe8423a23c, type: 3}
+  m_Name: PhysarumParams_20260409_205742
+  m_EditorClassIdentifier: Assembly-CSharp::Metaesthetica.PhysarumParams
+  m_SenseAngles: {x: 51.10945, y: 152, z: 42.607876, w: 48.27559}
+  m_SenseDistances: {x: 50, y: 73, z: 6.396063, w: 7.970079}
+  m_TurnAngles: {x: 93.617325, y: 66, z: 79.44803, w: 31.272442}
+  m_MoveSpeeds: {x: 3.860551, y: 2.6818109, z: 1.8566929, w: 2.4067717}
+  m_DepositAmounts: {x: 0.041181102, y: 0.09574804, z: 0.42314962, w: 0.8518898}
+  m_EatAmounts: {x: 0.9344882, y: 0.9658268, z: 0.35472444, w: 0.43307087}
+  m_ExternalInfluenceStrengths: {x: 100, y: 100, z: 14.874016, w: 14.543307}
+  m_Hues: {x: 0.12, y: 0.29, z: 0.5511811, w: 0.55}
+  m_Saturations: {x: 0.5, y: 0.5, z: 0.5, w: 0.5}
+  m_DiffuseRates: {x: 0.3, y: 0.3, z: 0.3, w: 0.86614174}

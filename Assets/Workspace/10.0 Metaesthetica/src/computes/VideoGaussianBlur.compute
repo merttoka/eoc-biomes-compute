@@ -1,0 +1,62 @@
+#pragma kernel BlurHorizontal
+#pragma kernel BlurVertical
+
+RWTexture2D<float4> Dest;
+Texture2D<float4> Src;
+
+cbuffer Params
+{
+    int Width;
+    int Height;
+    int Radius;
+    float Sigma;
+};
+
+float GaussianWeight(int x, float sigma)
+{
+    float fx = (float)x;
+    // Normalized Gaussian weight; normalization via sum of weights in pass
+    return exp(-0.5 * (fx * fx) / (sigma * sigma));
+}
+
+[numthreads(8, 8, 1)]
+void BlurHorizontal(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= Width || id.y >= Height) return;
+
+    float4 sum = 0;
+    float wsum = 0;
+
+    for (int i = -Radius; i <= Radius; i++)
+    {
+        int sx = clamp((int)id.x + i, 0, Width - 1);
+        float w = GaussianWeight(i, Sigma);
+        sum += Src.Load(int3(sx, id.y, 0)) * w;
+        wsum += w;
+    }
+
+    Dest[int2(id.x, id.y)] = sum / max(wsum, 1e-6);
+}
+
+[numthreads(8, 8, 1)]
+void BlurVertical(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= Width || id.y >= Height) return;
+
+    float4 sum = 0;
+    float wsum = 0;
+
+    for (int j = -Radius; j <= Radius; j++)
+    {
+        int sy = clamp((int)id.y + j, 0, Height - 1);
+        float w = GaussianWeight(j, Sigma);
+        sum += Src.Load(int3(id.x, sy, 0)) * w;
+        wsum += w;
+    }
+
+    Dest[int2(id.x, id.y)] = sum / max(wsum, 1e-6);
+}
+
+
+
+

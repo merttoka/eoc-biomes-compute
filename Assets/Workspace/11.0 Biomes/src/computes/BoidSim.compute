@@ -1,0 +1,354 @@
+// Boid simulation with biome perception + spatial hash
+
+#pragma kernel ResetTextureKernel
+#pragma kernel ResetAgentsKernel
+#pragma kernel ClearCellCountsKernel
+#pragma kernel HashAndCountKernel
+#pragma kernel PrefixSumKernel
+#pragma kernel ScatterKernel
+#pragma kernel MoveAgentsKernel
+#pragma kernel WriteTrailsKernel
+#pragma kernel DiffuseTextureKernel
+#pragma kernel RenderKernel
+
+SamplerState sampler_trailRead;
+Texture2DArray<float> trailRead;
+RWTexture2DArray<float> trailWrite;
+RWTexture2D<float4> outTex;
+
+// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance
+Texture2D<float4> perceptionTex;
+SamplerState sampler_perceptionTex;
+
+struct Agent {
+    float2 position;
+    float2 velocity;
+    uint typeId;
+};
+uint agentsCount;
+StructuredBuffer<Agent> agentsIn;
+RWStructuredBuffer<Agent> agentsOut;
+
+// Spatial hash
+uint gridW;
+uint gridH;
+float cellSize;
+RWStructuredBuffer<uint> cellCounts;
+RWStructuredBuffer<uint> cellOffsets;
+RWStructuredBuffer<uint> sortedBoidIndices;
+StructuredBuffer<uint> cellOffsetsRead;
+StructuredBuffer<uint> sortedIndicesRead;
+
+uint rezX;
+uint rezY;
+uint time;
+
+#include "includes/random.hlsl"
+#include "includes/boid_type_params.hlsl"
+
+
+// ════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════
+float2 Limit(float2 vec, const float magLimit) {
+    if (length(vec) > magLimit) vec = normalize(vec) * magLimit;
+    return vec;
+}
+
+float ToroidalDistanceSq(float2 sub, float fRX, float fRY) {
+    if (abs(sub.x) > fRX * 0.5) sub.x = fRX - abs(sub.x);
+    if (abs(sub.y) > fRY * 0.5) sub.y = fRY - abs(sub.y);
+    return sub.x * sub.x + sub.y * sub.y;
+}
+
+float2 rotate(float2 v, float angle_rad) {
+    float s = sin(angle_rad);
+    float c = cos(angle_rad);
+    return float2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+
+// ════════════════════════════════════════════════
+// RESET
+// ════════════════════════════════════════════════
+[numthreads(8, 8, 1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    for (uint t = 0; t <= typeCount; t++) {
+        trailWrite[uint3(id.xy, t)] = 0;
+    }
+}
+
+[numthreads(1024, 1, 1)]
+void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent a;
+    float2 c = Random2(id.x * .0001 + time * .001);
+    a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
+    a.velocity = RandomDirection2(id.xy * .001 + sin(time));
+    a.typeId = (id.x * typeCount) / agentsCount;
+    agentsOut[id.x] = a;
+}
+
+
+// ════════════════════════════════════════════════
+// SPATIAL HASH
+// ════════════════════════════════════════════════
+[numthreads(1024, 1, 1)]
+void ClearCellCountsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= gridW * gridH) return;
+    cellCounts[id.x] = 0;
+}
+
+[numthreads(1024, 1, 1)]
+void HashAndCountKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    Agent b = agentsIn[id.x];
+    uint cx = min((uint)(b.position.x / cellSize), gridW - 1);
+    uint cy = min((uint)(b.position.y / cellSize), gridH - 1);
+    InterlockedAdd(cellCounts[cy * gridW + cx], 1);
+}
+
+[numthreads(1, 1, 1)]
+void PrefixSumKernel(uint3 id : SV_DISPATCHTHREADID) {
+    uint totalCells = gridW * gridH;
+    uint sum = 0;
+    for (uint i = 0; i < totalCells; i++) {
+        cellOffsets[i] = sum;
+        uint count = cellCounts[i];
+        sum += count;
+        cellCounts[i] = 0;
+    }
+}
+
+[numthreads(1024, 1, 1)]
+void ScatterKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    Agent b = agentsIn[id.x];
+    uint cx = min((uint)(b.position.x / cellSize), gridW - 1);
+    uint cy = min((uint)(b.position.y / cellSize), gridH - 1);
+    uint cellKey = cy * gridW + cx;
+    uint localIdx;
+    InterlockedAdd(cellCounts[cellKey], 1, localIdx);
+    sortedBoidIndices[cellOffsets[cellKey] + localIdx] = id.x;
+}
+
+
+// ════════════════════════════════════════════════
+// BOID FORCES
+// ════════════════════════════════════════════════
+float2 Separate(const Agent b, float2 sum, const float count, const BoidTypeParams p) {
+    if (count > 0) {
+        sum *= 1.0 / count;
+    }
+    if (length(sum) > 0) {
+        sum = normalize(sum) * p.maxSpeed;
+        sum = Limit(sum - b.velocity, p.maxForce);
+    }
+    return sum;
+}
+
+float2 Align(const Agent b, float2 sum, const float count, const BoidTypeParams p) {
+    if (count > 0) {
+        sum *= 1.0 / count;
+        sum = normalize(sum) * p.maxSpeed;
+        return Limit(sum - b.velocity, p.maxForce);
+    }
+    return float2(0, 0);
+}
+
+float2 Attract(const Agent b, float2 sum, const float count, const BoidTypeParams p) {
+    if (count > 0) {
+        sum *= 1.0 / count;
+        float2 desired = sum - b.position;
+        desired = normalize(desired) * p.maxSpeed;
+        return Limit(desired - b.velocity, p.maxForce);
+    }
+    return float2(0, 0);
+}
+
+
+// ════════════════════════════════════════════════
+// MOVE (with biome perception)
+// ════════════════════════════════════════════════
+[numthreads(512, 1, 1)]
+void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent b = agentsIn[id.x];
+    BoidTypeParams p = typeParams[b.typeId];
+
+    float2 acceleration = 0;
+    float3 count = 0;
+    float2 sumPositionDiff = 0;
+    float2 sumVelocities = 0;
+    float2 sumPositions = 0;
+
+    float fRX = (float)rezX;
+    float fRY = (float)rezY;
+
+    uint myCellX = min((uint)(b.position.x / cellSize), gridW - 1);
+    uint myCellY = min((uint)(b.position.y / cellSize), gridH - 1);
+    uint totalCells = gridW * gridH;
+
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            uint ncx = (myCellX + dx + gridW) % gridW;
+            uint ncy = (myCellY + dy + gridH) % gridH;
+            uint neighborCell = ncy * gridW + ncx;
+
+            uint cellStart = cellOffsetsRead[neighborCell];
+            uint cellEnd = (neighborCell < totalCells - 1)
+                ? cellOffsetsRead[neighborCell + 1]
+                : agentsCount;
+
+            for (uint j = cellStart; j < cellEnd; j++) {
+                uint otherIdx = sortedIndicesRead[j];
+                if (otherIdx == id.x) continue;
+                Agent other = agentsIn[otherIdx];
+
+                float2 diff = b.position - other.position;
+                float sqDist = ToroidalDistanceSq(diff, fRX, fRY);
+
+                if (sqDist < p.separateRange && sqDist > 0) {
+                    sumPositionDiff += diff / sqDist;
+                    count.x++;
+                }
+                if (sqDist < p.alignRange && sqDist > 0) {
+                    sumVelocities += other.velocity;
+                    count.y++;
+                }
+                if (sqDist < p.attractRange && sqDist > 0) {
+                    sumPositions += other.position;
+                    count.z++;
+                }
+            }
+        }
+    }
+
+    // Classic flocking
+    acceleration += Separate(b, sumPositionDiff, count.x, p);
+    acceleration += Align(b, sumVelocities, count.y, p);
+    acceleration += Attract(b, sumPositions, count.z, p);
+
+    // Biome chemotaxis: sample perception gradient at sensor positions
+    float2 uv = b.position / float2(fRX, fRY);
+    float4 perception = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0);
+
+    if (p.foodSeekingStrength > 0 && length(b.velocity) > 0.001) {
+        float2 normVel = normalize(b.velocity);
+        float sd = p.foodSensorDistance;
+
+        float2 posAhead = (b.position + normVel * sd) / float2(fRX, fRY);
+        float2 posLeft = (b.position + rotate(normVel, p.sensorAngleRad) * sd) / float2(fRX, fRY);
+        float2 posRight = (b.position + rotate(normVel, -p.sensorAngleRad) * sd) / float2(fRX, fRY);
+
+        // Own trail + biome chemotaxis combined
+        float ahead = trailRead.SampleLevel(sampler_trailRead, float3(posAhead, b.typeId), 0)
+                    + (perceptionTex.SampleLevel(sampler_perceptionTex, posAhead, 0).r - 0.5) * 2.0;
+        float left = trailRead.SampleLevel(sampler_trailRead, float3(posLeft, b.typeId), 0)
+                   + (perceptionTex.SampleLevel(sampler_perceptionTex, posLeft, 0).r - 0.5) * 2.0;
+        float right = trailRead.SampleLevel(sampler_trailRead, float3(posRight, b.typeId), 0)
+                    + (perceptionTex.SampleLevel(sampler_perceptionTex, posRight, 0).r - 0.5) * 2.0;
+
+        // Avoidance signal adds repulsion
+        float avoidAhead = perceptionTex.SampleLevel(sampler_perceptionTex, posAhead, 0).b;
+        ahead -= avoidAhead;
+
+        float2 foodForce = float2(0, 0);
+        if (left > ahead && left > right) {
+            foodForce = Limit(rotate(normVel, p.sensorAngleRad) * p.maxSpeed - b.velocity,
+                            p.maxForce * p.foodSeekingStrength);
+        } else if (right > ahead && right > left) {
+            foodForce = Limit(rotate(normVel, -p.sensorAngleRad) * p.maxSpeed - b.velocity,
+                            p.maxForce * p.foodSeekingStrength);
+        } else if (ahead > 0.01) {
+            foodForce = Limit(normVel * p.maxSpeed - b.velocity,
+                            p.maxForce * p.foodSeekingStrength * 0.5);
+        }
+        acceleration += foodForce;
+    }
+
+    b.velocity += acceleration;
+
+    // Apply permeability speed penalty from biome
+    float speedMult = perception.g;
+    float effectiveMaxSpeed = p.maxSpeed * speedMult;
+    b.velocity = Limit(b.velocity, effectiveMaxSpeed);
+
+    b.position += b.velocity;
+
+    // Toroidal wrapping
+    if (b.position.x < 0) b.position.x += fRX;
+    if (b.position.x >= fRX) b.position.x -= fRX;
+    if (b.position.y < 0) b.position.y += fRY;
+    if (b.position.y >= fRY) b.position.y -= fRY;
+
+    agentsOut[id.x] = b;
+}
+
+
+// ════════════════════════════════════════════════
+// TRAILS
+// ════════════════════════════════════════════════
+[numthreads(1024, 1, 1)]
+void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent b = agentsOut[id.x];
+    BoidTypeParams p = typeParams[b.typeId];
+    uint2 pos = uint2(round(b.position));
+
+    float own = trailWrite[uint3(pos, b.typeId)];
+    trailWrite[uint3(pos, b.typeId)] = clamp(own + p.depositAmount, 0, 1);
+
+    for (uint t = 0; t < typeCount; t++) {
+        if (t == b.typeId) continue;
+        float other = trailWrite[uint3(pos, t)];
+        trailWrite[uint3(pos, t)] = clamp(other - p.eatAmount, 0, 1);
+    }
+}
+
+[numthreads(8, 8, 1)]
+void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float total = 0;
+    for (uint t = 0; t < typeCount; t++) {
+        float avg = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                float3 coord = float3((id.x + dx) / (float)rezX, (id.y + dy) / (float)rezY, t);
+                avg += trailRead.SampleLevel(sampler_trailRead, coord, 0);
+            }
+        }
+        avg /= 9.0;
+        float diffused = clamp(avg * typeParams[t].diffuseRate, 0, 1);
+        trailWrite[uint3(id.xy, t)] = diffused;
+        total += diffused;
+    }
+    trailWrite[uint3(id.xy, typeCount)] = total;
+}
+
+
+// ════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════
+#include "includes/color.hlsl"
+
+[numthreads(8, 8, 1)]
+void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float4 color = 0;
+    for (uint t = 0; t < typeCount; t++) {
+        float val = trailRead[uint3(id.xy, t)];
+        BoidTypeParams p = typeParams[t];
+        color += hsb2rgb(float3(p.hue, p.saturation, 0.8 * val), val) / typeCount;
+    }
+    float4 current = outTex[id.xy];
+    current += color;
+    current *= 0.9;
+    outTex[id.xy] = saturate(current);
+}

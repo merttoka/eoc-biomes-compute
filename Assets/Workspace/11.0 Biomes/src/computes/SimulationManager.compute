@@ -1,0 +1,60 @@
+// Composite render: blend sim outputs into final output
+
+#pragma kernel CompositeRenderKernel
+#pragma kernel ResetTextureKernel
+
+uint rezX;
+uint rezY;
+uint simCount;
+
+Texture2D<float4> simInput0;
+Texture2D<float4> simInput1;
+Texture2D<float4> simInput2;
+Texture2D<float4> simInput3;
+Texture2D<float4> simInput4;
+Texture2D<float4> simInput5;
+Texture2D<float4> simInput6;
+Texture2D<float4> simInput7;
+
+Texture2D<float4> externalOverlay;
+float overlayStrength;
+
+RWTexture2D<float4> compositeOut;
+
+float4 SampleSim(uint index, uint2 pos) {
+    if (index == 0) return simInput0[pos];
+    if (index == 1) return simInput1[pos];
+    if (index == 2) return simInput2[pos];
+    if (index == 3) return simInput3[pos];
+    if (index == 4) return simInput4[pos];
+    if (index == 5) return simInput5[pos];
+    if (index == 6) return simInput6[pos];
+    if (index == 7) return simInput7[pos];
+    return float4(0, 0, 0, 0);
+}
+
+[numthreads(8, 8, 1)]
+void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float4 color = float4(0, 0, 0, 1);
+    for (uint i = 0; i < simCount; i++) {
+        float4 simColor = SampleSim(i, id.xy);
+        // Additive blend
+        color.rgb += simColor.rgb;
+    }
+    // Overlay external input
+    if (overlayStrength > 0.0)
+    {
+        float4 overlay = externalOverlay[id.xy];
+        color.rgb = lerp(color.rgb, overlay.rgb, overlayStrength * overlay.a);
+    }
+
+    compositeOut[id.xy] = saturate(color);
+}
+
+[numthreads(8, 8, 1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    compositeOut[id.xy] = float4(0, 0, 0, 1);
+}

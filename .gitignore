@@ -1,0 +1,175 @@
+# This .gitignore file should be placed at the root of your Unity project directory
+#
+# Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
+#
+
+# ==========================================
+# Unity Generated Files and Folders
+# ==========================================
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+.utmp/
+
+# Unity crash reports
+sysinfo.txt
+mono_crash.*
+
+# Unity generated file on crash reports
+*.log
+
+# ==========================================
+# OS Specific Files
+# ==========================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ==========================================
+# Visual Studio / IDE Files
+# ==========================================
+.vs/
+.vscode/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta files
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Jetbrains Rider
+/[Aa]ssets/Plugins/Editor/JetBrains*
+*.DotSettings.user
+
+# ==========================================
+# Build Artifacts
+# ==========================================
+ExportedObj/
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+*.app
+*.exe
+*.dmg
+*.zip
+
+# ==========================================
+# Asset Store Tools
+# ==========================================
+# Uncomment this line if you wish to ignore the asset store tools plugin
+# /[Aa]ssets/AssetStoreTools*
+
+# ==========================================
+# Blender Files
+# ==========================================
+# By default unity supports Blender asset imports, *.blend1 blender files do not need to be commited to version control.
+*.blend1
+*.blend1.meta
+
+# ==========================================
+# Memory Captures
+# ==========================================
+# MemoryCaptures can get excessive in size.
+# They also could contain extremely sensitive data
+/[Mm]emoryCaptures/
+
+# ==========================================
+# Recordings
+# ==========================================
+# Recordings can get excessive in size
+/[Rr]ecordings/
+*.mp4
+*.mov
+*.avi
+
+# ==========================================
+# Package Manager
+# ==========================================
+# Note: Packages/manifest.json and Packages/packages-lock.json SHOULD be committed
+# Only ignore backup files and package caches
+/[Pp]ackages/manifest.json.bak
+
+# ==========================================
+# Addressables
+# ==========================================
+/ServerData
+/[Aa]ssets/StreamingAssets/aa*
+/[Aa]ssets/AddressableAssetsData/link.xml*
+/[Aa]ssets/Addressables_Temp*
+# By default, Addressables content builds will generate addressables_content_state.bin
+# files in platform-specific subfolders, for example:
+# /Assets/AddressableAssetsData/OSX/addressables_content_state.bin
+/[Aa]ssets/AddressableAssetsData/*/*.bin*
+
+# ==========================================
+# Visual Scripting
+# ==========================================
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
+
+# ==========================================
+# Test Runner
+# ==========================================
+InitTestScene*.unity*
+/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# ==========================================
+# Other
+# ==========================================
+# Crashlytics generated file
+crashlytics-build.properties
+
+# Gradle cache directory
+.gradle/
+
+# Backup files
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+# Large data files
+Assets/Workspace/10.0 Metaesthetica/data/time_series_data.csv
+Assets/Workspace/10.0 Metaesthetica/data/time_series_data.csv.meta
+Assets/Workspace/10.0 Metaesthetica/data/audio/
+Assets/Workspace/10.0 Metaesthetica/data/audio.meta
+Assets/Workspace/10.0 Metaesthetica/data/videos/
+Assets/Workspace/10.0 Metaesthetica/data/videos.meta
+Recordings/
+Assets/_Recovery/
+Assets/_Recovery.meta

@@ -1,0 +1,72 @@
+// Splats gaussian blobs onto a texture at neuron positions,
+// weighted by current firing rates.
+// Output channels: each neuron's label determines which RGBA channel it writes to.
+
+#pragma kernel ClearKernel
+#pragma kernel DecayKernel
+#pragma kernel SplatKernel
+
+uint rezX;
+uint rezY;
+
+RWTexture2D<float4> splatTex;
+
+// Neuron data
+StructuredBuffer<float2> neuronPositions; // positions in pixel coords
+StructuredBuffer<float> neuronRates;      // current rates_norm per neuron
+StructuredBuffer<int> neuronLabels;       // label per neuron (0-3 → RGBA channel)
+uint neuronCount;
+
+// Splat settings
+float splatRadius;   // gaussian radius in pixels
+float splatSigma;    // gaussian sigma
+float splatStrength; // overall intensity multiplier
+float decayFactor;   // per-frame decay (0.85 = slow fade, 0.99 = long trails)
+
+[numthreads(8, 8, 1)]
+void ClearKernel(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= rezX || id.y >= rezY) return;
+    splatTex[id.xy] = float4(0, 0, 0, 0);
+}
+
+// Decay existing values (multiply by decayFactor, so trails fade over time)
+[numthreads(8, 8, 1)]
+void DecayKernel(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= rezX || id.y >= rezY) return;
+    splatTex[id.xy] = splatTex[id.xy] * decayFactor;
+}
+
+[numthreads(8, 8, 1)]
+void SplatKernel(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float2 pixelPos = float2(id.x, id.y);
+    float4 accum = float4(0, 0, 0, 0);
+
+    for (uint n = 0; n < neuronCount; n++)
+    {
+        float rate = neuronRates[n];
+        if (rate < 0.001) continue;
+
+        float2 npos = neuronPositions[n];
+        float2 diff = pixelPos - npos;
+        float dist2 = dot(diff, diff);
+        float radius2 = splatRadius * splatRadius;
+
+        if (dist2 > radius2) continue;
+
+        float gauss = exp(-dist2 / (2.0 * splatSigma * splatSigma));
+        float value = gauss * rate * splatStrength;
+
+        int label = neuronLabels[n];
+        if      (label == 0) accum.r += value;
+        else if (label == 1) accum.g += value;
+        else if (label == 2) accum.b += value;
+        else                 accum.a += value;
+    }
+
+    splatTex[id.xy] = saturate(splatTex[id.xy] + accum);
+}

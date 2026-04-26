@@ -1,0 +1,419 @@
+// Reset
+#pragma kernel ResetTextureKernel
+#pragma kernel ResetAgentsKernel
+
+// Global Step Kernels
+#pragma kernel MoveAgentsKernel 
+#pragma kernel WriteTrailsKernel 
+#pragma kernel DiffuseTextureKernel 
+
+// Render
+#pragma kernel RenderKernel
+
+SamplerState sampler_readTex;
+Texture2D<float4> readTex;
+RWTexture2D<float4> writeTex;
+RWTexture2D<float4> outTex;
+Texture2D<float4> externalInfluenceTex; // New external texture
+
+// Noise Field
+// bool enableNoise;
+// float noiseScale;
+// float noiseStrength;
+// float noiseTimeScale;
+
+struct Agent {
+    float2 position;
+    float2 direction;
+};
+uint agentsCount; 
+RWStructuredBuffer<Agent> agentsBuffer;
+
+// Optional external initialization positions (e.g., 131 neuron coordinates)
+StructuredBuffer<float2> neuronPositions;
+uint neuronCount;
+float2 neuronScale; // how much of the canvas neurons fill (0-1), e.g. (0.8, 0.9)
+
+// setup
+uint rezX;
+uint rezY;
+uint time;
+
+// physarum agent params
+float4 m_SenseAngles;      // senseAngle
+float4 m_SenseDistances;   // senseDistance
+float4 m_TurnAngles;       // turnAngle
+float4 m_MoveSpeeds;       // moveSpeed
+float4 m_ExternalInfluenceStrengths; // New: Strengths for external influence per channel
+
+// behavior params
+float4 m_EatAmounts;
+float4 m_DepositAmounts;
+
+// common vis params
+float4 m_DiffuseRates;     // diffuseRate
+float4 m_Hues;             // hue
+float4 m_Saturations;      // sat
+
+
+// RESET ----------------------------------------
+#include "includes/random.hlsl"
+[numthreads(8,8,1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    writeTex[id.xy] = 0;
+}
+[numthreads(256,1,1)]
+void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    
+    Agent a;
+
+    // If neuron positions are provided, initialize from them, otherwise fallback to ring
+    if (neuronCount > 0) {
+		uint idx = id.x % neuronCount;
+		float2 p = neuronPositions[idx] * neuronScale + float2(rezX * (1.0 - neuronScale.x)*0.5, rezY * (1.0 - neuronScale.y)*0.5);
+		// Clamp to bounds in case input exceeds the simulation area
+		p.x = clamp(p.x, 0.0, (float)rezX - 1.0);
+		p.y = clamp(p.y, 0.0, (float)rezY - 1.0);
+		a.position = p;
+    } else {
+		float2 c = Random2(id.x * .0001 + time * .001);
+		float ang = c.x * 3.14159265359 * 2;
+		float outerRadius = (min(rezX, rezY) * 0.5) * 0.5; // half of half the smallest dimension
+		float ringThickness = rezX / 10.0;
+		float innerRadius = outerRadius - ringThickness;
+		// c.y in [0,1]: uniformly distributed along the ring thickness
+		float rad = lerp(innerRadius, outerRadius, c.y);
+		float2 center = float2(rezX * 0.5, rezY * 0.5);
+		a.position = center + float2(cos(ang), sin(ang)) * rad;
+    }
+
+    a.direction = RandomDirection2(id.xy * .001 + sin(time));
+
+    agentsBuffer[id.x] = a;
+}
+
+// STEP PHYSARUM ----------------------------------------
+float2 RotateVectorBy(float2 vec, float a)  {
+    float x = vec.x * cos(a) - vec.y * sin(a);
+    float y = vec.x * sin(a) + vec.y * cos(a);
+    return float2(x, y);
+}
+float2 SensorTurns(uint3 id, Agent a) {
+    float r, ang, tang;
+    float2 direction = normalize(a.direction);
+
+
+    int agentId = 0;
+    if(id.x < agentsCount * 0.25) { agentId = 0; }
+    else if (id.x < agentsCount * 0.5) { agentId = 1; }
+    else if (id.x < agentsCount * 0.75) { agentId = 2; }
+    else { agentId = 3; }
+    
+    // Determine which agent type this is to select parameters
+    float currentSenseAngle;
+    float currentSenseDistance;
+    float currentTurnAngle;
+
+    float2 aCoord = float2(a.position.x / (float)rezX, a.position.y / (float)rezY);
+    float4 externalTextureValue = externalInfluenceTex.SampleLevel(sampler_readTex, aCoord, 0);
+
+    if(agentId == 0) { // Agent Type 1
+        currentSenseAngle = m_SenseAngles.r;
+        currentSenseDistance = m_SenseDistances.r;
+        currentTurnAngle = m_TurnAngles.r;
+    }
+    else if (agentId == 1) { // Agent Type 2
+        currentSenseAngle = m_SenseAngles.g;
+        currentSenseDistance = m_SenseDistances.g;
+        currentTurnAngle = m_TurnAngles.g;
+    }
+    else if (agentId == 2) { // Agent Type 3
+        currentSenseAngle = m_SenseAngles.b;
+        currentSenseDistance = m_SenseDistances.b;
+        currentTurnAngle = m_TurnAngles.b;
+    }
+    else if (agentId == 3) { // Agent Type 4
+        currentSenseAngle = m_SenseAngles.a;
+        currentSenseDistance = m_SenseDistances.a;
+        currentTurnAngle = m_TurnAngles.a;
+    }
+
+    r = currentSenseDistance;
+    ang = currentSenseAngle;
+    tang = currentTurnAngle;
+
+    float2 leftSensor = RotateVectorBy(direction, -ang) * r; 
+    float2 middleSensor = direction * r;
+    float2 rightSensor = RotateVectorBy(direction, ang) * r;
+
+    // left-middle-right sensor coordinates
+    float2 leftCoord = a.position + leftSensor;
+    float2 middleCoord = a.position + middleSensor;
+    float2 rightCoord = a.position + rightSensor;
+    leftCoord = float2(leftCoord.x / (float)rezX, leftCoord.y / (float)rezY);
+    middleCoord = float2(middleCoord.x / (float)rezX, middleCoord.y / (float)rezY);
+    rightCoord = float2(rightCoord.x / (float)rezX, rightCoord.y / (float)rezY);
+   
+    // environment values for left-middle-right sensors from trail map
+    float4 trail_leftLevelV = readTex.SampleLevel(sampler_readTex, leftCoord, 0);
+    float4 trail_middleLevelV = readTex.SampleLevel(sampler_readTex, middleCoord, 0);
+    float4 trail_rightLevelV = readTex.SampleLevel(sampler_readTex, rightCoord, 0);
+
+    // environment values for left-middle-right sensors from external influence map
+    float4 ext_leftLevelV = externalInfluenceTex.SampleLevel(sampler_readTex, leftCoord, 0); // Reusing sampler_readTex
+    float4 ext_middleLevelV = externalInfluenceTex.SampleLevel(sampler_readTex, middleCoord, 0);
+    float4 ext_rightLevelV = externalInfluenceTex.SampleLevel(sampler_readTex, rightCoord, 0);
+
+    float leftLevel, middleLevel, rightLevel;
+    float trailSenseL, trailSenseM, trailSenseR;
+    float externalSenseL, externalSenseM, externalSenseR;
+
+    if(agentId == 0) { // Agent Type 1 (R channel)
+        trailSenseL = trail_leftLevelV.r - (trail_leftLevelV.b + trail_leftLevelV.g + trail_leftLevelV.a);
+        trailSenseM = trail_middleLevelV.r - (trail_middleLevelV.b + trail_middleLevelV.g + trail_middleLevelV.a);
+        trailSenseR = trail_rightLevelV.r - (trail_rightLevelV.b + trail_rightLevelV.g + trail_rightLevelV.a);
+
+        externalSenseL = ext_leftLevelV.r * m_ExternalInfluenceStrengths.r;
+        externalSenseM = ext_middleLevelV.r * m_ExternalInfluenceStrengths.r;
+        externalSenseR = ext_rightLevelV.r * m_ExternalInfluenceStrengths.r;
+    }
+    else if (agentId == 1) { // Agent Type 2 (G channel)
+        trailSenseL = trail_leftLevelV.g - (trail_leftLevelV.r + trail_leftLevelV.b + trail_leftLevelV.a);
+        trailSenseM = trail_middleLevelV.g - (trail_middleLevelV.r + trail_middleLevelV.b + trail_middleLevelV.a);
+        trailSenseR = trail_rightLevelV.g - (trail_rightLevelV.r + trail_rightLevelV.b + trail_rightLevelV.a);
+
+        externalSenseL = ext_leftLevelV.g * m_ExternalInfluenceStrengths.g;
+        externalSenseM = ext_middleLevelV.g * m_ExternalInfluenceStrengths.g;
+        externalSenseR = ext_rightLevelV.g * m_ExternalInfluenceStrengths.g;
+        // externalSenseL = ext_leftLevelV.r * m_ExternalInfluenceStrengths.g;
+        // externalSenseM = ext_middleLevelV.r * m_ExternalInfluenceStrengths.g;
+        // externalSenseR = ext_rightLevelV.r * m_ExternalInfluenceStrengths.g;
+    }
+    else if (agentId == 2) { // Agent Type 3 (B channel)
+        trailSenseL = trail_leftLevelV.b - (trail_leftLevelV.r + trail_leftLevelV.g + trail_leftLevelV.a);
+        trailSenseM = trail_middleLevelV.b - (trail_middleLevelV.r + trail_middleLevelV.g + trail_middleLevelV.a);
+        trailSenseR = trail_rightLevelV.b - (trail_rightLevelV.r + trail_rightLevelV.g + trail_middleLevelV.a);
+
+        externalSenseL = ext_leftLevelV.b * m_ExternalInfluenceStrengths.b;
+        externalSenseM = ext_middleLevelV.b * m_ExternalInfluenceStrengths.b;
+        externalSenseR = ext_rightLevelV.b * m_ExternalInfluenceStrengths.b;
+        // externalSenseL = ext_leftLevelV.r * m_ExternalInfluenceStrengths.b;
+        // externalSenseM = ext_middleLevelV.r * m_ExternalInfluenceStrengths.b;
+        // externalSenseR = ext_rightLevelV.r * m_ExternalInfluenceStrengths.b;
+    }
+    else if (agentId == 3) { // Agent Type 4 (A channel)
+        trailSenseL = trail_leftLevelV.a - (trail_leftLevelV.r + trail_leftLevelV.g + trail_leftLevelV.b);
+        trailSenseM = trail_middleLevelV.a - (trail_middleLevelV.r + trail_middleLevelV.g + trail_middleLevelV.b);
+        trailSenseR = trail_rightLevelV.a - (trail_rightLevelV.r + trail_rightLevelV.g + trail_middleLevelV.b);
+
+        externalSenseL = ext_leftLevelV.a * m_ExternalInfluenceStrengths.a;
+        externalSenseM = ext_middleLevelV.a * m_ExternalInfluenceStrengths.a;
+        externalSenseR = ext_rightLevelV.a * m_ExternalInfluenceStrengths.a;
+        // externalSenseL = ext_leftLevelV.r * m_ExternalInfluenceStrengths.a;
+        // externalSenseM = ext_middleLevelV.r * m_ExternalInfluenceStrengths.a;
+        // externalSenseR = ext_rightLevelV.r * m_ExternalInfluenceStrengths.a;
+    }
+
+    // external influence is negative for agent type 3
+    if (agentId == 2) {
+        leftLevel = trailSenseL - externalSenseL;
+        middleLevel = trailSenseM - externalSenseM;
+        rightLevel = trailSenseR - externalSenseR;
+    }
+    else {
+        leftLevel = trailSenseL + externalSenseL;
+        middleLevel = trailSenseM + externalSenseM;
+        rightLevel = trailSenseR + externalSenseR;
+    }
+
+    // Noise Field
+    // if (enableNoise) {
+    //     float _t = time * noiseTimeScale;
+    //     float leftNoiseLevelV = FractalSimplexNoise(leftCoord * noiseScale + _t);
+    //     float middleNoiseLevelV = FractalSimplexNoise(middleCoord * noiseScale + _t);
+    //     float rightNoiseLevelV = FractalSimplexNoise(rightCoord * noiseScale + _t);
+        
+    //     leftNoiseLevelV = (leftNoiseLevelV-0.5)*2.0 * noiseStrength;
+    //     middleNoiseLevelV = (middleNoiseLevelV-0.5)*2.0 * noiseStrength;
+    //     rightNoiseLevelV = (rightNoiseLevelV-0.5)*2.0 * noiseStrength;
+
+    //     leftLevel -= leftNoiseLevelV;
+    //     middleLevel -= middleNoiseLevelV;
+    //     rightLevel -= rightNoiseLevelV;
+    // }
+
+    float2 d = direction;
+    if (middleLevel > leftLevel && middleLevel > rightLevel) {
+        d = middleSensor;
+    }
+    else if (middleLevel < leftLevel && middleLevel < rightLevel) {
+        int sign = Random2(id.xy * .01 + sin(time) * .01).x <= 0.5 ? 1 : -1;
+        d = RotateVectorBy(d, sign * tang);
+    }
+    else if (leftLevel < rightLevel) {
+        d = RotateVectorBy(d, tang);
+    }
+    else if (leftLevel > rightLevel) {
+        d = RotateVectorBy(d, -tang);
+    }
+    else {
+        d = middleSensor;
+    }
+    
+    d = normalize(d);
+    return d;
+}
+[numthreads(256,1,1)]
+void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+
+    int agentId = 0;
+    if(id.x < agentsCount * 0.25) { agentId = 0; }
+    else if (id.x < agentsCount * 0.5) { agentId = 1; }
+    else if (id.x < agentsCount * 0.75) { agentId = 2; }
+    else { agentId = 3; }
+
+    Agent a = agentsBuffer[id.x];
+
+    float2 direction = SensorTurns(id, a);
+    float speed;
+    
+    float2 aCoord = float2(a.position.x / (float)rezX, a.position.y / (float)rezY);
+    float4 externalTextureValue = externalInfluenceTex.SampleLevel(sampler_readTex, aCoord, 0);
+
+    if(agentId == 0) { // Agent Type 1
+        speed = m_MoveSpeeds.r * (1.0 + externalTextureValue.r * m_ExternalInfluenceStrengths.r);
+    }
+    else if (agentId == 1) { // Agent Type 2
+        speed = m_MoveSpeeds.g * (1.0 + externalTextureValue.g * m_ExternalInfluenceStrengths.g);
+    }
+    else if (agentId == 2) { // Agent Type 3
+        speed = m_MoveSpeeds.b * (1.0 + externalTextureValue.b * m_ExternalInfluenceStrengths.b);
+    }
+    else if (agentId == 3) { // Agent Type 4
+        speed = m_MoveSpeeds.a * (1.0 + (externalTextureValue.r + externalTextureValue.g) * m_ExternalInfluenceStrengths.a);
+    }
+    
+    a.direction = direction * speed; 
+
+    if (false) { // Stay in a circular boundary
+        float radius = min(rezX, rezY) * 0.4;
+        float2 center = float2(rezX*0.5, rezY*0.5);
+        float dist = distance(a.position, center);
+        float2 norm = normalize(center-a.position);
+        
+        if(dist > radius*1.15) {
+            a.direction += norm*2.5;
+        }
+        else if(dist > radius) {
+            a.direction += norm;
+        }
+    }
+
+    a.position += a.direction;
+
+
+    // Boundaries: wrap (flip x if y is out of bounds)
+    if (a.position.x < 0) a.position.x = rezX - 1;
+    a.position.x = fmod(a.position.x, rezX);
+    if (a.position.y < 0 || a.position.y >= rezY) 
+        a.position.x = rezX - a.position.x;
+    if (a.position.y < 0) a.position.y = rezY - 1;
+    a.position.y = fmod(a.position.y, rezY);
+    
+    // Boundaries: simple wrap (no flip)
+    // if (a.position.x < 0) a.position.x = rezX - 1;
+    // if (a.position.y < 0) a.position.y = rezY - 1;
+    // a.position.x = fmod(a.position.x, rezX);
+    // a.position.y = fmod(a.position.y, rezY);
+
+    agentsBuffer[id.x] = a;
+}
+
+
+[numthreads(256,1,1)]
+void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent a = agentsBuffer[id.x];
+
+    float4 env = writeTex[round(a.position)];
+    if(id.x < agentsCount * 0.25) { // Agent Type 1 (R channel)
+        env.r = clamp(env.r + m_DepositAmounts.r, 0, 1);
+        env.g = clamp(env.g - m_EatAmounts.r, 0, 1);
+        env.b = clamp(env.b - m_EatAmounts.r, 0, 1);
+        env.a = clamp(env.a - m_EatAmounts.r, 0, 1);
+    }
+    else if(id.x < agentsCount * 0.5) { // Agent Type 2 (G channel)
+        env.r = clamp(env.r - m_EatAmounts.g, 0, 1);
+        env.g = clamp(env.g + m_DepositAmounts.g, 0, 1);
+        env.b = clamp(env.b - m_EatAmounts.g, 0, 1);
+        env.a = clamp(env.a - m_EatAmounts.g, 0, 1);
+    }
+    else if(id.x < agentsCount * 0.75) { // Agent Type 3 (B channel)
+        env.r = clamp(env.r - m_EatAmounts.b, 0, 1);
+        env.g = clamp(env.g - m_EatAmounts.b, 0, 1);
+        env.b = clamp(env.b + m_DepositAmounts.b, 0, 1);
+        env.a = clamp(env.a - m_EatAmounts.b, 0, 1);
+    }
+    else { // Agent Type 4 (A c hannel)
+        env.r = clamp(env.r - m_EatAmounts.a, 0, 1);
+        env.g = clamp(env.g - m_EatAmounts.a, 0, 1);
+        env.b = clamp(env.b - m_EatAmounts.a, 0, 1);
+        env.a = clamp(env.a + m_DepositAmounts.a, 0, 1);
+    }
+    writeTex[round(a.position)] = env;
+}
+
+[numthreads(8,8,1)]
+void DiffuseTextureKernel(uint3 id: SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    
+    float4 oc = readTex[id.xy];
+
+    float4 avg = 0; 
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float2 coord = float2((id.x + x) / (float)rezX, (id.y + y) / (float)rezY);
+            avg += readTex.SampleLevel(sampler_readTex, coord, 0);
+        }    
+    }
+
+    avg /= 9.0;
+
+    oc.x = avg.x * m_DiffuseRates.r;
+    oc.y = avg.y * m_DiffuseRates.g;
+    oc.z = avg.z * m_DiffuseRates.b;
+    oc.w = avg.w * m_DiffuseRates.a;
+    oc = clamp(oc, 0, 1);
+
+    writeTex[id.xy] = oc;
+}
+
+
+
+// RENDER --------------------------------------
+#include "includes/color.hlsl"
+[numthreads(8,8,1)]
+void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    // good hues = 0.33 - 0.55
+
+    float4 read = readTex[id.xy];
+    
+    // Use direct hues and saturations from the float4 parameters
+    float4 agent1Color = hsb2rgb(float3(m_Hues.r, m_Saturations.r, 0.8*read.r), read.r);
+    float4 agent2Color = hsb2rgb(float3(m_Hues.g, m_Saturations.g, 0.8*read.g), read.g);
+    float4 agent3Color = hsb2rgb(float3(m_Hues.b, m_Saturations.b, 0.8*read.b), read.b);
+    float4 agent4Color = hsb2rgb(float3(m_Hues.a, m_Saturations.a, 0.8*read.a), read.a);
+
+    float4 currentColor = outTex[id.xy];
+    currentColor += agent1Color*0.25+agent2Color*0.25+agent3Color*0.25+agent4Color*0.25;
+    currentColor *= 0.65;
+    outTex[id.xy] = currentColor;
+}
+
+

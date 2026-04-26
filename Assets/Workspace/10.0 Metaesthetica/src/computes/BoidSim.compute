@@ -1,0 +1,340 @@
+// Reset
+#pragma kernel ResetTextureKernel
+#pragma kernel ResetAgentsKernel
+
+// Global Step Kernels
+#pragma kernel MoveAgentsKernel 
+#pragma kernel WriteTrailsKernel 
+#pragma kernel DiffuseTextureKernel 
+
+// Render
+#pragma kernel RenderKernel
+
+SamplerState sampler_readTex;
+Texture2D<float4> readTex;
+RWTexture2D<float4> writeTex;
+RWTexture2D<float4> outTex;
+
+Texture2D<float4> externalInfluenceTex;
+bool useExternalInfluence;
+float externalInfluenceStrength;
+
+
+// Noise Field
+// bool enableNoise;
+// float noiseScale;
+// float noiseStrength;
+// float noiseTimeScale;
+
+struct Agent {
+    float2 position;
+    float2 velocity;
+    float2 acceleration;
+    float3 neighborCounts;
+};
+uint agentsCount; 
+RWStructuredBuffer<Agent> agentsBuffer;
+
+// setup
+uint rezX;
+uint rezY;
+uint time;
+
+// boid agent params
+float separateRange; //squared
+float alignRange;    //squared
+float attractRange;  //squared
+float maxSpeed;
+float maxForce;
+
+// behavior params
+float eatAmount;
+float depositAmount;
+
+// common vis params
+float diffuseRate;
+float hue;
+float saturation;
+
+// food seeking params
+float foodSensorDistance;
+float sensorAngleRad; // In radians
+float foodSeekingStrength;
+
+
+// BOID UTILS ----------------------------------------
+#include "includes/random.hlsl"
+float2 Limit(float2 vec, const float magLimit) {
+    if(length(vec) > magLimit)  vec = normalize(vec) * magLimit;
+    return vec;
+}
+float ToroidalDistanceSq(in float2 sub) {
+    if(abs(sub.x) > (rezX*0.5))  sub.x = rezX - abs(sub.x);
+    if(abs(sub.y) > (rezY*0.5))  sub.y = rezY - abs(sub.y);
+    return sub.x*sub.x + sub.y*sub.y;
+}
+float2 rotate(float2 v, float angle_rad) {
+    float s = sin(angle_rad);
+    float c = cos(angle_rad);
+    return float2(v.x * c - v.y * s, v.x * s + v.y * c);
+}
+
+// RESET ----------------------------------------
+[numthreads(8,8,1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    writeTex[id.xy] = 0;
+}
+[numthreads(256,1,1)]
+void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    
+    Agent a;
+
+    float2 c = Random2(id.x * .0001 + time * .001);
+
+    // Circular initialization
+    // float ang = c.x * 3.14159265359 * 2;
+    // float rad = c.y*0.5 * (min(rezX, rezY) * 0.75);
+    // a.position = float2(rad*cos(ang)+rezX*0.5, rad*sin(ang)+rezY*0.5);
+    
+    // Uniform initialization
+    a.position = float2(c.x * rezX, c.y * rezY);
+
+    // Random direction initialization
+    a.velocity = RandomDirection2(id.xy * .001 + sin(time));
+    a.acceleration = 0;
+    a.neighborCounts = 0;
+
+    agentsBuffer[id.x] = a;
+}
+
+
+// STEP BOIDS ----------------------------------------
+// Method checks for nearby boids and steers away
+float2 Separate(const Agent b, float2 sum, const float count) {
+    // Average -- divide by how many
+    if (count > 0) {
+        sum *= 1.0 / count; 
+    }
+
+    if (length(sum) > 0) {
+        sum = normalize(sum) * maxSpeed;
+
+        // Implement Reynolds: Steering = Desired - Velocity
+        sum = Limit(sum-b.velocity, maxForce);
+    }
+    return sum;
+}
+// For every nearby boid in the system, calculate the average velocity
+float2 Align(const Agent b, float2 sum, const float count) {
+    if (count > 0) {
+        sum *= 1.0 / count;            // why do i divide by count then
+        sum = normalize(sum)*maxSpeed;  // something is interesting
+
+        // Implement Reynolds: Steering = Desired - Velocity
+        return Limit(sum - b.velocity, maxForce);
+    }
+    return float2(0, 0);
+}
+float2 Attract(const Agent b, float2 sum, const float count) {
+    if (count > 0) {
+        sum *= 1.0 / count; 
+
+        float2 desired = sum - b.position;
+        desired = normalize(desired) * maxSpeed;
+
+        return Limit(desired - b.velocity, maxForce);
+    } 
+    return float2(0, 0);
+}
+[numthreads(256,1,1)]
+void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent b = agentsBuffer[id.x];
+
+    if(useExternalInfluence) {
+        float4 externalInfluence = externalInfluenceTex[round(b.position)];
+        b.velocity -= externalInfluence.ra * externalInfluenceStrength;
+    }
+
+    float3 count = 0;
+    float2 sumPositionDiff = 0;
+    float2 sumVelocities = 0;
+    float2 sumPositions = 0;
+
+    for(uint i=0; i < agentsCount; i++) {
+        if(id.x == i)   continue;
+
+        const Agent other = agentsBuffer[i];
+
+        float sqDist;
+        float2 diff = b.position - other.position;
+        sqDist = ToroidalDistanceSq(diff);
+
+        // Seperation
+        if(sqDist < separateRange && sqDist > 0) {
+            diff = diff / sqDist; // Replaced -> diff = normalize(diff) / sqrt(sqDist);
+            sumPositionDiff += diff;
+
+            count.x++;
+        }
+
+        // Alignment
+        if(sqDist < alignRange && sqDist > 0) {
+            sumVelocities += other.velocity;
+            count.y++;
+        }
+
+        // Cohesion/Attract
+        if(sqDist < attractRange && sqDist > 0) {
+            sumPositions += other.position;
+            count.z++;
+        }
+    }
+
+    // Flocking
+    b.acceleration += Separate(b, sumPositionDiff, count.x);
+    b.acceleration += Align(b, sumVelocities, count.y);
+    b.acceleration += Attract(b, sumPositions, count.z);
+
+    // --- Food Seeking Behavior ---
+    if (foodSeekingStrength > 0 && length(b.velocity) > 0.001f) {
+        float2 normVel = normalize(b.velocity);
+
+        float2 pos_ahead = b.position + normVel * foodSensorDistance;
+        float2 vec_left = rotate(normVel, sensorAngleRad);
+        float2 pos_left = b.position + vec_left * foodSensorDistance;
+        float2 vec_right = rotate(normVel, -sensorAngleRad);
+        float2 pos_right = b.position + vec_right * foodSensorDistance;
+
+        // Wrap sensor positions toroidally
+        pos_ahead = float2(fmod(pos_ahead.x + rezX, rezX), fmod(pos_ahead.y + rezY, rezY));
+        pos_left  = float2(fmod(pos_left.x + rezX, rezX), fmod(pos_left.y + rezY, rezY));
+        pos_right = float2(fmod(pos_right.x + rezX, rezX), fmod(pos_right.y + rezY, rezY));
+
+        // Sample food concentration from readTex (current physarum map state)
+        float food_ahead = readTex[uint2(round(pos_ahead))].g;
+        float food_left  = readTex[uint2(round(pos_left))].g;
+        float food_right = readTex[uint2(round(pos_right))].g;
+
+        float2 foodForce = float2(0,0);
+        // Steer towards the direction with the most food relative to current heading
+        if (food_left > food_ahead && food_left > food_right) {
+            float2 desiredVel = vec_left * maxSpeed;
+            foodForce = Limit(desiredVel - b.velocity, maxForce * foodSeekingStrength);
+        } else if (food_right > food_ahead && food_right > food_left) {
+            float2 desiredVel = vec_right * maxSpeed;
+            foodForce = Limit(desiredVel - b.velocity, maxForce * foodSeekingStrength);
+        } else if (food_ahead >= food_left && food_ahead >= food_right && food_ahead > 0.01) { // food_ahead is best or equal, and some food exists
+            float2 desiredVel = normVel * maxSpeed; // Reinforce current direction
+            foodForce = Limit(desiredVel - b.velocity, maxForce * foodSeekingStrength * 0.5); // Gentler force if already on path
+        }
+        b.acceleration += foodForce;
+    }
+    // --- End Food Seeking ---
+
+    b.neighborCounts = count;
+    b.velocity += b.acceleration;
+    
+    // float n = FractalSimplexNoise(b.position/max(rezX, rezY)+time*0.0002);
+    // n = (n-0.5)*2.0*10;
+    b.velocity = Limit(b.velocity, maxSpeed);
+    // b.velocity = Limit(b.velocity, maxSpeed*n);
+    
+    if (false) { // Stay in a circular boundary 
+        float radius = min(rezX, rezY) * 0.40;
+        float2 center = float2(rezX*0.5, rezY*0.5);
+        float dist = distance(b.position, center);
+        float2 norm = normalize(center-b.position);
+        
+        if(dist > radius*1.15) {
+            b.velocity = norm*1.5;
+        }
+        else if(dist > radius) {
+            b.velocity = norm;
+        }
+    }
+    
+    b.position += b.velocity;
+    b.acceleration = 0;
+    
+    // Boundaries: wrap (flip x if y is out of bounds)
+    if (b.position.x < 0) b.position.x = rezX - 1;
+    b.position.x = fmod(b.position.x, rezX);
+    if (b.position.y < 0 || b.position.y >= rezY) 
+        b.position.x = rezX - b.position.x;
+    if (b.position.y < 0) b.position.y = rezY - 1;
+    b.position.y = fmod(b.position.y, rezY);
+    // Boundaries: simple wrap (no flip)
+    // if (b.position.x < 0) b.position.x = rezX - 1;
+    // b.position.x = fmod(b.position.x, rezX);
+    // if (b.position.y < 0) b.position.y = rezY - 1;
+    // b.position.y = fmod(b.position.y, rezY);
+    agentsBuffer[id.x] = b;
+}
+
+
+[numthreads(256,1,1)]
+void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent b = agentsBuffer[id.x];
+
+    float3 counts = b.neighborCounts / agentsCount;
+    
+    float4 env = writeTex[round(b.position)];
+    // env.yzw += counts+0.1;
+
+    // Boid eats from the environment's 'g' channel
+    env.g = clamp(env.g - eatAmount, 0.0, 1.0);
+    
+    // Boid deposits into the environment's 'g' channel
+    env.g = clamp(env.g + depositAmount, 0.0, 1.0);
+
+    writeTex[round(b.position)] = env;
+}
+
+[numthreads(8,8,1)]
+void DiffuseTextureKernel(uint3 id: SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    
+    float4 oc = readTex[id.xy];
+
+    float4 avg = 0; 
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float2 coord = float2((id.x + x) / (float)rezX, (id.y + y) / (float)rezY);
+            avg += readTex.SampleLevel(sampler_readTex, coord, 0);
+        }    
+    }
+
+    avg /= 9.0;
+
+    oc.x = avg.x * diffuseRate;
+    oc.y = avg.y * diffuseRate;
+    oc.z = avg.z * diffuseRate;
+    oc.w = avg.w * diffuseRate;
+    oc = clamp(oc, 0, 1);
+
+    writeTex[id.xy] = oc;
+}
+
+
+
+// RENDER --------------------------------------
+#include "includes/color.hlsl"
+[numthreads(8,8,1)]
+void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    
+    float4 read = readTex[id.xy];
+    float4 agentColor = hsb2rgb(float3(Map(hue, 0, 1.0, 0.33, 0.55),  
+            Map(saturation, 0, 1.0, 0.5, 0.3), read.g));
+    
+    float4 currentColor = outTex[id.xy];
+    currentColor += agentColor;
+    currentColor *= 0.7;
+    outTex[id.xy] = currentColor;
+}

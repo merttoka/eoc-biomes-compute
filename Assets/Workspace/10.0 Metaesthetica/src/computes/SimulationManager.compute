@@ -1,0 +1,56 @@
+#pragma kernel ResetTextureKernel
+#pragma kernel CompositeRenderKernel
+
+uint rezX;
+uint rezY;
+int simCount;
+
+Texture2D<float4> simInput0;
+Texture2D<float4> simInput1;
+Texture2D<float4> simInput2;
+Texture2D<float4> simInput3;
+Texture2D<float4> simInput4;
+Texture2D<float4> simInput5;
+Texture2D<float4> simInput6;
+Texture2D<float4> simInput7;
+
+Texture2D<float4> externalOverlay;
+SamplerState sampler_externalOverlay;
+float overlayStrength;
+
+RWTexture2D<float4> compositeOut;
+
+// RESET ----------------------------------------
+[numthreads(8,8,1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    compositeOut[id.xy] = 0;
+}
+
+// RENDER ----------------------------------------
+[numthreads(8,8,1)]
+void CompositeRenderKernel (uint3 id : SV_DispatchThreadID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float4 finalColor = float4(0, 0, 0, 0);
+
+    // Additive blend active sim outputs
+    if (simCount > 0) finalColor += simInput0[id.xy];
+    if (simCount > 1) finalColor += simInput1[id.xy];
+    if (simCount > 2) finalColor += simInput2[id.xy];
+    if (simCount > 3) finalColor += simInput3[id.xy];
+    if (simCount > 4) finalColor += simInput4[id.xy];
+    if (simCount > 5) finalColor += simInput5[id.xy];
+    if (simCount > 6) finalColor += simInput6[id.xy];
+    if (simCount > 7) finalColor += simInput7[id.xy];
+
+    // Overlay external texture for alignment verification
+    if (overlayStrength > 0.0)
+    {
+        float2 uv = float2(id.x / (float)rezX, id.y / (float)rezY);
+        float4 overlayColor = externalOverlay.SampleLevel(sampler_externalOverlay, uv, 0);
+        finalColor = lerp(finalColor, overlayColor, overlayStrength);
+    }
+
+    compositeOut[id.xy] = clamp(finalColor, 0.0, 1.0);
+}
