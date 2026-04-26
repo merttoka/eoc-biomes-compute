@@ -1,0 +1,22 @@
+[project]
+name = "memory-daemon"
+version = "0.1.0"
+description = "Folder-watch + OSC memory service for the biomes installation network"
+requires-python = ">=3.11"
+dependencies = [
+    "watchdog>=4.0",
+    "python-osc>=1.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+memory-daemon = "memory_daemon.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

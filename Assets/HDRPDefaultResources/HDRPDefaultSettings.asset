@@ -502,12 +502,8 @@ MonoBehaviour:
   diffusionProfiles:
     m_OverrideState: 1
     m_Value:
-    - {fileID: 11400000, guid: e55d950524fb1674aa66629dda9680ff, type: 2}
-    - {fileID: 11400000, guid: 6fea18ebd5f89654c9d83494ed4d435e, type: 2}
-    - {fileID: 11400000, guid: 33e12f2dd3e79624eb4c6b9cd466a7d1, type: 2}
-    - {fileID: 11400000, guid: 8f4edb3bd9418d7498dee63ece04f3c8, type: 2}
-    - {fileID: 11400000, guid: 92dff479d34b8bb4e849c0c702d38c66, type: 2}
-    - {fileID: 11400000, guid: dda0db207dbf4c945bec9b104fb2305c, type: 2}
+    - {fileID: 11400000, guid: 404820c4cf36ad944862fa59c56064f0, type: 2}
+    - {fileID: 11400000, guid: 2384dbf2c1c420f45a792fbc315fbfb1, type: 2}
 --- !u!114 &7502528774814404555
 MonoBehaviour:
   m_ObjectHideFlags: 3
