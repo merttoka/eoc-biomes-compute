@@ -1,3 +1,9 @@
+---
+status: living
+date: 2026-04-26
+tags: [architecture, plan, memory]
+related: [[INDEX]], [[sessions/2026-04-26-split-and-daemon-v0]]
+---
 # Migration & Memory Architecture Plan
 
 Split `10.0 Metaesthetica` + `11.0 Biomes` from `edge-of-chaos-unity-compute` into this repo. Scaffold a memory system spanning installations, orchestrated in TouchDesigner, fed by Unity output (v1) and other modalities later.
