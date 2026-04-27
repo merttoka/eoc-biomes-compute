@@ -91,6 +91,22 @@ Tradeoffs. What's now true. Outgrowth points.
 
 Then update `INDEX.md`.
 
+### Updating top-level `README.md`
+
+Review on every substantive session. Keep current — README is what a stranger (or future-you) reads first.
+
+Update when any of these change:
+- **Layout** (new top-level dirs, new major modules in `memory/`, new Unity workspaces)
+- **Getting started** (new install steps, new entry-point scripts, new env vars)
+- **Concepts** (new architectural pillars worth surfacing — e.g. when feedback mechanisms ship, when a new modality is wired)
+- **Status** (anything that flips from "planned" to "shipped")
+
+Rules:
+- **No frontmatter** (GitHub renders it as literal text on the repo home page)
+- Keep concise — README is a landing page, not full docs. Link to `docs/` for depth
+- Don't duplicate ADR rationale in the README — link instead
+- Strip out v0/scaffolding-era language once features mature
+
 ### Updating `migration.md`
 Keep it the *current* architecture doc. When an open question gets resolved:
 1. Create the ADR
@@ -114,3 +130,4 @@ Past decisions live in ADRs. `migration.md` references them; doesn't duplicate t
 - [ ] Cross-links use `[[...]]` syntax with correct relative paths
 - [ ] If an ADR resolves a `migration.md` open question, the question is struck through with link
 - [ ] ADR number is sequential (`ls docs/adr/ | tail -1` to confirm)
+- [ ] README.md reviewed; updated if layout / install / concepts / status changed
