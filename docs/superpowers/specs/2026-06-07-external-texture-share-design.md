@@ -27,20 +27,33 @@ Windows (Spout/NDI). Per-stream protocol, source selection, and resolution scali
 - **Biome-layer extract only when that stream is enabled.**
 - **Per-stream resolution scale** (downscale before send).
 - **Default stream names** auto-generated; user-overridable.
-- **Add `jp.keijiro.klak.syphon`** package (macOS native; version verified at
-  implement time).
+- **`jp.keijiro.klak.syphon` 1.0.4 installed** (Keijiro registry) — already in
+  `Packages/manifest.json`; no package work remains.
 
-## Platform / compile constraints (discovered)
+## Platform / compile constraints (discovered & verified)
 
-- KlakSpout + KlakNDI runtime asmdefs have empty `includePlatforms`/`excludePlatforms`
-  → their types compile on **all** platforms (Spout is a runtime no-op on macOS).
-  **No `#if` compile guards needed for NDI or Spout.**
-- KlakSyphon ships a Metal native plugin → its asmdef is macOS-constrained.
-  References to `Klak.Syphon.*` must sit behind
-  `#if (UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX)`.
-- The project uses the default `Assembly-CSharp` (no asmdef in `11.0 Biomes/`), so
-  Klak namespaces are auto-referenced. Isolate ALL Klak API calls + the Syphon guard
-  in one backend file.
+- **All three** Klak runtime asmdefs (NDI 2.1.6, Spout 2.0.3, Syphon 1.0.4) have empty
+  `includePlatforms`/`excludePlatforms` → their C# types compile on **every** platform.
+  **No `#if` compile guards needed anywhere.** Platform gating is purely *runtime*: the
+  native plugin only functions on its platform (Spout=Windows DX, Syphon=macOS Metal),
+  NDI everywhere. `ExternalTextureShare.IsAvailable(p)` encodes this at runtime.
+- The project uses the default `Assembly-CSharp` (no asmdef in `11.0 Biomes/`), so Klak
+  namespaces are auto-referenced. Still isolate ALL Klak API calls in one backend file
+  for a single point of change.
+
+### Verified API surface (installed versions)
+
+- **Syphon** `SyphonServer { string ServerName; CaptureMethod CaptureMethod; Texture
+  SourceTexture; bool KeepAlpha; SyphonResources Resources }` (server **needs**
+  `SyphonResources`); `SyphonClient { string ServerName; RenderTexture TargetTexture;
+  Texture2D Texture }`.
+- **NDI** `NdiSender { ndiName; captureMethod (=Texture); sourceTexture; keepAlpha;
+  SetResources(NdiResources) }`; `NdiReceiver { ndiName; targetTexture; SetResources }`.
+- **Spout** `SpoutSender { spoutName; captureMethod (=Texture); sourceTexture;
+  SetResources(SpoutResources) }`; `SpoutReceiver { sourceName; receivedTexture }`.
+
+(Some are `partial` classes with properties in a sibling partial file — exact member
+names re-confirmed in the plan's first task, in the backend file only.)
 
 ## Architecture
 
@@ -69,11 +82,12 @@ public static class ExternalTextureShare
 }
 
 // Serializable holder for the per-protocol Resources assets the Klak components need.
+// All three types compile on every platform (asmdefs are all-platform).
 [Serializable] public class ShareResources
 {
-    public Klak.Spout.SpoutResources spout;   // always-available type
-    public Klak.Ndi.NdiResources     ndi;     // always-available type
-    // Syphon needs no resources asset.
+    public Klak.Spout.SpoutResources   spout;
+    public Klak.Ndi.NdiResources       ndi;
+    public Klak.Syphon.SyphonResources syphon;  // SyphonServer.Resources requires this
 }
 ```
 
@@ -81,7 +95,8 @@ public static class ExternalTextureShare
   `NdiReceiver { ndiName, SetResources, → targetTexture/received }`.
 - Spout: `SpoutSender` / `SpoutReceiver` (mirrors current receive code: `SetResources`,
   `receivedTexture`).
-- Syphon: `SyphonServer` (send) / `SyphonClient` (receive) — behind the OSX guard.
+- Syphon: `SyphonServer` (send; set `CaptureMethod=Texture`, `SourceTexture`,
+  `ServerName`, `Resources`) / `SyphonClient` (receive; `ServerName`, read `.Texture`).
 
 Exact Klak member names/signatures verified against the installed package versions at
 implement time (the backend is the single place they appear).
@@ -166,7 +181,8 @@ public enum SendSource { CompositeOutput, SimOutput, BiomeLayer }
 | `src/components/network/ExternalTextureSender.cs` | new — send streams |
 | `src/components/core/Biome.cs` | add `RenderChannelTo`; refactor `RenderDebug` to use it |
 | `src/components/core/SimulationManager.cs` | `CompositeOutputTexture` getter; retype `externalInput` |
-| `Packages/manifest.json` | add `jp.keijiro.klak.syphon` |
+
+(`jp.keijiro.klak.syphon` 1.0.4 already installed — no manifest change needed.)
 
 `ExternalInputProvider.cs` (currently moved to `network/`, uncommitted) is replaced by
 `ExternalTextureReceiver.cs`.
