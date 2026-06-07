@@ -23,13 +23,20 @@ namespace Biomes
         [Range(0.1f, 2f)] public float debugQuadSize = 0.5f;
         [Range(0f, 0.05f)] public float debugGridSpacing = 0.02f;
         public Vector3 debugGridOrigin = new Vector3(3f, 0f, 0f);
+        [Tooltip("Columns before wrapping to a new row. Set to channel count (default) for a single horizontal strip.")]
+        [Range(1, BiomeChannel.Count)] public int debugGridColumns = BiomeChannel.Count;
+        public bool showBiomeLabels = true;
+        public Color labelColor = Color.white;
+        [Range(0f, 2f)] public float labelYOffset = 0.6f;
 
         private RenderTexture[] debugTextures;
         private GameObject[] debugQuads;
         private Material[] debugMaterials;
 
+
         // Legacy single-channel debug (kept for backward compat)
         private RenderTexture debugOutTex;
+        [Header("Legacy Debug")]
         public Material debugOutputMat;
         [Range(0, BiomeChannel.Count - 1)] public int debugChannel = 0;
 
@@ -193,7 +200,7 @@ namespace Biomes
             if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null) shader = Shader.Find("Unlit/Texture");
 
-            int cols = 3;
+            int cols = Mathf.Clamp(debugGridColumns, 1, BiomeChannel.Count);
             float step = debugQuadSize + debugGridSpacing;
 
             for (int i = 0; i < BiomeChannel.Count; i++)
@@ -376,5 +383,27 @@ namespace Biomes
         // Biome is initialized by SimulationManager.Reset(), not OnEnable
         void OnDisable() => Release();
         void OnDestroy() => Release();
+
+#if UNITY_EDITOR
+        // Draw channel names above each debug quad in the Scene view.
+        void OnDrawGizmos()
+        {
+            if (!showBiomeLabels || debugQuads == null) return;
+
+            var style = new GUIStyle
+            {
+                normal = { textColor = labelColor },
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            for (int i = 0; i < debugQuads.Length; i++)
+            {
+                if (debugQuads[i] == null) continue;
+                var pos = debugQuads[i].transform.position + Vector3.up * labelYOffset;
+                UnityEditor.Handles.Label(pos, ChannelNames[i], style);
+            }
+        }
+#endif
     }
 }
