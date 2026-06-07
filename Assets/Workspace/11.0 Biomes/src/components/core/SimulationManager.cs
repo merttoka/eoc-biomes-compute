@@ -22,7 +22,7 @@ namespace Biomes
         public List<SimulationBase> simulations = new();
 
         [Header("External Input")]
-        [SerializeField] private ExternalInputProvider externalInput;
+        [SerializeField] private ExternalTextureReceiver externalInput;
 
         [Header("Debug Overlay")]
         [SerializeField] private bool m_DebugOverlayVideoOnOutput = false;
@@ -41,6 +41,9 @@ namespace Biomes
 
         private int _simStepCount;
         public int SimStepCount => _simStepCount;
+
+        /// <summary>Final composited output texture (null until Reset()).</summary>
+        public RenderTexture CompositeOutputTexture => compositeOutTex;
 
         private static readonly int s_RezXID = Shader.PropertyToID("rezX");
         private static readonly int s_RezYID = Shader.PropertyToID("rezY");

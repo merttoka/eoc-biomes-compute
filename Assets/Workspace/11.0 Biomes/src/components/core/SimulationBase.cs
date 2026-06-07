@@ -22,7 +22,7 @@ namespace Biomes
         // R=chemotaxis, G=speed multiplier, B=avoidance
         [NonSerialized] public RenderTexture perceptionTex;
 
-        // External influence texture (assigned by SimulationManager from ExternalInputProvider)
+        // External influence texture (assigned by SimulationManager from ExternalTextureReceiver)
         [NonSerialized] public Texture externalInfluenceTex;
 
         // Trail texture array: layers 0..typeCount-1 = per-type, layer typeCount = total
