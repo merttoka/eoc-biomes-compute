@@ -33,6 +33,22 @@ namespace Biomes
             _ => false,
         };
 
+        /// <summary>Live source names available to receive, for the given protocol.
+        /// NDI names look like "&lt;MACHINE&gt; (SourceName)"; Syphon names look like
+        /// "App/ServerName". Spout enumeration is Windows-only (empty elsewhere).</summary>
+        public static string[] EnumerateSources(ShareProtocol p)
+        {
+            switch (p)
+            {
+                case ShareProtocol.NDI:
+                    return System.Linq.Enumerable.ToArray(Klak.Ndi.NdiFinder.sourceNames);
+                case ShareProtocol.Syphon:
+                    return System.Linq.Enumerable.ToArray(Klak.Syphon.SyphonServerDirectory.ServerNames);
+                default:
+                    return System.Array.Empty<string>();
+            }
+        }
+
         public static ITextureSenderBackend CreateSender(GameObject host, ShareProtocol p, string name, ShareResources res)
         {
             if (!IsAvailable(p)) { Debug.LogWarning($"ExternalTextureShare: {p} unavailable on this platform — sender '{name}' skipped"); return null; }
