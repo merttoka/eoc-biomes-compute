@@ -6,7 +6,8 @@ tags: [meta, index]
 # Docs Index
 
 ## Architecture (living)
-- [[migration]] — current architecture + open questions
+- [[ARCHITECTURE]] — system reference (Unity runtime + memory overview)
+- [[migration]] — memory architecture plan + open questions
 
 ## Specs / plans
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
