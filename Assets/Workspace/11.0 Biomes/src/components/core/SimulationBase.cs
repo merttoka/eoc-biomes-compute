@@ -65,6 +65,9 @@ namespace Biomes
         public abstract void SetParameterDelta(string paramName, int index, float delta);
         public abstract float GetParameter(string paramName, int index);
 
+        /// <summary>Live runtime params (agentParams) exposed for interpolation.</summary>
+        public abstract IParamSet LiveParamSet { get; }
+
         protected abstract void InitBuffers();
         protected abstract void GPUReset();
         protected abstract void GPUStep();

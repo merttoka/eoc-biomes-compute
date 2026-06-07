@@ -26,6 +26,8 @@ namespace Biomes
         [Header("Runtime Parameters (live tweaking)")]
         public BoidParams agentParams;
 
+        public override IParamSet LiveParamSet => agentParams;
+
         protected override int TypeCount => agentParams != null ? agentParams.types.Count : 1;
 
         // Spatial hash

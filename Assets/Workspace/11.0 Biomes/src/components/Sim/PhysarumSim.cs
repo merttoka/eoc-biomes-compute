@@ -27,6 +27,8 @@ namespace Biomes
         [Header("Runtime Parameters (live tweaking)")]
         public PhysarumParams agentParams;
 
+        public override IParamSet LiveParamSet => agentParams;
+
         [Header("Neuron Positions CSV")]
         public TextAsset labelsPositionsCsv;
         public bool csvCoordinatesAreNormalized = false;
