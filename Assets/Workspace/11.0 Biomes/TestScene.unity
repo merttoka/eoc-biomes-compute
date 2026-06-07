@@ -315,7 +315,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &128060222
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -760,14 +760,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 256
-  biomeRezY: 256
+  biomeRezX: 384
+  biomeRezY: 216
   fieldConfig: {fileID: 11400000, guid: c7161ed1133fe4e2ca88bd779a0cbee8, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   showDebugGrid: 1
   debugQuadSize: 0.628
   debugGridSpacing: 0.05
-  debugGridOrigin: {x: 2.3, y: -1, z: 0}
+  debugGridOrigin: {x: -2, y: -2.3, z: 0}
+  debugGridColumns: 9
+  showBiomeLabels: 1
+  labelColor: {r: 0.6, g: 0.6, b: 0.6, a: 0.6156863}
+  labelYOffset: 0.4
   debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
   debugChannel: 0
 --- !u!4 &414066867
@@ -778,7 +782,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 414066865}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -795,6 +799,8 @@ GameObject:
   m_Component:
   - component: {fileID: 417804409}
   - component: {fileID: 417804410}
+  - component: {fileID: 417804411}
+  - component: {fileID: 417804412}
   m_Layer: 0
   m_Name: Params
   m_TagString: Untagged
@@ -851,6 +857,88 @@ MonoBehaviour:
   ccSideR1: 11
   ccSideR2: 12
   ccSideR3: 13
+--- !u!114 &417804411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 417804407}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8aabbe6060da84e389e300ade2d4204a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterRecorder
+  simManager: {fileID: 0}
+  changeThreshold: 0.001
+  savePath: Recordings/params
+  isRecording: 0
+  isPlaying: 0
+  playbackStep: 0
+--- !u!114 &417804412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 417804407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 427713103}
+  simIndex: 0
+  waypoints:
+  - {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
+  durationSteps: 600
+  holdSteps: 0
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles:
+  - name: moveSpeed
+    enabled: 1
+  - name: senseAngle
+    enabled: 0
+  - name: turnAngle
+    enabled: 0
+  - name: senseDistance
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: eatAmount
+    enabled: 1
+  - name: diffuseRate
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 1
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
 --- !u!1 &427713102
 GameObject:
   m_ObjectHideFlags: 0
@@ -880,8 +968,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 2048
-  rezY: 2048
+  rezX: 1920
+  rezY: 1080
   stepsPerFrame: 1
   stepMod: 1
   limitFPS: 1
@@ -1908,7 +1996,7 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 83e0e0c5cd5bb45ed98a3e0c9e893e30, type: 2}
-  agentsCount: 10000
+  agentsCount: 5000
   paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
   agentParams: {fileID: 0}
 --- !u!4 &1063645695
@@ -2632,7 +2720,7 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: a6ee80ecf5443440cb4462abc00e19ba, type: 2}
-  agentsCount: 500000
+  agentsCount: 200000
   paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
   agentParams: {fileID: 0}
   labelsPositionsCsv: {fileID: 0}
@@ -4144,6 +4232,6 @@ SceneRoots:
   - {fileID: 584847076}
   - {fileID: 417804409}
   - {fileID: 427713104}
-  - {fileID: 414066867}
   - {fileID: 944659780}
+  - {fileID: 414066867}
   - {fileID: 128060223}

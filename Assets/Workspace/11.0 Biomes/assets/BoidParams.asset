@@ -12,21 +12,60 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ebcbb7c3a74a4ac984251fcad162e67, type: 3}
   m_Name: BoidParams
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidParams
-  typeCount: 1
+  typeCount: 4
   types:
-  - separationRange: 290.62708
-    alignmentRange: 495.67535
-    attractionRange: 150.61923
-    maxSpeed: 0.36790976
-    maxForce: 3.4859881
+  - separationRange: 491.91748
+    alignmentRange: 498.18216
+    attractionRange: 389.93494
+    maxSpeed: 4.7074413
+    maxForce: 3.6165566
     depositAmount: 0.03
     eatAmount: 0.05
     foodSensorDistance: 10
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.95
-    hue: 0.98718834
-    saturation: 0.5651372
+    hue: 0.54561085
+    saturation: 0.3906348
+  - separationRange: 131.57353
+    alignmentRange: 240.68184
+    attractionRange: 178.004
+    maxSpeed: 0.5005612
+    maxForce: 3.2432518
+    depositAmount: 0.03
+    eatAmount: 0.01
+    foodSensorDistance: 15
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.985
+    hue: 0.22144257
+    saturation: 0.8938486
+  - separationRange: 11.350525
+    alignmentRange: 91.88185
+    attractionRange: 49.967575
+    maxSpeed: 3.2863462
+    maxForce: 2.05783
+    depositAmount: 0.03
+    eatAmount: 0.01
+    foodSensorDistance: 15
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.985
+    hue: 0.50783783
+    saturation: 0.7489205
+  - separationRange: 159.86458
+    alignmentRange: 319.24292
+    attractionRange: 477.2197
+    maxSpeed: 1.708644
+    maxForce: 4.149978
+    depositAmount: 0.03
+    eatAmount: 0.01
+    foodSensorDistance: 15
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.985
+    hue: 0.21289088
+    saturation: 0.90080297
   ranges:
   - name: maxSpeed
     min: 0.1

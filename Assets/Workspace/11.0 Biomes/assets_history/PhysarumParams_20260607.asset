@@ -10,41 +10,41 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cedb5f294328d477cbecb144e33660a9, type: 3}
-  m_Name: PhysarumParams
+  m_Name: PhysarumParams_20260607
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumParams
   typeCount: 4
   types:
-  - senseAngle: 293.3611
-    senseDistance: 107.29162
-    turnAngle: 170.37178
-    moveSpeed: 14.872759
+  - senseAngle: 51
+    senseDistance: 50
+    turnAngle: 94
+    moveSpeed: 3.8
     depositAmount: 0.24
     eatAmount: 0.94
     diffuseRate: 0.6
     hue: 0.12
     saturation: 0.5
-  - senseAngle: 257.92447
-    senseDistance: 49.515236
-    turnAngle: 70.2429
-    moveSpeed: 4.606462
+  - senseAngle: 152
+    senseDistance: 73
+    turnAngle: 66
+    moveSpeed: 2.6
     depositAmount: 0.93
     eatAmount: 0.96
     diffuseRate: 0.6
     hue: 0.29
     saturation: 0.5
-  - senseAngle: 233.09532
-    senseDistance: 107.44918
-    turnAngle: 50.654305
-    moveSpeed: 20.813427
+  - senseAngle: 42
+    senseDistance: 6.4
+    turnAngle: 80
+    moveSpeed: 1.8
     depositAmount: 0.3
     eatAmount: 0.35
     diffuseRate: 0.6
     hue: 0.55
     saturation: 0.5
-  - senseAngle: 15.529959
-    senseDistance: 78.802765
-    turnAngle: 56.564983
-    moveSpeed: 23.587702
+  - senseAngle: 48
+    senseDistance: 8
+    turnAngle: 32
+    moveSpeed: 2.4
     depositAmount: 0.4
     eatAmount: 0.44
     diffuseRate: 0.87

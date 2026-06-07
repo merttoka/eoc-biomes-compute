@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BiomeFieldConfig
   channels:
   - name: Nutrient
-    diffuseRate: 0.995
+    diffuseRate: 0.969
     decayRate: 0
     advectedByFlow: 1
-    initialValue: 0.3
+    initialValue: 0.499
   - name: Pheromone_0
     diffuseRate: 0.98
     decayRate: 0.002
@@ -58,7 +58,7 @@ MonoBehaviour:
     decayRate: 0.02
     advectedByFlow: 0
     initialValue: 0
-  wasteToNutrientRate: 0.005
+  wasteToNutrientRate: 0.01
   temperatureToFlowStrength: 0.5
   temperatureToPermeability: 0.3
   noiseScale: 3
