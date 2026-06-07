@@ -44,5 +44,6 @@ OSC listens on `:9100`. `/memory/ping` and `/memory/count` are the v0 endpoints.
 - **Folder as event log.** Unity's `SaveParams` writes `.asset` files; daemon watches and indexes. Folder is source of truth, DB is a derived index — replay-from-folder always works.
 - **TD as orchestration hub.** Sensors, Unity Spout/Syphon output, and termite/biome sims composite in TouchDesigner. Daemon talks OSC to TD; both decoupled from each other.
 - **Biological substrates as peer modality.** Brain organoid spike data (CSV) and live plant biopotential (planned) feed into memory alongside Unity params and viewer-derived signals.
+- **Slow parameter crossfades.** `ParameterInterpolator` (11.0 `src/components/utils/`) eases a sim's live params from current state through a queue of preset `.asset` waypoints, sim-step driven, per-param enable toggles, shortest-arc hue — for long-running installations. Design: `docs/superpowers/specs/2026-06-07-parameter-interpolator-design.md`.
 
 See `docs/migration.md` for the full architecture plan and open questions, `docs/SESSION-NOTES.md` for current state.

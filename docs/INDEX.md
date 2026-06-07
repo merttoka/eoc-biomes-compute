@@ -8,6 +8,9 @@ tags: [meta, index]
 ## Architecture (living)
 - [[migration]] — current architecture + open questions
 
+## Specs / plans
+- [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
+
 ## Sessions (newest first)
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
