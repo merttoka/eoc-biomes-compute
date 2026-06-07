@@ -245,6 +245,15 @@
         "com.unity.modules.screencapture": "1.0.0"
       }
     },
+    "jp.keijiro.klak.syphon": {
+      "version": "1.0.4",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.modules.screencapture": "1.0.0"
+      },
+      "url": "https://registry.npmjs.com"
+    },
     "jp.keijiro.minis": {
       "version": "1.3.2",
       "depth": 0,
