@@ -23,7 +23,7 @@ namespace Biomes
     }
 
     [CreateAssetMenu(fileName = "BoidParams", menuName = "Biomes/BoidParams")]
-    public class BoidParams : ScriptableObject
+    public class BoidParams : ScriptableObject, IParamSet
     {
         [Range(1, 8)] public int typeCount = 1;
         public List<BoidAgentType> types = new() { new BoidAgentType() };
@@ -46,6 +46,49 @@ namespace Biomes
 
         public (float min, float max) GetRange(string paramName)
             => ParamRangeUtil.GetRange(ranges, paramName);
+
+        public int TypeCount => types.Count;
+
+        public float GetValue(string name, int typeIndex)
+        {
+            if (typeIndex < 0 || typeIndex >= types.Count) return 0f;
+            var t = types[typeIndex];
+            return name switch
+            {
+                "separateRange" => t.separationRange,
+                "alignRange"    => t.alignmentRange,
+                "attractRange"  => t.attractionRange,
+                "maxSpeed"      => t.maxSpeed,
+                "maxForce"      => t.maxForce,
+                "depositAmount" => t.depositAmount,
+                "eatAmount"     => t.eatAmount,
+                "foodSeek"      => t.foodSeekingStrength,
+                "hue"           => t.hue,
+                "saturation"    => t.saturation,
+                "diffuseRate"   => t.diffuseRate,
+                _ => 0f,
+            };
+        }
+
+        public void SetValue(string name, int typeIndex, float raw)
+        {
+            if (typeIndex < 0 || typeIndex >= types.Count) return;
+            var t = types[typeIndex];
+            switch (name)
+            {
+                case "separateRange": t.separationRange     = raw; break;
+                case "alignRange":    t.alignmentRange      = raw; break;
+                case "attractRange":  t.attractionRange     = raw; break;
+                case "maxSpeed":      t.maxSpeed            = raw; break;
+                case "maxForce":      t.maxForce           = raw; break;
+                case "depositAmount": t.depositAmount       = raw; break;
+                case "eatAmount":     t.eatAmount           = raw; break;
+                case "foodSeek":      t.foodSeekingStrength = raw; break;
+                case "hue":           t.hue                = raw; break;
+                case "saturation":    t.saturation          = raw; break;
+                case "diffuseRate":   t.diffuseRate         = raw; break;
+            }
+        }
 
         public void SyncTypesList()
         {
