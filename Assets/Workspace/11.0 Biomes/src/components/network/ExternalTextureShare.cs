@@ -90,6 +90,7 @@ namespace Biomes
         class SpoutSenderBackend : ITextureSenderBackend
         {
             readonly Klak.Spout.SpoutSender _c;
+            Texture _last;
             public SpoutSenderBackend(GameObject host, string name, Klak.Spout.SpoutResources res)
             {
                 _c = host.AddComponent<Klak.Spout.SpoutSender>();
@@ -98,7 +99,9 @@ namespace Biomes
                 if (res != null) _c.SetResources(res);
                 else Debug.LogWarning($"ExternalTextureShare: Spout sender '{name}' has no SpoutResources assigned");
             }
-            public void SetSource(Texture tex) => _c.sourceTexture = tex;
+            // Only set on reference change — the source RT is stable and re-read each
+            // frame by the sender; redundant sets can re-init the native sender.
+            public void SetSource(Texture tex) { if (tex == _last) return; _c.sourceTexture = tex; _last = tex; }
             public void Dispose() { if (_c != null) UnityEngine.Object.Destroy(_c); }
         }
         class SpoutReceiverBackend : ITextureReceiverBackend
@@ -119,6 +122,7 @@ namespace Biomes
         class SyphonSenderBackend : ITextureSenderBackend
         {
             readonly Klak.Syphon.SyphonServer _c;
+            Texture _last;
             public SyphonSenderBackend(GameObject host, string name, Klak.Syphon.SyphonResources res)
             {
                 _c = host.AddComponent<Klak.Syphon.SyphonServer>();
@@ -127,7 +131,12 @@ namespace Biomes
                 _c.Resources = res;
                 if (res == null) Debug.LogWarning($"ExternalTextureShare: Syphon server '{name}' has no SyphonResources assigned");
             }
-            public void SetSource(Texture tex) => _c.SourceTexture = tex;
+            // CRITICAL: SyphonServer.SourceTexture's setter calls TeardownPlugin() →
+            // StopAllCoroutines(), which kills the publish coroutine before it reaches
+            // WaitForEndOfFrame. Setting every frame (our LateUpdate) means it never
+            // publishes. Set only on reference change — the source RT is stable and
+            // Syphon's coroutine re-blits its content each frame.
+            public void SetSource(Texture tex) { if (tex == _last) return; _c.SourceTexture = tex; _last = tex; }
             public void Dispose() { if (_c != null) UnityEngine.Object.Destroy(_c); }
         }
         class SyphonReceiverBackend : ITextureReceiverBackend
