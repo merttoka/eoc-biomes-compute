@@ -230,17 +230,27 @@ namespace Biomes
             }
         }
 
+        /// <summary>Render one biome channel into a 2D RenderTexture (sized at biome
+        /// resolution). Used by debug grid and external texture sending.</summary>
+        public void RenderChannelTo(int channel, RenderTexture dst)
+        {
+            if (gpu == null || dst == null) return;
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt(s_DebugChannelID, channel);
+            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
+            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
+            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+        }
+
         private void RenderDebug()
         {
             // Render all channels for debug grid
             if (showDebugGrid && debugTextures != null)
             {
-                cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
                 for (int i = 0; i < BiomeChannel.Count; i++)
                 {
-                    cs.SetInt(s_DebugChannelID, i);
-                    cs.SetTexture(renderDebugKernel, s_DebugOutTexID, debugTextures[i]);
-                    Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+                    RenderChannelTo(i, debugTextures[i]);
                     debugMaterials[i].SetTexture("_UnlitColorMap", debugTextures[i]);
                 }
             }
