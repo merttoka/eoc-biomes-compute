@@ -19,7 +19,7 @@ namespace Biomes
     }
 
     [CreateAssetMenu(fileName = "PhysarumParams", menuName = "Biomes/PhysarumParams")]
-    public class PhysarumParams : ScriptableObject
+    public class PhysarumParams : ScriptableObject, IParamSet
     {
         [Range(1, 8)] public int typeCount = 2;
         public List<PhysarumAgentType> types = new()
@@ -44,6 +44,45 @@ namespace Biomes
 
         public (float min, float max) GetRange(string paramName)
             => ParamRangeUtil.GetRange(ranges, paramName);
+
+        public int TypeCount => types.Count;
+
+        public float GetValue(string name, int typeIndex)
+        {
+            if (typeIndex < 0 || typeIndex >= types.Count) return 0f;
+            var t = types[typeIndex];
+            return name switch
+            {
+                "moveSpeed"     => t.moveSpeed,
+                "senseAngle"    => t.senseAngle,
+                "turnAngle"     => t.turnAngle,
+                "senseDistance" => t.senseDistance,
+                "depositAmount" => t.depositAmount,
+                "eatAmount"     => t.eatAmount,
+                "diffuseRate"   => t.diffuseRate,
+                "hue"           => t.hue,
+                "saturation"    => t.saturation,
+                _ => 0f,
+            };
+        }
+
+        public void SetValue(string name, int typeIndex, float raw)
+        {
+            if (typeIndex < 0 || typeIndex >= types.Count) return;
+            var t = types[typeIndex];
+            switch (name)
+            {
+                case "moveSpeed":     t.moveSpeed     = raw; break;
+                case "senseAngle":    t.senseAngle    = raw; break;
+                case "turnAngle":     t.turnAngle     = raw; break;
+                case "senseDistance": t.senseDistance = raw; break;
+                case "depositAmount": t.depositAmount = raw; break;
+                case "eatAmount":     t.eatAmount     = raw; break;
+                case "diffuseRate":   t.diffuseRate   = raw; break;
+                case "hue":           t.hue           = raw; break;
+                case "saturation":    t.saturation    = raw; break;
+            }
+        }
 
         public void SyncTypesList()
         {
