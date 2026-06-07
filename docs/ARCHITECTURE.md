@@ -29,9 +29,11 @@ update both when the corresponding half changes.
 ```
 
 - **TouchDesigner** is the real-time orchestration hub: sensors in, Unity visuals
-  (Spout/Syphon) + params (OSC) in, composites everything for output. See
+  (Syphon/NDI/Spout) + params (OSC) in, composites everything for output. See
   [[adr/0004-td-as-orchestration-hub]].
-- **Unity** runs the biome simulation and emits visuals + parameter snapshots.
+- **Unity** runs the biome simulation and emits visuals + parameter snapshots. Video
+  share with TD is implemented (§3.8): Syphon/NDI/Spout send of composite/sim/biome
+  textures, plus one received texture as influence.
 - **Memory daemon** indexes snapshots into a local-first store, giving consecutive
   installations a persistent, queryable history. See [[migration]] for v0/v1/v2
   scope and the OSC contract.
@@ -173,10 +175,26 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   toggles, shortest-arc hue, global duration/hold/easing, stop-and-hold at end. For
   long-running installations. Spec: [[superpowers/specs/2026-06-07-parameter-interpolator-design]].
 
-### 3.8 External input & GPU resources
+### 3.8 External texture I/O & GPU resources
 
-- **`ExternalInputProvider`** — produces an `OutputTexture` (debug video or Spout
-  receive) fed to sims as external influence and optionally overlaid on the composite.
+Inter-app video over **Syphon / NDI / Spout** (Unity ↔ TouchDesigner). All three Klak
+packages compile on every platform; availability is gated at runtime
+(`ExternalTextureShare.IsAvailable`: NDI everywhere, Syphon macOS, Spout Windows).
+
+- **`ExternalTextureShare`** — backend isolating *all* Klak (NDI/Spout/Syphon) API
+  behind `ITextureSenderBackend`/`ITextureReceiverBackend`, plus `IsAvailable` and
+  `EnumerateSources` (discovery). The only file touching `Klak.*`.
+- **`ExternalTextureReceiver`** — receives one external texture (Syphon/NDI/Spout, or a
+  debug video clip) into an `OutputTexture` fed to sims as external influence. Replaces
+  `ExternalInputProvider`. `selfDrive` + a custom inspector preview/source-picker let
+  you verify reception standalone. Note: receive needs the source's *exact* canonical
+  name (NDI `"<MACHINE> (Name)"`, Syphon `"App/Name"`) — hence the discovery dropdown.
+- **`ExternalTextureSender`** — sends selected textures (composite, per-sim outputs,
+  biome channel layers) out; per-stream protocol + resolution scale, default
+  `EoC/<name>` stream names. Biome layers extracted via `Biome.RenderChannelTo` only
+  while enabled. `SetSource` is idempotent (set-on-change) — required because
+  `SyphonServer`'s source-setter tears down its publish coroutine. Spec:
+  [[superpowers/specs/2026-06-07-external-texture-share-design]].
 - **`GPUResourceManager`** — owns ComputeBuffer/RenderTexture lifetimes; everything
   allocates through it and `ReleaseAll()` cleans up. Each `Biome` and `SimulationBase`
   holds its own instance, released on `Reset`/disable/destroy.
