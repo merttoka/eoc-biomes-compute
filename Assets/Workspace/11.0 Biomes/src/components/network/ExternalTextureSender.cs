@@ -68,6 +68,16 @@ namespace Biomes
         void OnDisable() => Teardown();
         void OnDestroy() => Teardown();
 
+        // Field initializers are ignored when Unity adds a list element via the
+        // inspector "+", so new streams come in with resolutionScale = 0 (below the
+        // Range min). Coerce any invalid value back to full resolution.
+        void OnValidate()
+        {
+            foreach (var s in streams)
+                if (s != null && s.resolutionScale < 0.05f)
+                    s.resolutionScale = 1f;
+        }
+
         void LateUpdate()
         {
             if (simManager == null) return;
