@@ -13,6 +13,10 @@ namespace Biomes
         public string streamName = "";
         public ShareResources resources = new();
 
+        [Tooltip("Drive reception standalone (Play mode) so the inspector can preview " +
+                 "the received texture without wiring this into the SimulationManager.")]
+        public bool selfDrive = false;
+
         [Header("Debug Input (texture replacement)")]
         [SerializeField] private bool m_DebugUseVideoInput = false;
         [SerializeField] private VideoClip m_DebugVideoClip = null;
@@ -47,6 +51,17 @@ namespace Biomes
         {
             Release();
             gpu = new GPUResourceManager();
+        }
+
+        // Standalone preview driver. Normally SimulationManager.Step() calls
+        // UpdateInput(); when selfDrive is on we tick it ourselves so the texture can be
+        // previewed without being wired into the sim. Initialize lazily (skip if the
+        // SimulationManager already did) so the two drivers don't fight over gpu.
+        void Update()
+        {
+            if (!selfDrive) return;
+            if (gpu == null) Initialize();
+            UpdateInput();
         }
 
         public void UpdateInput()
