@@ -1,6 +1,6 @@
 ---
 status: living
-date: 2026-06-07
+date: 2026-06-08
 tags: [architecture, unity, gpu, memory, biomes]
 related: [[migration]], [[INDEX]]
 ---
@@ -67,10 +67,10 @@ src/
   components/
     core/     SimulationManager, SimulationBase, Biome, BiomeFieldConfig,
               UmweltMapping, ExternalInputProvider, GPUResourceManager
-    Sim/      BoidSim, PhysarumSim (concrete SimulationBase subclasses)
+    Sim/      BoidSim, PhysarumSim, TermiteSim (concrete SimulationBase subclasses)
     network/  MidiFighterTwister, MIDIMapping, OSCMapping (control surfaces)
     utils/    ParameterRecorder, ParameterInterpolator, ScreenLayout
-  params/     BoidParams, PhysarumParams, ParamRange, ColorPalette, IParamSet
+  params/     BoidParams, PhysarumParams, TermiteParams, ParamRange, ColorPalette, IParamSet
   Editor/     custom inspectors (ParamsEditor, MFT/MIDI editors, ScreenLayoutPreview)
 ```
 
@@ -105,14 +105,20 @@ coupling direction each way is defined per-sim by its `UmweltMapping`.
 
 ### 3.3 The biome field — `Biome` + `BiomeFieldConfig`
 
-The biome is a double-buffered `Texture2DArray` of **9 scalar channels**
-(`BiomeChannel`): `Nutrient, Pheromone0, Pheromone1, Oxygen, Temperature, Waste,
-Permeability, FlowX, FlowY`. Per-channel behavior (diffuse rate, decay, advected-by-
-flow, initial value) comes from `BiomeFieldConfig` and is uploaded as a structured
-buffer. `Biome.Step()` runs the field dynamics on the GPU: temperature gradients
-generate flow, flow advects fields, cross-field interactions (waste→nutrient,
-temp→permeability) react, then diffuse + decay. Resolution is independent of sim
-resolution; sim↔field coordinates are mapped by ratio.
+The biome is a double-buffered `Texture2DArray` of **10 scalar channels**
+(`BiomeChannel`): `Nutrient, Pheromone0, Pheromone1, Pheromone2, Oxygen, Temperature,
+Waste, Permeability, FlowX, FlowY` (Pheromone0/1/2 are per-species scents for the
+three sims). Per-channel behavior (diffuse rate, decay, advected-by-flow, initial
+value) comes from `BiomeFieldConfig` and is uploaded as a structured buffer.
+`Biome.Step()` runs the field dynamics on the GPU as a **ping-pong chain** —
+temperature gradients generate flow → flow advects the advectable channels →
+cross-field interactions (waste→nutrient, temp→permeability) react → diffuse + decay
+— each pass reading the previous pass's buffer and swapping. The partial passes
+(flow/advect/interact) call `CopyAllChannels` first so the channels they don't write
+survive the swap; **any new partial pass must do the same.** Field samples use
+texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow transports
+the chemical fields only — agents are never pushed by it. Resolution is independent of
+sim resolution; sim↔field coordinates are mapped by ratio.
 
 ### 3.4 Simulations — `SimulationBase` → `BoidSim` / `PhysarumSim` / `TermiteSim`
 
@@ -143,8 +149,8 @@ how it perceives and affects the field:
   perception texture as a weighted sample (chemotaxis / speed / avoidance).
 - **writes** — `(channel, amount)` deposits/consumptions at agent positions.
 - **metabolicHeat / oxygenConsumption** — implicit writes to Temperature / Oxygen.
-- **death** params (oxygen/permeability thresholds, corpse waste) — planned agent
-  mortality.
+- **death** params (oxygen/permeability thresholds, corpse waste) — agent mortality;
+  defined but not yet executed (deferred — see README Roadmap).
 
 This is the seam that makes the biome a genuine shared substrate rather than a
 backdrop: two sims sharing one field interact indirectly through the chemicals they

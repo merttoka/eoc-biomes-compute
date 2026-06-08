@@ -216,3 +216,6 @@ parameters are defined but not yet executed (birth/respawn is a planned later
 addition, intended as an aesthetic bloom/collapse mechanism). So grounding the
 death-cycle parameters will eventually require small engine changes, not just
 data; everything else maps onto existing channels/params.
+
+
+Research Agent Response: /Users/toka/Developer/Graphics/EoC-biomes-compute/Assets/Workspace/11.0 Biomes/docs/Simulating Biological Systems Parameters.pdf

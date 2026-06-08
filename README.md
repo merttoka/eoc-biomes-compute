@@ -46,5 +46,11 @@ OSC listens on `:9100`. `/memory/ping` and `/memory/count` are the v0 endpoints.
 - **Biological substrates as peer modality.** Brain organoid spike data (CSV) and live plant biopotential (planned) feed into memory alongside Unity params and viewer-derived signals.
 - **Slow parameter crossfades.** `ParameterInterpolator` (11.0 `src/components/utils/`) eases a sim's live params from current state through a queue of preset `.asset` waypoints, sim-step driven, per-param enable toggles, shortest-arc hue — for long-running installations. Design: `docs/superpowers/specs/2026-06-07-parameter-interpolator-design.md`.
 - **Termite simulation.** `TermiteSim` (11.0 `src/components/Sim/`) — a neuron-coupled pheromone-stigmergy swarm ported from `PDE_Nefeli_Termites`. Optional per-agent "firing" (131 neurons, agent `i`→neuron `i%131`) drives speed + bright trails, read from a preprocessed float16 blob in `StreamingAssets/biomes11/` (`tools/firing_csv_to_f16.py` converts the 729 MB source CSV). Builds permeability mounds via the Biome/Umwelt. Design: `docs/superpowers/specs/2026-06-07-termite-sim-design.md`.
+- **Shared chemical field (Biome).** A 10-channel GPU field (nutrient, three species pheromones, oxygen, temperature, waste, permeability, flow x/y) that every sim reads and writes through its per-species `UmweltMapping`. The field runs a live PDE each step — temperature gradients generate flow, flow advects the chemicals, waste decomposes into nutrient, then everything diffuses and decays. Architecture: `docs/ARCHITECTURE.md` §3.3.
 
 See `docs/migration.md` for the full architecture plan and open questions, `docs/SESSION-NOTES.md` for current state.
+
+## Roadmap
+
+- **Agent life/death + respawn** — `UmweltMapping` exposes the lifecycle params (oxygen/permeability death thresholds, corpse→waste amount/decay) but mortality is not yet executed; parked for this version. Planned as an aesthetic bloom/collapse mechanism rather than homeostasis.
+- **Parameter literature grounding** — map the exposed sim/biome parameters onto real slime-mold / termite / flocking biology. Brief: `Assets/Workspace/11.0 Biomes/docs/RESEARCH_BRIEF.md`.
