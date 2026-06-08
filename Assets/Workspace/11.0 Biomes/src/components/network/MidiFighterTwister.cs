@@ -217,11 +217,6 @@ namespace Biomes
 
         public void BuildAllBanks()
         {
-            // The SimulationManager owns the canonical sim list. Mirror it so newly added
-            // sims (e.g. Termite) are bound without manually syncing a second list.
-            if (m_SimManager != null && m_SimManager.simulations != null && m_SimManager.simulations.Count > 0)
-                m_Simulations = m_SimManager.simulations;
-
             _bankBindings = new EncoderBinding[SOFT_BANK_COUNT][];
             _bankColors = new int[SOFT_BANK_COUNT];
             for (int b = 0; b < SOFT_BANK_COUNT; b++)
@@ -981,21 +976,13 @@ namespace Biomes
         }
 
         /// <summary>True if the sim has runtime params (agentParams). False in edit mode.</summary>
-        private bool SimReady(SimulationBase sim)
-        {
-            if (sim == null) return false;
-            if (sim is PhysarumSim ps) return ps.agentParams != null;
-            if (sim is BoidSim bs) return bs.agentParams != null;
-            return false;
-        }
+        // Any sim with a live param set is controllable (covers Physarum/Boid/Termite/…).
+        private bool SimReady(SimulationBase sim) => sim != null && sim.LiveParamSet != null;
 
         private (float min, float max) GetParamRange(SimulationBase sim, string paramName)
         {
-            if (sim is PhysarumSim ps && ps.agentParams != null)
-                return ps.agentParams.GetRange(paramName);
-            if (sim is BoidSim bs && bs.agentParams != null)
-                return bs.agentParams.GetRange(paramName);
-            return (0f, 1f);
+            var p = sim != null ? sim.LiveParamSet : null;
+            return p != null ? p.GetRange(paramName) : (0f, 1f);
         }
 
         private void SendCC(int channel, int ccNumber, int value)
