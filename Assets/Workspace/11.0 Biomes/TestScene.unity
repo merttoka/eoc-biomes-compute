@@ -412,6 +412,7 @@ GameObject:
   m_Component:
   - component: {fileID: 102842654}
   - component: {fileID: 102842653}
+  - component: {fileID: 102842655}
   m_Layer: 0
   m_Name: TermiteSim
   m_TagString: Untagged
@@ -461,6 +462,51 @@ Transform:
   m_Children: []
   m_Father: {fileID: 427713104}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &102842655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 102842652}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 427713103}
+  simIndex: 2
+  waypoints: []
+  durationSteps: 600
+  holdSteps: 0
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles: []
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
 --- !u!1 &128060221
 GameObject:
   m_ObjectHideFlags: 0
@@ -922,12 +968,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 384
-  biomeRezY: 216
+  biomeRezX: 480
+  biomeRezY: 270
   fieldConfig: {fileID: 11400000, guid: c7161ed1133fe4e2ca88bd779a0cbee8, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   showDebugGrid: 1
-  debugQuadSize: 0.628
+  debugQuadSize: 0.65
   debugGridSpacing: 0.2
   debugGridOrigin: {x: -2.5, y: -2.3, z: 0}
   debugGridColumns: 5
@@ -962,7 +1008,6 @@ GameObject:
   - component: {fileID: 417804409}
   - component: {fileID: 417804410}
   - component: {fileID: 417804411}
-  - component: {fileID: 417804412}
   m_Layer: 0
   m_Name: Params
   m_TagString: Untagged
@@ -1012,8 +1057,8 @@ MonoBehaviour:
   rightMid: 0
   rightBot: 15
   sendLEDFeedback: 1
-  ledUpdateInterval: 0.25
-  logMidi: 1
+  ledUpdateInterval: 0.6
+  logMidi: 0
   ccSideL1: 8
   ccSideL2: 9
   ccSideL3: 10
@@ -1038,70 +1083,6 @@ MonoBehaviour:
   isRecording: 0
   isPlaying: 0
   playbackStep: 0
---- !u!114 &417804412
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 417804407}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
-  simManager: {fileID: 427713103}
-  simIndex: 0
-  waypoints:
-  - {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
-  durationSteps: 600
-  holdSteps: 0
-  easing:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  paramToggles:
-  - name: moveSpeed
-    enabled: 1
-  - name: senseAngle
-    enabled: 1
-  - name: turnAngle
-    enabled: 1
-  - name: senseDistance
-    enabled: 1
-  - name: depositAmount
-    enabled: 1
-  - name: eatAmount
-    enabled: 1
-  - name: diffuseRate
-    enabled: 1
-  - name: hue
-    enabled: 1
-  - name: saturation
-    enabled: 1
-  phase: 0
-  currentWaypoint: 0
-  progress: 0
 --- !u!1 &427713102
 GameObject:
   m_ObjectHideFlags: 0
@@ -1163,8 +1144,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1618572302}
-  - {fileID: 102842654}
   - {fileID: 1063645695}
+  - {fileID: 102842654}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &583558594
@@ -2137,6 +2118,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1063645695}
   - component: {fileID: 1063645694}
+  - component: {fileID: 1063645696}
   m_Layer: 0
   m_Name: BoidSim
   m_TagString: Untagged
@@ -2161,7 +2143,7 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 83e0e0c5cd5bb45ed98a3e0c9e893e30, type: 2}
-  agentsCount: 5000
+  agentsCount: 10000
   paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
   agentParams: {fileID: 0}
 --- !u!4 &1063645695
@@ -2179,6 +2161,51 @@ Transform:
   m_Children: []
   m_Father: {fileID: 427713104}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1063645696
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1063645693}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 427713103}
+  simIndex: 1
+  waypoints: []
+  durationSteps: 600
+  holdSteps: 0
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles: []
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
 --- !u!1 &1076481738
 GameObject:
   m_ObjectHideFlags: 0
@@ -2861,6 +2888,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1618572302}
   - component: {fileID: 1618572301}
+  - component: {fileID: 1618572303}
   m_Layer: 0
   m_Name: PhysarumSim
   m_TagString: Untagged
@@ -2885,8 +2913,8 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: a6ee80ecf5443440cb4462abc00e19ba, type: 2}
-  agentsCount: 200000
-  paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
+  agentsCount: 100000
+  paramsSO: {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
   agentParams: {fileID: 0}
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -2906,6 +2934,70 @@ Transform:
   m_Children: []
   m_Father: {fileID: 427713104}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1618572303
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618572300}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 427713103}
+  simIndex: 0
+  waypoints:
+  - {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
+  durationSteps: 600
+  holdSteps: 0
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles:
+  - name: moveSpeed
+    enabled: 1
+  - name: senseAngle
+    enabled: 1
+  - name: turnAngle
+    enabled: 1
+  - name: senseDistance
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: eatAmount
+    enabled: 1
+  - name: diffuseRate
+    enabled: 1
+  - name: hue
+    enabled: 1
+  - name: saturation
+    enabled: 1
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
 --- !u!43 &1664662865
 Mesh:
   m_ObjectHideFlags: 0

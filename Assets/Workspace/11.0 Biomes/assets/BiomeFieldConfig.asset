@@ -66,5 +66,5 @@ MonoBehaviour:
   wasteToNutrientRate: 0.03
   temperatureToFlowStrength: 0.4
   temperatureToPermeability: 0.05
-  noiseScale: 3
+  noiseScale: 0
   noiseThreshold: 0.3

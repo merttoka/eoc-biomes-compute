@@ -13,17 +13,22 @@ MonoBehaviour:
   m_Name: UmweltTermite
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.UmweltMapping
   reads:
-  - channel: 6
+  - channel: 0
+    weight: 1.2
+    effect: 0
+  - channel: 7
     weight: -0.6
     effect: 0
-  - channel: 6
+  - channel: 7
     weight: 0.5
     effect: 1
   writes:
-  - channel: 6
+  - channel: 7
+    amount: -0.025
+  - channel: 3
     amount: 0.01
-  - channel: 1
-    amount: 0.01
+  - channel: 0
+    amount: -0.003
   preferredPermeabilityMin: 0.5
   preferredPermeabilityMax: 1
   metabolicHeat: 0.03

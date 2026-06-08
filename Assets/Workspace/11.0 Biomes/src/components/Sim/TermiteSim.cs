@@ -27,7 +27,7 @@ namespace Biomes
         public TermiteParams agentParams;
         public override IParamSet LiveParamSet => agentParams;
 
-        [Header("Init Positions CSV (like Physarum)")]
+        [Header("Initial Positions Neurons CSV")]
         public TextAsset labelsPositionsCsv;
         public bool csvCoordinatesAreNormalized = false;
         [Tooltip("How much of the canvas agents fill (0-1). (1,1)=full canvas")]

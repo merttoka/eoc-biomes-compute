@@ -29,7 +29,7 @@ namespace Biomes
 
         public override IParamSet LiveParamSet => agentParams;
 
-        [Header("Neuron Positions CSV")]
+        [Header("Initial Positions Neurons CSV")]
         public TextAsset labelsPositionsCsv;
         public bool csvCoordinatesAreNormalized = false;
         [Tooltip("How much of the canvas neurons fill (0-1). x=width, y=height. (1,1)=full canvas")]
