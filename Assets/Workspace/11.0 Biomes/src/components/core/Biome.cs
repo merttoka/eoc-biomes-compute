@@ -201,7 +201,12 @@ namespace Biomes
             if (shader == null) shader = Shader.Find("Unlit/Texture");
 
             int cols = Mathf.Clamp(debugGridColumns, 1, BiomeChannel.Count);
-            float step = debugQuadSize + debugGridSpacing;
+            // Size quads to the field's aspect ratio; debugQuadSize is the height.
+            float aspect = biomeRezY > 0 ? (float)biomeRezX / biomeRezY : 1f;
+            float quadW = debugQuadSize * aspect;
+            float quadH = debugQuadSize;
+            float stepX = quadW + debugGridSpacing;
+            float stepY = quadH + debugGridSpacing;
 
             for (int i = 0; i < BiomeChannel.Count; i++)
             {
@@ -213,13 +218,13 @@ namespace Biomes
 
                 int col = i % cols;
                 int row = i / cols;
-                var pos = debugGridOrigin + new Vector3(col * step, -row * step, 0);
+                var pos = debugGridOrigin + new Vector3(col * stepX, -row * stepY, 0);
 
                 var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 quad.name = $"Biome_{ChannelNames[i]}";
                 quad.transform.SetParent(transform);
                 quad.transform.localPosition = pos;
-                quad.transform.localScale = Vector3.one * debugQuadSize;
+                quad.transform.localScale = new Vector3(quadW, quadH, 1f);
                 quad.GetComponent<MeshRenderer>().material = debugMaterials[i];
 
                 // Remove collider
