@@ -895,7 +895,9 @@ namespace Biomes
                 int color = b.target switch
                 {
                     BindingTarget.SimParam when b.simIndex >= 0 && b.simIndex < m_Simulations.Count
-                        => m_Simulations[b.simIndex] is PhysarumSim ? RGB_BLUE : RGB_ORANGE,
+                        => m_Simulations[b.simIndex] is PhysarumSim ? RGB_BLUE
+                         : m_Simulations[b.simIndex] is TermiteSim ? RGB_YELLOW
+                         : RGB_ORANGE,
                     BindingTarget.BiomeCrossField => RGB_GREEN,
                     BindingTarget.Umwelt => RGB_CYAN,
                     BindingTarget.Global => RGB_PURPLE,
