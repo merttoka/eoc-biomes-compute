@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c016f41934f544f308052ff23c8e9c7b, type: 3}
+  m_Name: TermiteParams
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteParams
+  typeCount: 1
+  types:
+  - senseAngle: 45
+    senseDistance: 20
+    turnAngle: 15
+    moveSpeed: 0.5
+    firingSpeedMul: 2
+    depositAmount: 0.3
+    firingDepositAmount: 3
+    depositProbability: 0.2
+    firingDepositProbability: 0.3
+    diffuseRate: 0.97
+    hue: 0.6
+    saturation: 0.7
+  ranges:
+  - name: moveSpeed
+    min: 0.05
+    max: 10
+  - name: senseAngle
+    min: 0.1
+    max: 180
+  - name: turnAngle
+    min: 0.1
+    max: 180
+  - name: senseDistance
+    min: 0.1
+    max: 200
+  - name: depositAmount
+    min: 0.01
+    max: 1
+  - name: firingDepositAmount
+    min: 1
+    max: 4
+  - name: depositProbability
+    min: 0
+    max: 1
+  - name: firingDepositProbability
+    min: 0
+    max: 1
+  - name: firingSpeedMul
+    min: 1
+    max: 5
+  - name: diffuseRate
+    min: 0.9
+    max: 1
+  - name: hue
+    min: 0
+    max: 1
+  - name: saturation
+    min: 0
+    max: 1
