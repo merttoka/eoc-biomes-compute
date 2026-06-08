@@ -37,8 +37,8 @@ namespace Biomes
 
         [Header("Firing (optional, float16 blob in StreamingAssets)")]
         public bool enableFiring = false;
-        [Tooltip("Filename under StreamingAssets, produced by tools/firing_csv_to_f16.py")]
-        public string firingBlobFile = "termite_firing.f16";
+        [Tooltip("Path under Assets/StreamingAssets, produced by tools/firing_csv_to_f16.py")]
+        public string firingBlobFile = "biomes11/termite_firing.f16";
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
         public bool loopFiring = true;
         private ushort[] _firingHalf;               // flat float16 bits: frame*_neuronZCount + neuron

@@ -1,1 +1,1 @@
-Assets/Workspace/11.0[[:space:]]Biomes/StreamingAssets/*.f16 filter=lfs diff=lfs merge=lfs -text
+*.f16 filter=lfs diff=lfs merge=lfs -text

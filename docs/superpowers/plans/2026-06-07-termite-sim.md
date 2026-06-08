@@ -30,7 +30,12 @@ Commits must use **explicit file paths** (never `git add -A`) so in-progress ext
 | `Assets/Workspace/11.0 Biomes/src/components/Sim/TermiteSim.cs` | Component: buffers, lifecycle, param control, CSV position init, firing upload |
 | `Assets/Workspace/11.0 Biomes/data/labels_positions.csv` | Imported init-position data (TextAsset, 4 KB) |
 | `tools/firing_csv_to_f16.py` | Offline preprocessor: 729 MB CSV → compact float16 binary |
-| `Assets/Workspace/11.0 Biomes/StreamingAssets/termite_firing.f16` | Preprocessed firing series (~47 MB, float16, via Git LFS) |
+| `Assets/StreamingAssets/biomes11/termite_firing.f16` | Preprocessed firing series (~47 MB, float16, via Git LFS) |
+
+> **StreamingAssets location:** must be `Assets/StreamingAssets/...` at the **project
+> root** — that's the only path `Application.streamingAssetsPath` resolves to. A
+> `StreamingAssets` folder nested under `11.0 Biomes/` is NOT recognized. Namespaced as
+> `biomes11/` since the folder is shared across workspaces.
 
 > **Why preprocess (critical):** the source `normalized_neuron_data.csv` is **729 MB**
 > (180,001 rows × 393 cols). Loading it as a Unity `TextAsset` would hold a 729 MB
@@ -138,10 +143,10 @@ if __name__ == "__main__":
 - [ ] **Step 2: Run it**
 
 ```bash
-mkdir -p "Assets/Workspace/11.0 Biomes/StreamingAssets"
+mkdir -p "Assets/StreamingAssets/biomes11"
 python tools/firing_csv_to_f16.py \
   /Users/toka/Developer/Graphics/PDE_Nefeli_Termites/data/normalized_neuron_data.csv \
-  "Assets/Workspace/11.0 Biomes/StreamingAssets/termite_firing.f16"
+  "Assets/StreamingAssets/biomes11/termite_firing.f16"
 ```
 
 Expected output: `wrote ...: neuronCount=131, frames=180000` (±1 for the header row).
@@ -151,8 +156,8 @@ Resulting file ≈ 180000 × 131 × 2 bytes ≈ **47 MB**.
 
 ```bash
 git lfs install
-git lfs track "Assets/Workspace/11.0 Biomes/StreamingAssets/*.f16"
-git add .gitattributes "Assets/Workspace/11.0 Biomes/StreamingAssets/termite_firing.f16"
+git lfs track "*.f16"
+git add .gitattributes "Assets/StreamingAssets/biomes11/termite_firing.f16"
 git add tools/firing_csv_to_f16.py
 git commit -m "feat(termite): preprocess firing CSV to float16 blob (LFS)"
 ```
@@ -676,8 +681,8 @@ namespace Biomes
 
         [Header("Firing (optional, float16 blob in StreamingAssets)")]
         public bool enableFiring = false;
-        [Tooltip("Filename under StreamingAssets, produced by tools/firing_csv_to_f16.py")]
-        public string firingBlobFile = "termite_firing.f16";
+        [Tooltip("Path under Assets/StreamingAssets, produced by tools/firing_csv_to_f16.py")]
+        public string firingBlobFile = "biomes11/termite_firing.f16";
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
         public bool loopFiring = true;
         private ushort[] _firingHalf;               // flat float16 bits: frame*_neuronZCount + neuron

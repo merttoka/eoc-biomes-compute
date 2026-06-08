@@ -47,7 +47,7 @@ The Processing sketch is **not** the classic wood-chip automaton. It is a
 | `src/params/TermiteParams.cs` | `ScriptableObject, IParamSet` (per-type params + ranges) |
 | `data/labels_positions.csv` (imported, 4 KB) | Init positions (copied from termite `/data`) |
 | `tools/firing_csv_to_f16.py` | Offline: 729 MB firing CSV → float16 blob |
-| `StreamingAssets/termite_firing.f16` (~47 MB, LFS) | Preprocessed firing series (loaded at runtime) |
+| `Assets/StreamingAssets/biomes11/termite_firing.f16` (~47 MB, LFS) | Preprocessed firing series (loaded at runtime) |
 
 Editor-created assets (not code):
 - A `TermiteParams` preset asset (one type, sensible defaults).
