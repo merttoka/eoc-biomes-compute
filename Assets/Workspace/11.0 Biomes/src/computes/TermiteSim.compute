@@ -72,7 +72,8 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
 
-    a.direction = RandomDirection2(id.xy * .001 + sin(time));
+    float ang0 = Hash1u(id.x * 747796405u + time) * 6.28318530718;
+    a.direction = float2(cos(ang0), sin(ang0));
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
 }
@@ -130,7 +131,7 @@ float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
     if (middleLevel > leftLevel && middleLevel > rightLevel) {
         d = middleSensor;
     } else if (middleLevel < leftLevel && middleLevel < rightLevel) {
-        int sign = Random2(id.xy * .01 + sin(time) * .01).x <= 0.5 ? 1 : -1;
+        int sign = Hash1u(id.x * 2654435761u + time * 40503u) < 0.5 ? 1 : -1;
         d = RotateVectorBy(d, sign * tang);
     } else if (leftLevel < rightLevel) {
         d = RotateVectorBy(d, tang);
@@ -152,7 +153,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float2 direction = SensorTurns(id, a, p);
 
     // Organic wiggle (~±0.05 rad), matching the original sketch
-    float w = (Random1(float2(id.x, time) * 0.07 + 3.0) - 0.5) * 0.1;
+    float w = (Hash1u(id.x * 668265263u + time * 2246822519u) - 0.5) * 0.1;
     direction = RotateVectorBy(direction, w);
 
     // Biome speed multiplier (permeability) + firing boost
@@ -187,7 +188,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint2 pos = uint2(round(a.position));
 
     bool isFiring = (firingEnabled != 0) && (firing[id.x] != 0);
-    float rnd = Random1(float2(id.x, time) * 0.013 + 7.0);
+    float rnd = Hash1u(id.x * 374761393u + time * 3266489917u);
 
     if (isFiring) {
         if (rnd < p.firingDepositProbability) {
