@@ -86,6 +86,14 @@ namespace Biomes
             rezY = y;
         }
 
+        // Wrapped frame counter fed to shaders as `time`. Keeps (float)time small so RNG
+        // seeds (e.g. time*0.001 + id*0.0001, sin(time)) keep per-agent precision over
+        // long installation runs — raw Time.frameCount degrades them within hours.
+        // Wraps every 65536 frames (~18 min @60fps); the one-frame discontinuity at wrap
+        // is imperceptible.
+        protected const int TimeWrap = 65536;
+        protected int WrappedFrame => Time.frameCount % TimeWrap;
+
         [Button]
         public virtual void Reset()
         {
@@ -116,7 +124,7 @@ namespace Biomes
 
         public virtual void Step()
         {
-            cs.SetInt(s_TimeID, Time.frameCount);
+            cs.SetInt(s_TimeID, WrappedFrame);
             GPUStep();
             SwapTrailArrays();
             Render();

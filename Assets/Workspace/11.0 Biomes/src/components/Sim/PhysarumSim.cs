@@ -83,7 +83,7 @@ namespace Biomes
         {
             cs.SetInt(s_RezXID, rezX);
             cs.SetInt(s_RezYID, rezY);
-            cs.SetInt(s_TimeID, Time.frameCount);
+            cs.SetInt(s_TimeID, WrappedFrame);
             UploadTypeParams();
             ResetTrailArrays();
 
