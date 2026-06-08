@@ -119,6 +119,109 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &39187331
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 39187334}
+  - component: {fileID: 39187333}
+  - component: {fileID: 39187332}
+  m_Layer: 0
+  m_Name: TextureIO
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &39187332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 39187331}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6818a9f501d184540bc3d3ac166336e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ExternalTextureReceiver
+  enableReceive: 1
+  protocol: 1
+  streamName: TouchDesigner/TDSyphonSpoutOut
+  resources:
+    spout: {fileID: 11400000, guid: f449ebbe2051c2e4d993eaa773a410de, type: 2}
+    ndi: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
+    syphon: {fileID: 11400000, guid: 4f35cf6570beb4605a26cd2d71c4f8fc, type: 2}
+  selfDrive: 1
+  m_DebugUseVideoInput: 0
+  m_DebugVideoClip: {fileID: 0}
+  m_DebugLoopVideo: 1
+  m_DebugPlaybackSpeed: 1
+  m_DebugApplyGaussianBlur: 0
+  m_BlurKernelSize: 9
+  m_BlurStrength: 2.5
+  m_BlurCompute: {fileID: 7200000, guid: be891f8db3bea4324a7d2464bad39500, type: 3}
+--- !u!114 &39187333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 39187331}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61c04496839004f91a70c87af3bf66e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ExternalTextureSender
+  simManager: {fileID: 427713103}
+  resources:
+    spout: {fileID: 11400000, guid: f449ebbe2051c2e4d993eaa773a410de, type: 2}
+    ndi: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
+    syphon: {fileID: 11400000, guid: 4f35cf6570beb4605a26cd2d71c4f8fc, type: 2}
+  streams:
+  - enabled: 1
+    source: 0
+    index: 0
+    protocol: 1
+    streamName: EoC_testSend_syphon_out
+    resolutionScale: 1
+  - enabled: 1
+    source: 2
+    index: 6
+    protocol: 1
+    streamName: EoC_testSend_syphon_b7
+    resolutionScale: 1
+  - enabled: 1
+    source: 1
+    index: 0
+    protocol: 0
+    streamName: EoC_testSend_ndi_s0
+    resolutionScale: 1
+  - enabled: 1
+    source: 1
+    index: 1
+    protocol: 1
+    streamName: EoC_testSend_syphon_s1
+    resolutionScale: 0.5
+--- !u!4 &39187334
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 39187331}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.17986, y: -1.30231, z: -0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &71078433
 GameObject:
   m_ObjectHideFlags: 0
@@ -299,6 +402,65 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 101565551}
   m_Mesh: {fileID: 209247290}
+--- !u!1 &102842652
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 102842654}
+  - component: {fileID: 102842653}
+  m_Layer: 0
+  m_Name: TermiteSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &102842653
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 102842652}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a989f9dacbef242b79081d4a2c6afcd6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
+  cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
+  outputMat: {fileID: 2100000, guid: 08c791a04d6e64e13a17db419673ca8c, type: 2}
+  rezX: 1024
+  rezY: 1024
+  umwelt: {fileID: 11400000, guid: da5ece7fe0bf54404a20c91839ac865f, type: 2}
+  agentsCount: 13100
+  paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
+  agentParams: {fileID: 0}
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
+  spawnScale: {x: 0.8, y: 0.9}
+  enableFiring: 1
+  firingBlobFile: biomes11/termite_firing.f16
+  firingThreshold: 0.1
+  loopFiring: 1
+--- !u!4 &102842654
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 102842652}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 427713104}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &128060221
 GameObject:
   m_ObjectHideFlags: 0
@@ -766,9 +928,9 @@ MonoBehaviour:
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   showDebugGrid: 1
   debugQuadSize: 0.628
-  debugGridSpacing: 0.05
-  debugGridOrigin: {x: -2, y: -2.3, z: 0}
-  debugGridColumns: 9
+  debugGridSpacing: 0.2
+  debugGridOrigin: {x: -2.5, y: -2.3, z: 0}
+  debugGridColumns: 5
   showBiomeLabels: 1
   labelColor: {r: 0.6, g: 0.6, b: 0.6, a: 0.6156863}
   labelYOffset: 0.4
@@ -839,6 +1001,7 @@ MonoBehaviour:
   m_Simulations:
   - {fileID: 1618572301}
   - {fileID: 1063645694}
+  - {fileID: 102842653}
   m_ScreenLayout: {fileID: 0}
   layoutMode: 0
   pushMode: 0
@@ -847,7 +1010,7 @@ MonoBehaviour:
   leftBot: 3
   rightTop: 7
   rightMid: 0
-  rightBot: 4
+  rightBot: 15
   sendLEDFeedback: 1
   ledUpdateInterval: 0.25
   logMidi: 1
@@ -921,9 +1084,9 @@ MonoBehaviour:
   - name: moveSpeed
     enabled: 1
   - name: senseAngle
-    enabled: 0
+    enabled: 1
   - name: turnAngle
-    enabled: 0
+    enabled: 1
   - name: senseDistance
     enabled: 1
   - name: depositAmount
@@ -933,7 +1096,7 @@ MonoBehaviour:
   - name: diffuseRate
     enabled: 1
   - name: hue
-    enabled: 0
+    enabled: 1
   - name: saturation
     enabled: 1
   phase: 0
@@ -978,6 +1141,7 @@ MonoBehaviour:
   simulations:
   - {fileID: 1618572301}
   - {fileID: 1063645694}
+  - {fileID: 102842653}
   externalInput: {fileID: 0}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
@@ -999,6 +1163,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1618572302}
+  - {fileID: 102842654}
   - {fileID: 1063645695}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1433,7 +1598,7 @@ GameObject:
   - component: {fileID: 670242434}
   - component: {fileID: 670242433}
   m_Layer: 0
-  m_Name: biome
+  m_Name: termite
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1501,7 +1666,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
+  - {fileID: 2100000, guid: 08c791a04d6e64e13a17db419673ca8c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1957,9 +2122,9 @@ Transform:
   m_LocalScale: {x: 3.3, y: 3.3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 670242432}
-  - {fileID: 1470234284}
   - {fileID: 1076481739}
+  - {fileID: 1470234284}
+  - {fileID: 670242432}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1063645693
@@ -2723,8 +2888,8 @@ MonoBehaviour:
   agentsCount: 200000
   paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
   agentParams: {fileID: 0}
-  labelsPositionsCsv: {fileID: 0}
-  csvCoordinatesAreNormalized: 0
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
   neuronScale: {x: 0.8, y: 0.9}
 --- !u!4 &1618572302
 Transform:
@@ -4230,8 +4395,9 @@ SceneRoots:
   - {fileID: 1915234171}
   - {fileID: 907546078}
   - {fileID: 584847076}
-  - {fileID: 417804409}
-  - {fileID: 427713104}
-  - {fileID: 944659780}
-  - {fileID: 414066867}
   - {fileID: 128060223}
+  - {fileID: 414066867}
+  - {fileID: 427713104}
+  - {fileID: 417804409}
+  - {fileID: 39187334}
+  - {fileID: 944659780}

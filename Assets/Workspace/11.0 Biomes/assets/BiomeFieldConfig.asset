@@ -28,6 +28,11 @@ MonoBehaviour:
     decayRate: 0.002
     advectedByFlow: 1
     initialValue: 0
+  - name: Pheromone_2
+    diffuseRate: 0.98
+    decayRate: 0.002
+    advectedByFlow: 1
+    initialValue: 0
   - name: Oxygen
     diffuseRate: 0.995
     decayRate: 0
@@ -58,8 +63,8 @@ MonoBehaviour:
     decayRate: 0.02
     advectedByFlow: 0
     initialValue: 0
-  wasteToNutrientRate: 0.01
-  temperatureToFlowStrength: 0.5
-  temperatureToPermeability: 0.3
+  wasteToNutrientRate: 0.03
+  temperatureToFlowStrength: 0.4
+  temperatureToPermeability: 0.05
   noiseScale: 3
   noiseThreshold: 0.3

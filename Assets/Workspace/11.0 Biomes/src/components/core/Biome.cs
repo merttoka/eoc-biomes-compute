@@ -21,7 +21,7 @@ namespace Biomes
         [Header("Debug Grid (all channels)")]
         public bool showDebugGrid = true;
         [Range(0.1f, 2f)] public float debugQuadSize = 0.5f;
-        [Range(0f, 0.05f)] public float debugGridSpacing = 0.02f;
+        [Range(0f, 0.2f)] public float debugGridSpacing = 0.02f;
         public Vector3 debugGridOrigin = new Vector3(3f, 0f, 0f);
         [Tooltip("Columns before wrapping to a new row. Set to channel count (default) for a single horizontal strip.")]
         [Range(1, BiomeChannel.Count)] public int debugGridColumns = BiomeChannel.Count;
