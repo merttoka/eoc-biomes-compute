@@ -50,7 +50,9 @@ Assets/Workspace/
   10.0 Metaesthetica/   earlier Unity scenes + sims
   11.0 Biomes/          active biome runtime (this doc's focus)
   Includes/             shared compute helpers / shaders (copied verbatim — ADR-0005)
-Packages/               UPM deps (klak.spout)
+Assets/StreamingAssets/ runtime-loaded blobs (e.g. biomes11/termite_firing.f16, LFS)
+Packages/               UPM deps (klak.spout / klak.ndi / klak.syphon)
+tools/                  offline preprocessors (firing_csv_to_f16.py)
 memory/
   daemon/               Python: folder-watch → SQLite + OSC
   td/                   TouchDesigner files (placeholder)
@@ -112,7 +114,7 @@ generate flow, flow advects fields, cross-field interactions (waste→nutrient,
 temp→permeability) react, then diffuse + decay. Resolution is independent of sim
 resolution; sim↔field coordinates are mapped by ratio.
 
-### 3.4 Simulations — `SimulationBase` → `BoidSim` / `PhysarumSim`
+### 3.4 Simulations — `SimulationBase` → `BoidSim` / `PhysarumSim` / `TermiteSim`
 
 `SimulationBase` is the abstract GPU-agent template: trail texture arrays (per-type
 + total), a perception texture, an external-influence texture, and the common kernel
@@ -122,8 +124,14 @@ set (reset/move/write-trails/diffuse/render). Subclasses implement the agent mod
   Can seed agents from a neuron-positions CSV (the "neuron firing" visuals).
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
   ranges, food-seeking).
+- **`TermiteSim`** — neuron-coupled pheromone-stigmergy swarm (ported from
+  `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat", plus an optional
+  per-agent **firing** signal: a `float16` blob in `StreamingAssets/biomes11/`
+  (preprocessed from a 729 MB CSV by `tools/firing_csv_to_f16.py`, agent `i`→neuron
+  `i % 131`) doubles speed and lays bright trails. Builds permeability mounds through
+  the Biome/Umwelt. Spec: [[superpowers/specs/2026-06-07-termite-sim-design]].
 
-Both support **multiple agent types** (up to 8), each with its own parameters and
+All support **multiple agent types** (up to 8), each with its own parameters and
 HSV color, uploaded as a per-type structured buffer every step.
 
 ### 3.5 Biome ↔ sim coupling — `UmweltMapping`
