@@ -1,0 +1,249 @@
+// Termite stigmergy simulation: pheromone coordination + optional neuron firing.
+// Mirrors PhysarumSim.compute; adds per-agent firing, drops the "eat" step.
+
+#pragma kernel ResetTextureKernel
+#pragma kernel ResetAgentsKernel
+#pragma kernel MoveAgentsKernel
+#pragma kernel WriteTrailsKernel
+#pragma kernel DiffuseTextureKernel
+#pragma kernel RenderKernel
+
+#define TRAIL_MAX 4.0   // firing trails exceed 1.0; clamp ceiling for diffuse/firing
+
+// Trail texture array: layers 0..typeCount-1 = per-type, layer typeCount = total
+SamplerState sampler_trailRead;
+Texture2DArray<float> trailRead;
+RWTexture2DArray<float> trailWrite;
+RWTexture2D<float4> outTex;
+
+// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance
+Texture2D<float4> perceptionTex;
+SamplerState sampler_perceptionTex;
+
+struct Agent {
+    float2 position;
+    float2 direction;
+    uint typeId;
+};
+uint agentsCount;
+StructuredBuffer<Agent> agentsIn;
+RWStructuredBuffer<Agent> agentsOut;
+
+// Optional firing state (per agent, 0/1). firingEnabled gates it.
+StructuredBuffer<uint> firing;
+uint firingEnabled;
+
+// Optional external initialization positions (e.g., neuron coordinates from CSV)
+StructuredBuffer<float2> neuronPositions;
+uint neuronCount;
+float2 neuronScale;
+
+uint rezX;
+uint rezY;
+uint time;
+
+#include "includes/random.hlsl"
+#include "includes/termite_type_params.hlsl"
+
+// ════════════════════════════════════════════════
+// RESET
+// ════════════════════════════════════════════════
+[numthreads(8, 8, 1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    for (uint t = 0; t <= typeCount; t++) {
+        trailWrite[uint3(id.xy, t)] = 0;
+    }
+}
+
+[numthreads(1024, 1, 1)]
+void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent a;
+    if (neuronCount > 0) {
+        uint idx = id.x % neuronCount;
+        float2 p = neuronPositions[idx] * neuronScale + float2(rezX * (1.0 - neuronScale.x) * 0.5, rezY * (1.0 - neuronScale.y) * 0.5);
+        p.x = clamp(p.x, 0.0, (float)rezX - 1.0);
+        p.y = clamp(p.y, 0.0, (float)rezY - 1.0);
+        a.position = p;
+    } else {
+        float2 c = Random2(id.x * .0001 + time * .001);
+        a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
+    }
+
+    a.direction = RandomDirection2(id.xy * .001 + sin(time));
+    a.typeId = (id.x * typeCount) / agentsCount;
+    agentsOut[id.x] = a;
+}
+
+// ════════════════════════════════════════════════
+// SENSOR + MOVEMENT (with biome perception)
+// ════════════════════════════════════════════════
+float2 RotateVectorBy(float2 vec, float angle) {
+    float x = vec.x * cos(angle) - vec.y * sin(angle);
+    float y = vec.x * sin(angle) + vec.y * cos(angle);
+    return float2(x, y);
+}
+
+float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
+    float2 direction = normalize(a.direction);
+    float r = p.senseDistance;
+    float ang = p.senseAngle;
+    float tang = p.turnAngle;
+
+    float2 leftSensor = RotateVectorBy(direction, -ang) * r;
+    float2 middleSensor = direction * r;
+    float2 rightSensor = RotateVectorBy(direction, ang) * r;
+
+    float2 leftCoord = a.position + leftSensor;
+    float2 middleCoord = a.position + middleSensor;
+    float2 rightCoord = a.position + rightSensor;
+
+    float3 leftUV = float3(leftCoord.x / (float)rezX, leftCoord.y / (float)rezY, 0);
+    float3 middleUV = float3(middleCoord.x / (float)rezX, middleCoord.y / (float)rezY, 0);
+    float3 rightUV = float3(rightCoord.x / (float)rezX, rightCoord.y / (float)rezY, 0);
+
+    // Own-type trail (intra-species coordination)
+    float myLeft = trailRead.SampleLevel(sampler_trailRead, float3(leftUV.xy, a.typeId), 0);
+    float totLeft = trailRead.SampleLevel(sampler_trailRead, float3(leftUV.xy, typeCount), 0);
+    float leftLevel = myLeft - (totLeft - myLeft);
+
+    float myMiddle = trailRead.SampleLevel(sampler_trailRead, float3(middleUV.xy, a.typeId), 0);
+    float totMiddle = trailRead.SampleLevel(sampler_trailRead, float3(middleUV.xy, typeCount), 0);
+    float middleLevel = myMiddle - (totMiddle - myMiddle);
+
+    float myRight = trailRead.SampleLevel(sampler_trailRead, float3(rightUV.xy, a.typeId), 0);
+    float totRight = trailRead.SampleLevel(sampler_trailRead, float3(rightUV.xy, typeCount), 0);
+    float rightLevel = myRight - (totRight - myRight);
+
+    // Biome perception R = chemotaxis (0.5 neutral). Mound avoidance enters here
+    // via a negative-weight read on CH_PERMEABILITY in the UmweltMapping.
+    float biomeLeft = perceptionTex.SampleLevel(sampler_perceptionTex, leftUV.xy, 0).r;
+    float biomeMiddle = perceptionTex.SampleLevel(sampler_perceptionTex, middleUV.xy, 0).r;
+    float biomeRight = perceptionTex.SampleLevel(sampler_perceptionTex, rightUV.xy, 0).r;
+    leftLevel   += (biomeLeft - 0.5) * 2.0;
+    middleLevel += (biomeMiddle - 0.5) * 2.0;
+    rightLevel  += (biomeRight - 0.5) * 2.0;
+
+    float2 d = direction;
+    if (middleLevel > leftLevel && middleLevel > rightLevel) {
+        d = middleSensor;
+    } else if (middleLevel < leftLevel && middleLevel < rightLevel) {
+        int sign = Random2(id.xy * .01 + sin(time) * .01).x <= 0.5 ? 1 : -1;
+        d = RotateVectorBy(d, sign * tang);
+    } else if (leftLevel < rightLevel) {
+        d = RotateVectorBy(d, tang);
+    } else if (leftLevel > rightLevel) {
+        d = RotateVectorBy(d, -tang);
+    } else {
+        d = middleSensor;
+    }
+    return normalize(d);
+}
+
+[numthreads(1024, 1, 1)]
+void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent a = agentsIn[id.x];
+    TermiteTypeParams p = typeParams[a.typeId];
+
+    float2 direction = SensorTurns(id, a, p);
+
+    // Organic wiggle (~±0.05 rad), matching the original sketch
+    float w = (Random1(float2(id.x, time) * 0.07 + 3.0) - 0.5) * 0.1;
+    direction = RotateVectorBy(direction, w);
+
+    // Biome speed multiplier (permeability) + firing boost
+    float2 uv = a.position / float2((float)rezX, (float)rezY);
+    float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
+    float fireMul = (firingEnabled != 0 && firing[id.x] != 0) ? p.firingSpeedMul : 1.0;
+    float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
+
+    a.direction = direction * effectiveSpeed;
+    a.position += a.direction;
+
+    // Toroidal wrapping
+    float fRezX = (float)rezX;
+    float fRezY = (float)rezY;
+    if (a.position.x < 0) a.position.x += fRezX;
+    if (a.position.x >= fRezX) a.position.x -= fRezX;
+    if (a.position.y < 0) a.position.y += fRezY;
+    if (a.position.y >= fRezY) a.position.y -= fRezY;
+
+    agentsOut[id.x] = a;
+}
+
+// ════════════════════════════════════════════════
+// TRAILS
+// ════════════════════════════════════════════════
+[numthreads(1024, 1, 1)]
+void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent a = agentsOut[id.x];
+    TermiteTypeParams p = typeParams[a.typeId];
+    uint2 pos = uint2(round(a.position));
+
+    bool isFiring = (firingEnabled != 0) && (firing[id.x] != 0);
+    float rnd = Random1(float2(id.x, time) * 0.013 + 7.0);
+
+    if (isFiring) {
+        if (rnd < p.firingDepositProbability) {
+            float v = trailWrite[uint3(pos, a.typeId)];
+            trailWrite[uint3(pos, a.typeId)] = clamp(max(v, p.firingDepositAmount), 0, TRAIL_MAX);
+        }
+    } else {
+        if (rnd < p.depositProbability) {
+            float own = trailWrite[uint3(pos, a.typeId)];
+            trailWrite[uint3(pos, a.typeId)] = clamp(own + p.depositAmount, 0, 1.0);
+        }
+    }
+}
+
+[numthreads(8, 8, 1)]
+void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float total = 0;
+    for (uint t = 0; t < typeCount; t++) {
+        float avg = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                float3 coord = float3((id.x + dx) / (float)rezX, (id.y + dy) / (float)rezY, t);
+                avg += trailRead.SampleLevel(sampler_trailRead, coord, 0);
+            }
+        }
+        avg /= 9.0;
+        float diffused = clamp(avg * typeParams[t].diffuseRate, 0, TRAIL_MAX);
+        trailWrite[uint3(id.xy, t)] = diffused;
+        total += diffused;
+    }
+    trailWrite[uint3(id.xy, typeCount)] = total;
+}
+
+// ════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════
+#include "includes/color.hlsl"
+
+[numthreads(8, 8, 1)]
+void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float4 color = 0;
+    for (uint t = 0; t < typeCount; t++) {
+        float val = trailRead[uint3(id.xy, t)];
+        TermiteTypeParams p = typeParams[t];
+        float baseB = saturate(val);
+        float white = saturate(val - 1.0);   // firing (>1) pushes toward white
+        float4 c = hsb2rgb(float3(p.hue, p.saturation * (1.0 - white), 0.8 * baseB), baseB);
+        c.rgb = lerp(c.rgb, float3(1, 1, 1), white);
+        color += c / typeCount;
+    }
+    float4 current = outTex[id.xy];
+    current += color;
+    current *= 0.9;
+    outTex[id.xy] = saturate(current);
+}
