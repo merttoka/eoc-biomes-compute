@@ -82,6 +82,15 @@ uint perceptionRezY;
 RWTexture2D<float4> perceptionTex;
 
 
+// Partial field passes (flow/advect/interact) write only a subset of channels.
+// Calling this first preserves the untouched channels across the ping-pong swap
+// between passes (see Biome.cs Step). Each thread owns one cell, so no races.
+void CopyAllChannels(uint2 xy) {
+    for (uint cc = 0; cc < CH_COUNT; cc++)
+        fieldWrite[uint3(xy, cc)] = fieldRead[uint3(xy, cc)];
+}
+
+
 // ════════════════════════════════════════════════
 // RESET
 // ════════════════════════════════════════════════
@@ -112,9 +121,7 @@ void InitPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
 void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    // Partial pass: copy every channel through so this stage can be ping-ponged.
-    for (uint cc = 0; cc < CH_COUNT; cc++)
-        fieldWrite[uint3(id.xy, cc)] = fieldRead[uint3(id.xy, cc)];
+    CopyAllChannels(id.xy); // flow channels are overwritten below
 
     float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
     float dx = 1.0 / (float)rezX;
@@ -151,9 +158,7 @@ void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
 void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    // Partial pass: copy every channel through; advected ones are overwritten below.
-    for (uint cc = 0; cc < CH_COUNT; cc++)
-        fieldWrite[uint3(id.xy, cc)] = fieldRead[uint3(id.xy, cc)];
+    CopyAllChannels(id.xy); // advected channels are overwritten below
 
     float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
 
@@ -184,9 +189,7 @@ void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    // Partial pass: copy every channel through; interacting ones are overwritten below.
-    for (uint cc = 0; cc < CH_COUNT; cc++)
-        fieldWrite[uint3(id.xy, cc)] = fieldRead[uint3(id.xy, cc)];
+    CopyAllChannels(id.xy); // nutrient/waste/permeability are overwritten below
 
     float nutrient = fieldRead[uint3(id.xy, CH_NUTRIENT)];
     float waste    = fieldRead[uint3(id.xy, CH_WASTE)];
