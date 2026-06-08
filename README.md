@@ -54,3 +54,4 @@ See `docs/migration.md` for the full architecture plan and open questions, `docs
 
 - **Agent life/death + respawn** — `UmweltMapping` exposes the lifecycle params (oxygen/permeability death thresholds, corpse→waste amount/decay) but mortality is not yet executed; parked for this version. Planned as an aesthetic bloom/collapse mechanism rather than homeostasis.
 - **Parameter literature grounding** — map the exposed sim/biome parameters onto real slime-mold / termite / flocking biology. Brief: `Assets/Workspace/11.0 Biomes/docs/RESEARCH_BRIEF.md`.
+- **Layer & external-input integration** — richer sim↔biome coupling (Q10 fronts, diurnal forcing, humidity, topographic stigmergy) + a reusable spatial injector for external installation drivers (plants→O₂, robot→Temperature, neuron firing→trails). Design: `Assets/Workspace/11.0 Biomes/docs/INTEGRATION_DESIGN.md`.
