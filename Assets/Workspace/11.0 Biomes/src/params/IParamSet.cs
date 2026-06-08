@@ -16,6 +16,7 @@ namespace Biomes
         // param ScriptableObjects already implement these.
         void SyncTypesList();
         void RandomizeParams();
+        void RandomizeColors();
         void ResetToDefaults();
     }
 }

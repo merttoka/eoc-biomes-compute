@@ -171,6 +171,7 @@ namespace Biomes
             ToggleDebugGrid,
             CycleScreen,
             ToggleScreen,
+            SaveSnapshot,
         }
 
         // Fine-tune state per encoder
@@ -771,25 +772,19 @@ namespace Biomes
 
                 case SideButtonAction.RandomizeParams:
                     foreach (var sim in m_Simulations)
-                    {
-                        if (sim is PhysarumSim ps) ps.RandomizeParams();
-                        else if (sim is BoidSim bs) bs.RandomizeParams();
-                    }
+                        sim?.LiveParamSet?.RandomizeParams();
                     break;
 
                 case SideButtonAction.RandomizeColors:
                     foreach (var sim in m_Simulations)
-                    {
-                        if (sim is PhysarumSim ps) ps.RandomizeColors();
-                        else if (sim is BoidSim bs) bs.RandomizeColors();
-                    }
+                        sim?.LiveParamSet?.RandomizeColors();
                     break;
 
                 case SideButtonAction.RandomizeAll:
                     foreach (var sim in m_Simulations)
                     {
-                        if (sim is PhysarumSim ps) { ps.RandomizeParams(); ps.RandomizeColors(); }
-                        else if (sim is BoidSim bs) { bs.RandomizeParams(); bs.RandomizeColors(); }
+                        sim?.LiveParamSet?.RandomizeParams();
+                        sim?.LiveParamSet?.RandomizeColors();
                     }
                     break;
 
@@ -840,7 +835,36 @@ namespace Biomes
                 case SideButtonAction.ToggleScreen:
                     m_ScreenLayout?.ToggleCurrentScreen();
                     break;
+
+                case SideButtonAction.SaveSnapshot:
+                    SaveSnapshot();
+                    break;
             }
+        }
+
+        // Clone every sim's live params to timestamped .asset files so a "moment" can be
+        // recalled later. Editor-only (AssetDatabase); no-op in standalone builds.
+        private void SaveSnapshot()
+        {
+#if UNITY_EDITOR
+            const string dir = "Assets/Workspace/11.0 Biomes/assets/Snapshots";
+            System.IO.Directory.CreateDirectory(dir);
+            string stamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            int saved = 0;
+            foreach (var sim in m_Simulations)
+            {
+                var live = sim?.LiveParamSet as ScriptableObject;
+                if (live == null) continue;
+                var clone = Instantiate(live);
+                string path = UnityEditor.AssetDatabase.GenerateUniqueAssetPath($"{dir}/{sim.SimName}_{stamp}.asset");
+                UnityEditor.AssetDatabase.CreateAsset(clone, path);
+                saved++;
+            }
+            if (saved > 0) UnityEditor.AssetDatabase.SaveAssets();
+            Debug.Log($"[MFT] Saved {saved} param snapshot(s) to {dir} ({stamp})");
+#else
+            Debug.LogWarning("[MFT] SaveSnapshot is editor-only (AssetDatabase); no-op in builds.");
+#endif
         }
 
         private void SetSoftBank(int bank)
