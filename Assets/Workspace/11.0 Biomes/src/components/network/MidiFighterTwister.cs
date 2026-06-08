@@ -497,6 +497,9 @@ namespace Biomes
             if (sim is BoidSim bs)
                 return bs.agentParams != null ? bs.agentParams.types.Count
                      : bs.paramsSO != null ? bs.paramsSO.types.Count : 1;
+            if (sim is TermiteSim ts)
+                return ts.agentParams != null ? ts.agentParams.types.Count
+                     : ts.paramsSO != null ? ts.paramsSO.types.Count : 1;
             return 1;
         }
 
