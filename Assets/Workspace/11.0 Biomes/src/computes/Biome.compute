@@ -198,12 +198,9 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         float diffuseRate = channelSettings[c].x;
         float decayRate = channelSettings[c].y;
 
-        // Channels that don't diffuse (e.g. permeability) still decay — otherwise
-        // agent deposits accumulate unbounded and saturate to white. Set decayRate>0
-        // on the channel to get this feedback (decayRate=0 keeps the old passthrough).
+        // Skip channels that don't diffuse (e.g. permeability)
         if (diffuseRate <= 0.0) {
-            float held = fieldRead[uint3(id.xy, c)] * (1.0 - decayRate);
-            fieldWrite[uint3(id.xy, c)] = clamp(held, 0, 1);
+            fieldWrite[uint3(id.xy, c)] = fieldRead[uint3(id.xy, c)];
             continue;
         }
 
