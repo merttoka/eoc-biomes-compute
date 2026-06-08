@@ -11,5 +11,11 @@ namespace Biomes
         float GetValue(string name, int typeIndex);
         void SetValue(string name, int typeIndex, float raw);
         (float min, float max) GetRange(string name);
+
+        // Edit-mode operations (used by the shared params inspector). All concrete
+        // param ScriptableObjects already implement these.
+        void SyncTypesList();
+        void RandomizeParams();
+        void ResetToDefaults();
     }
 }
