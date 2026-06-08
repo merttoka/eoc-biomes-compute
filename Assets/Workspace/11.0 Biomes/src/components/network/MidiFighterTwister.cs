@@ -172,6 +172,7 @@ namespace Biomes
             CycleScreen,
             ToggleScreen,
             SaveSnapshot,
+            SaveToCurrentParams,
         }
 
         // Fine-tune state per encoder
@@ -842,6 +843,10 @@ namespace Biomes
                 case SideButtonAction.SaveSnapshot:
                     SaveSnapshot();
                     break;
+
+                case SideButtonAction.SaveToCurrentParams:
+                    SaveToCurrentParams();
+                    break;
             }
         }
 
@@ -867,6 +872,21 @@ namespace Biomes
             Debug.Log($"[MFT] Saved {saved} param snapshot(s) to {dir} ({stamp})");
 #else
             Debug.LogWarning("[MFT] SaveSnapshot is editor-only (AssetDatabase); no-op in builds.");
+#endif
+        }
+
+        // Overwrite each sim's CURRENT preset asset (paramsSO) with its live params — saves
+        // "where you are now" into the assigned asset, no new snapshot file. Editor-only.
+        private void SaveToCurrentParams()
+        {
+#if UNITY_EDITOR
+            int saved = 0;
+            foreach (var sim in m_Simulations)
+                if (sim != null && sim.SaveLiveParamsToPreset()) saved++;
+            if (saved > 0) UnityEditor.AssetDatabase.SaveAssets();
+            Debug.Log($"[MFT] Saved live params into {saved} current preset asset(s)");
+#else
+            Debug.LogWarning("[MFT] SaveToCurrentParams is editor-only (AssetDatabase); no-op in builds.");
 #endif
         }
 

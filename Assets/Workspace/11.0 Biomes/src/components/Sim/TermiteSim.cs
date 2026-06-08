@@ -26,6 +26,7 @@ namespace Biomes
         [Header("Runtime Parameters (live tweaking)")]
         public TermiteParams agentParams;
         public override IParamSet LiveParamSet => agentParams;
+        public override ScriptableObject PresetParamSet => paramsSO;
 
         [Header("Initial Positions Neurons CSV")]
         public TextAsset labelsPositionsCsv;

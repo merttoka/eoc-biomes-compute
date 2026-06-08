@@ -27,6 +27,7 @@ namespace Biomes
         public BoidParams agentParams;
 
         public override IParamSet LiveParamSet => agentParams;
+        public override ScriptableObject PresetParamSet => paramsSO;
 
         protected override int TypeCount => agentParams != null ? agentParams.types.Count : 1;
 

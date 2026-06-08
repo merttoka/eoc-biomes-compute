@@ -68,6 +68,28 @@ namespace Biomes
         /// <summary>Live runtime params (agentParams) exposed for interpolation.</summary>
         public abstract IParamSet LiveParamSet { get; }
 
+        /// <summary>The assigned preset asset (paramsSO) that LiveParamSet was cloned from.</summary>
+        public abstract ScriptableObject PresetParamSet { get; }
+
+        /// <summary>Editor-only: copy the current live params back into the assigned preset
+        /// asset in place (overwrites it; no new snapshot file). Returns true if written.
+        /// Caller batches AssetDatabase.SaveAssets() after looping sims.</summary>
+        public bool SaveLiveParamsToPreset()
+        {
+#if UNITY_EDITOR
+            var live = LiveParamSet as ScriptableObject;
+            var preset = PresetParamSet;
+            if (live == null || preset == null) return false;
+            string presetName = preset.name;                        // CopySerialized would stamp "(Clone)";
+            UnityEditor.EditorUtility.CopySerialized(live, preset);  // copy all tuned fields into the asset
+            preset.name = presetName;                               // restore the asset's name
+            UnityEditor.EditorUtility.SetDirty(preset);
+            return true;
+#else
+            return false;
+#endif
+        }
+
         protected abstract void InitBuffers();
         protected abstract void GPUReset();
         protected abstract void GPUStep();

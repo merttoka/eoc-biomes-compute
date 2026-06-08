@@ -28,6 +28,7 @@ namespace Biomes
         public PhysarumParams agentParams;
 
         public override IParamSet LiveParamSet => agentParams;
+        public override ScriptableObject PresetParamSet => paramsSO;
 
         [Header("Initial Positions Neurons CSV")]
         public TextAsset labelsPositionsCsv;
