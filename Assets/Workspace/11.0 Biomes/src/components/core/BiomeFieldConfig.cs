@@ -10,13 +10,14 @@ namespace Biomes
         public const int Nutrient   = 0;
         public const int Pheromone0 = 1;  // sim 0 species scent
         public const int Pheromone1 = 2;  // sim 1 species scent
-        public const int Oxygen     = 3;
-        public const int Temperature = 4;
-        public const int Waste      = 5;
-        public const int Permeability = 6;
-        public const int FlowX      = 7;
-        public const int FlowY      = 8;
-        public const int Count      = 9;
+        public const int Pheromone2 = 3;  // sim 2 species scent
+        public const int Oxygen     = 4;
+        public const int Temperature = 5;
+        public const int Waste      = 6;
+        public const int Permeability = 7;
+        public const int FlowX      = 8;
+        public const int FlowY      = 9;
+        public const int Count      = 10;
     }
 
     [Serializable]
@@ -39,6 +40,7 @@ namespace Biomes
             new() { name = "Nutrient",      diffuseRate = 0.995f, decayRate = 0f,     advectedByFlow = true,  initialValue = 0.3f },
             new() { name = "Pheromone_0",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f },
             new() { name = "Pheromone_1",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f },
+            new() { name = "Pheromone_2",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f },
             new() { name = "Oxygen",         diffuseRate = 0.995f, decayRate = 0f,     advectedByFlow = true,  initialValue = 0.8f },
             new() { name = "Temperature",    diffuseRate = 0.997f, decayRate = 0.0005f, advectedByFlow = false, initialValue = 0.5f },
             new() { name = "Waste",          diffuseRate = 0.99f,  decayRate = 0f,     advectedByFlow = false, initialValue = 0f },

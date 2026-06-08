@@ -18,13 +18,14 @@
 #define CH_NUTRIENT     0
 #define CH_PHEROMONE0   1
 #define CH_PHEROMONE1   2
-#define CH_OXYGEN       3
-#define CH_TEMPERATURE  4
-#define CH_WASTE        5
-#define CH_PERMEABILITY 6
-#define CH_FLOW_X       7
-#define CH_FLOW_Y       8
-#define CH_COUNT        9
+#define CH_PHEROMONE2   3
+#define CH_OXYGEN       4
+#define CH_TEMPERATURE  5
+#define CH_WASTE        6
+#define CH_PERMEABILITY 7
+#define CH_FLOW_X       8
+#define CH_FLOW_Y       9
+#define CH_COUNT        10
 
 // --- Textures ---
 SamplerState sampler_fieldRead;
@@ -56,7 +57,16 @@ float writeAmount;
 uint agentCount;
 float simToFieldX;
 float simToFieldY;
-StructuredBuffer<float2> agentPositions;
+// Matches the 20-byte Agent layout shared by all sims (position, direction, typeId).
+// Declared as the full struct (not StructuredBuffer<float2>) so the element stride is
+// 20 bytes and agentPositions[i].position reads the correct bytes on every backend
+// (Metal addresses structured buffers by the shader-side element size).
+struct AgentPos {
+    float2 position;
+    float2 direction;
+    uint typeId;
+};
+StructuredBuffer<AgentPos> agentPositions;
 
 // Read API (perception)
 struct ReadEntry {
@@ -86,7 +96,7 @@ void ResetFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 [numthreads(8, 8, 1)]
 void InitPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
-    float2 uv = float2(id.x / (float)rezX, id.y / (float)rezY);
+    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
     float n = FractalSimplexNoise(uv * noiseScale);
     // n is 0-1 centered ~0.5. Use it directly as permeability,
     // then threshold creates solid regions (low perm) where noise is low.
@@ -102,7 +112,11 @@ void InitPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
 void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    float2 uv = float2(id.x / (float)rezX, id.y / (float)rezY);
+    // Partial pass: copy every channel through so this stage can be ping-ponged.
+    for (uint cc = 0; cc < CH_COUNT; cc++)
+        fieldWrite[uint3(id.xy, cc)] = fieldRead[uint3(id.xy, cc)];
+
+    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
     float dx = 1.0 / (float)rezX;
     float dy = 1.0 / (float)rezY;
 
@@ -112,7 +126,6 @@ void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
     float tD = fieldRead.SampleLevel(sampler_fieldRead, float3(uv.x, uv.y - dy, CH_TEMPERATURE), 0);
     float tU = fieldRead.SampleLevel(sampler_fieldRead, float3(uv.x, uv.y + dy, CH_TEMPERATURE), 0);
 
-    // Flow perpendicular to gradient (convection-like): hot rises, creates circulation
     float gradX = (tR - tL) * 0.5;
     float gradY = (tU - tD) * 0.5;
 
@@ -120,9 +133,11 @@ void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
     float existingFX = fieldRead[uint3(id.xy, CH_FLOW_X)];
     float existingFY = fieldRead[uint3(id.xy, CH_FLOW_Y)];
 
-    // Cross product with up-vector gives perpendicular flow + buoyancy
+    // Flow = temperature gradient rotated 90° → circulation around hot/cold spots.
+    // Mean-zero (no buoyancy bias), so a uniform field produces zero net transport
+    // and advection does not drift chemicals in any preferred direction.
     float newFX = existingFX + (-gradY) * tempToFlowStrength;
-    float newFY = existingFY + (gradX + gradY * 0.5) * tempToFlowStrength; // buoyancy bias
+    float newFY = existingFY + ( gradX) * tempToFlowStrength;
 
     fieldWrite[uint3(id.xy, CH_FLOW_X)] = clamp(newFX, -1, 1);
     fieldWrite[uint3(id.xy, CH_FLOW_Y)] = clamp(newFY, -1, 1);
@@ -136,7 +151,11 @@ void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
 void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    float2 uv = float2(id.x / (float)rezX, id.y / (float)rezY);
+    // Partial pass: copy every channel through; advected ones are overwritten below.
+    for (uint cc = 0; cc < CH_COUNT; cc++)
+        fieldWrite[uint3(id.xy, cc)] = fieldRead[uint3(id.xy, cc)];
+
+    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
 
     // Read flow at this position
     float fx = fieldRead[uint3(id.xy, CH_FLOW_X)];
@@ -164,6 +183,10 @@ void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 [numthreads(8, 8, 1)]
 void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
+
+    // Partial pass: copy every channel through; interacting ones are overwritten below.
+    for (uint cc = 0; cc < CH_COUNT; cc++)
+        fieldWrite[uint3(id.xy, cc)] = fieldRead[uint3(id.xy, cc)];
 
     float nutrient = fieldRead[uint3(id.xy, CH_NUTRIENT)];
     float waste    = fieldRead[uint3(id.xy, CH_WASTE)];
@@ -208,7 +231,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         float avg = 0;
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                float3 coord = float3((id.x + dx) / (float)rezX, (id.y + dy) / (float)rezY, c);
+                float3 coord = float3((id.x + dx + 0.5) / (float)rezX, (id.y + dy + 0.5) / (float)rezY, c);
                 avg += fieldRead.SampleLevel(sampler_fieldRead, coord, 0);
             }
         }
@@ -228,7 +251,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 void WriteFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentCount) return;
 
-    float2 simPos = agentPositions[id.x];
+    float2 simPos = agentPositions[id.x].position;
     uint2 fieldPos = uint2(
         clamp(simPos.x * simToFieldX, 0, rezX - 1),
         clamp(simPos.y * simToFieldY, 0, rezY - 1)
@@ -247,7 +270,7 @@ void ReadFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= perceptionRezX || id.y >= perceptionRezY) return;
 
     // Map sim-space pixel → biome UV
-    float2 uv = float2(id.x / (float)perceptionRezX, id.y / (float)perceptionRezY);
+    float2 uv = float2((id.x + 0.5) / (float)perceptionRezX, (id.y + 0.5) / (float)perceptionRezY);
 
     // Accumulate weighted biome channels into perception
     // R = chemotaxis signal, G = speed multiplier, B = avoidance signal
@@ -293,6 +316,7 @@ void RenderDebugKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (debugChannel == CH_NUTRIENT)         color = float4(0.2, 0.8, 0.2, 1) * val;  // green
     else if (debugChannel == CH_PHEROMONE0)  color = float4(0.8, 0.4, 0.8, 1) * val;  // purple
     else if (debugChannel == CH_PHEROMONE1)  color = float4(0.4, 0.8, 0.8, 1) * val;  // cyan
+    else if (debugChannel == CH_PHEROMONE2)  color = float4(0.8, 0.2, 0.8, 1) * val;  // purple
     else if (debugChannel == CH_OXYGEN)      color = float4(0.3, 0.5, 1.0, 1) * val;  // blue
     else if (debugChannel == CH_TEMPERATURE) color = hsb2rgb(float3(0.0 + (1.0 - val) * 0.7, 0.8, val), 1); // heat map
     else if (debugChannel == CH_WASTE)       color = float4(0.6, 0.4, 0.1, 1) * val;  // brown

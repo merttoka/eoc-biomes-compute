@@ -212,7 +212,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
         float avg = 0;
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                float3 coord = float3((id.x + dx) / (float)rezX, (id.y + dy) / (float)rezY, t);
+                float3 coord = float3((id.x + dx + 0.5) / (float)rezX, (id.y + dy + 0.5) / (float)rezY, t);
                 avg += trailRead.SampleLevel(sampler_trailRead, coord, 0);
             }
         }

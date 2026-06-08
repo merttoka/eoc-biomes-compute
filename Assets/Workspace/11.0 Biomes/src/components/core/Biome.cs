@@ -75,7 +75,7 @@ namespace Biomes
         public int RezY => biomeRezY;
 
         private static readonly string[] ChannelNames = {
-            "Nutrient", "Pheromone_0", "Pheromone_1", "Oxygen",
+            "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
             "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y"
         };
 
@@ -157,37 +157,45 @@ namespace Biomes
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
             cs.SetInt(s_ChannelCountID, BiomeChannel.Count);
-            cs.SetBuffer(diffuseFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
-            cs.SetBuffer(advectFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
+
+            // The field PDE runs as a proper ping-pong chain: each pass reads the
+            // previous pass's output, then swaps. Every pass writes ALL channels
+            // (copy-through for the ones it doesn't modify), so the intermediate
+            // swaps never surface stale channels. Previously a single end-of-step
+            // swap let DiffuseFieldsKernel (which writes every channel) clobber the
+            // flow/advect/interact passes, making them dead code.
 
             // 1. Generate flow from temperature gradients
             cs.SetFloat(s_TempToFlowStrengthID, fieldConfig.temperatureToFlowStrength);
-            cs.SetTexture(generateFlowKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(generateFlowKernel, s_FieldWriteID, fieldWriteArray);
-            Dispatch(generateFlowKernel, biomeRezX, biomeRezY, 1);
+            DispatchFieldPass(generateFlowKernel);
 
-            // 2. Advect fields by flow
-            cs.SetTexture(advectFieldsKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(advectFieldsKernel, s_FieldWriteID, fieldWriteArray);
-            Dispatch(advectFieldsKernel, biomeRezX, biomeRezY, 1);
+            // 2. Advect fields by flow (transports chemicals; agents are not pushed)
+            cs.SetBuffer(advectFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
+            DispatchFieldPass(advectFieldsKernel);
 
             // 3. Cross-field interactions (waste→nutrient, temp→permeability)
             cs.SetFloat(s_WasteToNutrientRateID, fieldConfig.wasteToNutrientRate);
             cs.SetFloat(s_TempToPermID, fieldConfig.temperatureToPermeability);
-            cs.SetTexture(interactFieldsKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(interactFieldsKernel, s_FieldWriteID, fieldWriteArray);
-            Dispatch(interactFieldsKernel, biomeRezX, biomeRezY, 1);
+            DispatchFieldPass(interactFieldsKernel);
 
             // 4. Diffuse and decay
-            cs.SetTexture(diffuseFieldsKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(diffuseFieldsKernel, s_FieldWriteID, fieldWriteArray);
-            Dispatch(diffuseFieldsKernel, biomeRezX, biomeRezY, 1);
+            cs.SetBuffer(diffuseFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
+            DispatchFieldPass(diffuseFieldsKernel);
 
-            // Swap
-            (fieldReadArray, fieldWriteArray) = (fieldWriteArray, fieldReadArray);
-
-            // Debug render
+            // Debug render (reads fieldReadArray, which now holds the final state)
             RenderDebug();
+        }
+
+        // Bind the current read/write arrays to a field kernel, dispatch, then swap so
+        // the next pass reads this pass's output. After an even number of passes the
+        // final state lands back in fieldReadArray — the buffer WriteField and
+        // BuildPerceptionTex bind.
+        private void DispatchFieldPass(int kernel)
+        {
+            cs.SetTexture(kernel, s_FieldReadID, fieldReadArray);
+            cs.SetTexture(kernel, s_FieldWriteID, fieldWriteArray);
+            Dispatch(kernel, biomeRezX, biomeRezY, 1);
+            (fieldReadArray, fieldWriteArray) = (fieldWriteArray, fieldReadArray);
         }
 
         private void CreateDebugGrid()
@@ -275,8 +283,8 @@ namespace Biomes
 
         /// <summary>
         /// Sims call this to deposit/consume a specific biome channel at agent positions.
-        /// agentPositions buffer: float2 per agent (in sim-space coordinates).
-        /// The kernel maps sim coords → biome coords using resolution ratio.
+        /// agentPositions is the sim's 20-byte Agent buffer (position, direction, typeId);
+        /// the shader reads .position. The kernel maps sim coords → biome coords by ratio.
         /// </summary>
         public void WriteField(int channel, ComputeBuffer agentPositions, int agentCount,
             float amount, int simRezX, int simRezY)
