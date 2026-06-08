@@ -217,6 +217,11 @@ namespace Biomes
 
         public void BuildAllBanks()
         {
+            // The SimulationManager owns the canonical sim list. Mirror it so newly added
+            // sims (e.g. Termite) are bound without manually syncing a second list.
+            if (m_SimManager != null && m_SimManager.simulations != null && m_SimManager.simulations.Count > 0)
+                m_Simulations = m_SimManager.simulations;
+
             _bankBindings = new EncoderBinding[SOFT_BANK_COUNT][];
             _bankColors = new int[SOFT_BANK_COUNT];
             for (int b = 0; b < SOFT_BANK_COUNT; b++)
