@@ -40,6 +40,10 @@ namespace Biomes
         public Material debugOutputMat;
         [Range(0, BiomeChannel.Count - 1)] public int debugChannel = 0;
 
+        [Header("PNG Export")]
+        [Tooltip("Folder (relative to the project root, i.e. the parent of Assets/) where channel PNGs are written. A subfolder named after this GameObject is created so multiple biomes don't collide.")]
+        public string exportFolder = "Exports/Biomes";
+
         private GPUResourceManager gpu;
 
         // Kernel handles
@@ -256,6 +260,61 @@ namespace Biomes
             cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
             Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+        }
+
+        /// <summary>
+        /// Save every biome channel as its own PNG into exportFolder/&lt;GameObject name&gt;/.
+        /// Each channel is rendered through the same debug kernel the grid uses, read back
+        /// to the CPU, and encoded. Requires Reset() to have run (GPU resources live).
+        /// </summary>
+        [Button("Export PNGs")]
+        public void ExportPNGs()
+        {
+            if (gpu == null || fieldReadArray == null)
+            {
+                Debug.LogWarning("[Biome] Cannot export — call Reset() first to initialize GPU resources.");
+                return;
+            }
+
+            // Resolve output dir relative to the project root (parent of Assets/), with a
+            // per-biome subfolder so several Biome instances export side by side.
+            string projectRoot = System.IO.Directory.GetParent(Application.dataPath).FullName;
+            string dir = System.IO.Path.Combine(projectRoot, exportFolder, gameObject.name);
+            System.IO.Directory.CreateDirectory(dir);
+
+            // Float UAV target matches the format the debug kernel already writes; the 8-bit
+            // readback texture is what EncodeToPNG reliably supports (ReadPixels converts).
+            var tmp = new RenderTexture(biomeRezX, biomeRezY, 0, RenderTextureFormat.ARGBFloat)
+            {
+                enableRandomWrite = true,
+                dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
+            };
+            tmp.Create();
+            var readback = new Texture2D(biomeRezX, biomeRezY, TextureFormat.RGBA32, false);
+
+            var prevActive = RenderTexture.active;
+            for (int i = 0; i < BiomeChannel.Count; i++)
+            {
+                RenderChannelTo(i, tmp);
+
+                RenderTexture.active = tmp;
+                readback.ReadPixels(new Rect(0, 0, biomeRezX, biomeRezY), 0, 0);
+                readback.Apply();
+
+                string path = System.IO.Path.Combine(dir, $"{i:D2}_{ChannelNames[i]}.png");
+                System.IO.File.WriteAllBytes(path, readback.EncodeToPNG());
+            }
+            RenderTexture.active = prevActive;
+
+            tmp.Release();
+            Destroy(tmp);
+            Destroy(readback);
+
+            Debug.Log($"[Biome] Exported {BiomeChannel.Count} channel PNGs → {dir}");
+
+#if UNITY_EDITOR
+            UnityEditor.AssetDatabase.Refresh();
+#endif
         }
 
         private void RenderDebug()
