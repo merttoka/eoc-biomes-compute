@@ -60,6 +60,8 @@ namespace Biomes
             public float diffuseRate;
             public float hue;
             public float saturation;
+            public float firingSpeedMul;
+            public float firingDepositAmount;
         }
         #endregion
 
@@ -112,6 +114,7 @@ namespace Biomes
             ResetTrailArrays();
 
             cs.SetInt(s_AgentsCountID, agentsCount);
+            BuildNeuronPositions(resetAgentsKernel);
             cs.SetBuffer(resetAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
             Dispatch(resetAgentsKernel, agentsCount, 1, 1);
             (readAgentsBuffer, writeAgentsBuffer) = (writeAgentsBuffer, readAgentsBuffer);
@@ -140,6 +143,8 @@ namespace Biomes
                     diffuseRate = t.diffuseRate,
                     hue = t.hue,
                     saturation = t.saturation,
+                    firingSpeedMul = t.firingSpeedMul,
+                    firingDepositAmount = t.firingDepositAmount,
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
@@ -154,6 +159,7 @@ namespace Biomes
         {
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
+            BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
             GPUSpatialHashBuild();
             GPUMoveAgentsKernel();
             GPUDiffuseTextureKernel();

@@ -45,6 +45,12 @@ uint time;
 
 #include "includes/random.hlsl"
 #include "includes/boid_type_params.hlsl"
+#include "includes/neuron_firing.hlsl"
+
+// Neuron-position seeding (bound by SimulationBase.BuildNeuronPositions)
+StructuredBuffer<float2> neuronPositions;
+uint neuronCount;
+float2 neuronScale;
 
 
 // ════════════════════════════════════════════════
@@ -84,8 +90,16 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
 
     Agent a;
-    float2 c = Random2(id.x * .0001 + time * .001);
-    a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
+    if (neuronCount > 0) {
+        uint idx = id.x % neuronCount;
+        float2 p = neuronPositions[idx] * neuronScale + float2(rezX * (1.0 - neuronScale.x) * 0.5, rezY * (1.0 - neuronScale.y) * 0.5);
+        p.x = clamp(p.x, 0.0, (float)rezX - 1.0);
+        p.y = clamp(p.y, 0.0, (float)rezY - 1.0);
+        a.position = p;
+    } else {
+        float2 c = Random2(id.x * .0001 + time * .001);
+        a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
+    }
     a.velocity = RandomDirection2(id.xy * .001 + sin(time));
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
@@ -272,9 +286,10 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     b.velocity += acceleration;
 
-    // Apply permeability speed penalty from biome
+    // Apply permeability speed penalty from biome + neuron-firing burst
     float speedMult = perception.g;
-    float effectiveMaxSpeed = p.maxSpeed * speedMult;
+    float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
+    float effectiveMaxSpeed = p.maxSpeed * speedMult * fireMul;
     b.velocity = Limit(b.velocity, effectiveMaxSpeed);
 
     b.position += b.velocity;
@@ -300,8 +315,9 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     BoidTypeParams p = typeParams[b.typeId];
     uint2 pos = uint2(round(b.position));
 
+    float dep = IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount;
     float own = trailWrite[uint3(pos, b.typeId)];
-    trailWrite[uint3(pos, b.typeId)] = clamp(own + p.depositAmount, 0, 1);
+    trailWrite[uint3(pos, b.typeId)] = clamp(own + dep, 0, 1);
 
     for (uint t = 0; t < typeCount; t++) {
         if (t == b.typeId) continue;

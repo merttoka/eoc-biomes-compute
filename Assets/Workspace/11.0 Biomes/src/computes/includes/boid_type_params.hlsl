@@ -12,6 +12,8 @@ struct BoidTypeParams {
     float diffuseRate;
     float hue;
     float saturation;
-};  // 52 bytes (13 floats)
+    float firingSpeedMul;
+    float firingDepositAmount;
+};  // 60 bytes (15 floats)
 StructuredBuffer<BoidTypeParams> typeParams;
 uint typeCount;
