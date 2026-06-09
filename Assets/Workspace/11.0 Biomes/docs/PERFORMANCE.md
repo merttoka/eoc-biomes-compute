@@ -345,11 +345,20 @@ nearly free** on the Unity side. Costs to watch:
 
 ---
 
-## 10. Bring-up order for the show
+## 10. Bring-up order / performance test checklist for the show
 
-1. One sim rig only; `showDebugGrid = 0`; cap boid ranges; `biomeStepEvery = 2`.
-2. Sims at 1920×1080, composite/output 3840×1080 (relies on the UV-composite change).
-3. Bring physarum up gradually (500 k → 1 M → 2 M …), watching frame time; balance
-   `depositAmount`/`diffuseRate`/persistence at each step.
-4. Decide 60 vs 30 fps (`stepMod`) based on measured headroom with TouchDesigner running.
-5. If targeting the full 10 M, do it on an M4 Pro at 30 fps with reduced sim resolution.
+1. One sim rig only; `showDebugGrid = 0`; `biomeStepEvery = 2`.
+2. **TODO: cap boid interaction ranges to ≤ 64 px** in `BoidParams.asset`
+   (`separationRange`/`alignmentRange`/`attractionRange` — currently up to ~498 px; the
+   neighbour-loop cost is quadratic in count at fixed range, §2/§5).
+3. **TODO: turn the neuron firing-ring overlay off** (`m_NeuronRingOverlay = 0`) — the
+   rings don't sit well on the evolved composite. Candidate repurposing (don't delete the
+   kernel): render rings to a *separate* small texture sent over Syphon as an infographic
+   layer for TD, and/or use firing events to pulse a biome channel via the injector instead
+   of drawing on the composite.
+4. Sims at 1920×1080 (`simResolutionScale ≈ 0.5`), composite/output 3840×1080;
+   `perceptionResScale = 0.25`; `metabolismEvery = 2-4`.
+5. Bring physarum up gradually (500 k → 1 M → 2 M …), watching frame time; balance
+   `depositAmount`/`diffuseRate`/`renderPersistence` at each step.
+6. Decide 60 vs 30 fps (`stepMod`) based on measured headroom with TouchDesigner running.
+7. If targeting the full 10 M, do it on an M4 Pro at 30 fps with reduced sim resolution.

@@ -17,7 +17,7 @@ namespace Biomes
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
         [Header("Agents")]
-        [Range(32, 250000)] public int agentsCount = 500;
+        [Range(32, 150000)] public int agentsCount = 500;
         private ComputeBuffer readAgentsBuffer;
         private ComputeBuffer writeAgentsBuffer;
 
