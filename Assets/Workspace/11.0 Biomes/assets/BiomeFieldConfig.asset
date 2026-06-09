@@ -44,7 +44,7 @@ MonoBehaviour:
     advectedByFlow: 0
     initialValue: 0.5
   - name: Waste
-    diffuseRate: 0.99
+    diffuseRate: 0.999
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0
@@ -54,17 +54,17 @@ MonoBehaviour:
     advectedByFlow: 0
     initialValue: 0.7
   - name: Flow_X
-    diffuseRate: 0.92
+    diffuseRate: 0.8
     decayRate: 0.02
     advectedByFlow: 0
     initialValue: 0
   - name: Flow_Y
-    diffuseRate: 0.92
+    diffuseRate: 0.8
     decayRate: 0.02
     advectedByFlow: 0
     initialValue: 0
-  wasteToNutrientRate: 0.03
-  temperatureToFlowStrength: 0.4
-  temperatureToPermeability: 0.05
-  noiseScale: 0
+  wasteToNutrientRate: 0.02
+  temperatureToFlowStrength: 0.524
+  temperatureToPermeability: 0.01
+  noiseScale: 3
   noiseThreshold: 0.3

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c016f41934f544f308052ff23c8e9c7b, type: 3}
-  m_Name: TermiteParams
+  m_Name: Termite_20260608_194845
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteParams
   typeCount: 1
   types:
@@ -19,13 +19,13 @@ MonoBehaviour:
     turnAngle: 15
     moveSpeed: 0.5
     firingSpeedMul: 2
-    depositAmount: 0.2
+    depositAmount: 0.12692913
     firingDepositAmount: 4
     depositProbability: 0.2
     firingDepositProbability: 0.4
-    diffuseRate: 0.97
-    hue: 0.6
-    saturation: 0.46
+    diffuseRate: 0.96062994
+    hue: 0.44094488
+    saturation: 0.21259843
   ranges:
   - name: moveSpeed
     min: 0.05

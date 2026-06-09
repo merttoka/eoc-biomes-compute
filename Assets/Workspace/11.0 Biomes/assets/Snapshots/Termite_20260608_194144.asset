@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c016f41934f544f308052ff23c8e9c7b, type: 3}
-  m_Name: TermiteParams
+  m_Name: Termite_20260608_194144
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteParams
   typeCount: 1
   types:
