@@ -18,7 +18,20 @@ namespace Biomes
         public const int FlowX      = 8;
         public const int FlowY      = 9;
         public const int Count      = 10;
+
+        /// <summary>Display names, index-aligned with the constants above. Single source of
+        /// truth for the inspector channel dropdown — keep in sync if channels change.</summary>
+        public static readonly string[] Names =
+        {
+            "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
+            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y",
+        };
     }
+
+    /// <summary>Field flag: renders an int channel index as a named dropdown in the
+    /// inspector (drawer in src/Editor/BiomeChannelFieldDrawer.cs). Stored value stays the
+    /// channel index, so it's GPU- and serialization-compatible with a plain int.</summary>
+    public class BiomeChannelFieldAttribute : PropertyAttribute { }
 
     [Serializable]
     public class FieldChannelSettings

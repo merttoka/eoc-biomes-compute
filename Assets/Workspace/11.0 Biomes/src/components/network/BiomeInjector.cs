@@ -33,8 +33,8 @@ namespace Biomes
             [Range(0.001f, 0.5f)] public float radius = 0.06f;
             [Range(0.25f, 6f)]    public float falloff = 1.5f;
 
-            [Tooltip("Target biome channel index. 0=Nutrient 1-3=Pheromone 4=Oxygen 5=Temperature 6=Waste 7=Permeability.")]
-            [Range(0, BiomeChannel.Count - 1)] public int channel = BiomeChannel.Oxygen;
+            [Tooltip("Target biome channel.")]
+            [BiomeChannelField] public int channel = BiomeChannel.Oxygen;
 
             [Tooltip("Multiplies the live value. Additive mode: small per-step increment (~0.005-0.05). " +
                      "Max/Set modes: target-level scale (~1; channel is driven toward gain*value, clamped 0..1).")]

@@ -7,7 +7,7 @@ namespace Biomes
     [Serializable]
     public class UmweltReadEntry
     {
-        public int channel;                        // BiomeChannel index to read
+        [BiomeChannelField] public int channel;    // BiomeChannel index to read
         [Range(-2f, 2f)] public float weight = 1f; // positive = attract, negative = repel
         public UmweltEffect effect = UmweltEffect.Chemotaxis;
     }
@@ -15,7 +15,7 @@ namespace Biomes
     [Serializable]
     public class UmweltWriteEntry
     {
-        public int channel;                         // BiomeChannel index to write
+        [BiomeChannelField] public int channel;     // BiomeChannel index to write
         [Range(-1f, 1f)] public float amount = 0.01f; // positive = deposit, negative = consume
     }
 
