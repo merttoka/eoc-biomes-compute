@@ -96,6 +96,13 @@ Mush (saturation to flat 1.0) · runaway (Q10/flow blow-up) · dead equilibrium 
 **All four design lenses independently converged on the same answer**, which is a
 strong signal: **one reusable spatial *stamp injector*.**
 
+> ✅ **Implemented** (`feat/stamp-injector` → main): `BiomeInjector` component +
+> `InjectStampKernel` + `Biome.InjectSources`, dispatched pre-Step in
+> `SimulationManager.Step`. Live drive via OSC — `/inject/<name>` (value) and
+> `/inject/<name>/pos` (u,v) through `OSCMapping` (see `MIDI_OSC.md`). Each source maps a
+> physical location to a normalized biome UV + channel; default `MaxToward` blend avoids
+> saturation; `valueTimeout` guards sensor dropout.
+
 ### The primitive
 A `ComputeBuffer<Stamp>` + one per-texel `InjectStampKernel`:
 ```
@@ -138,7 +145,7 @@ source of truth + an editor gizmo to place it), with a value source of
 
 | # | Move | Tier | Risk | Touches struct? | New channel? |
 |---|------|------|------|-----------------|--------------|
-| 1 | **Spatial stamp injector** (plant-O₂, robot-Temp, sun) | C | low | no | no |
+| 1 | **Spatial stamp injector** (plant-O₂, robot-Temp, sun) ✅ **shipped** | C | low | no | no |
 | 2 | **Q10 + decay sinks** (stop the mush) | 1 | low | no | no |
 | 3 | **B-channel predator/prey + waste scavenging** (asset edits) | 0 | low | no | no |
 | 4 | **Diurnal sun** (as a stamp) | 1 | low–med | no | no |
@@ -149,6 +156,9 @@ source of truth + an editor gizmo to place it), with a value source of
 Ship 1–4 first (no struct, no channel, all reversible on knobs) — that alone
 turns the field from relax-to-equilibrium soup into a breathing, externally-driven
 system. 5–7 are the deep biology; do them once the core reads as alive.
+
+**Status:** #1 shipped (the injector). Next up: **#2 Q10 + decay sinks** — the cheapest
+move that converts the relax-to-mush field into travelling fertility fronts.
 
 ---
 

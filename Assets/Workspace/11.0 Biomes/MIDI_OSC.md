@@ -17,6 +17,20 @@ OscJack server (default port 9000). Auto-registers addresses from `ModulatablePa
 Convention: `/<simPrefix>_<paramName>_<index>` (e.g. `/p_moveSpeed_0`, `/b_maxSpeed_0`).
 Commands: `/sim_reset`, `/sim_resetSimsOnly`.
 
+**Biome injector** — assign a `BiomeInjector` to OSCMapping's `Biome Injector` field.
+Registers one address per source, keyed by the source's **Name** (use OSC-safe names, no
+spaces). Drives external installation inputs (plants → Oxygen, robot proximity →
+Temperature, neuron firing → Pheromone) into biome channels at mapped locations:
+
+| Address | Args | Effect |
+| ------- | ---- | ------ |
+| `/inject/<name>` | 1 float `0..1` | set the source's live value |
+| `/inject/<name>/pos` | 2 floats `u v` (`0..1`) | move the source's biome location (e.g. robot pose → location) |
+
+Value is multiplied by the source's `gain` and stamped into its channel each step
+(pre-Step, so it advects + diffuses). Set the source's `Value Timeout` to ~1–2 s so a
+dropped sensor decays to 0. Sources register at `Start` — define them before Play.
+
 ---
 
 ## Midi Fighter Twister
@@ -113,7 +127,7 @@ Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 
 | Bot (L3/R3) | RandomizeParams | RandomizeColors |
 
 
-Other assignable actions: RandomizeAll, ExportPNG, TogglePause, CycleDebugChannel, ClearBiome, ToggleDebugGrid, PrevSoftBank, NextSoftBank.
+Other assignable actions: RandomizeAll, ExportPNG, TogglePause, CycleDebugChannel, ClearBiome, ToggleDebugGrid, PrevSoftBank, NextSoftBank, CycleScreen, ToggleScreen, SaveSnapshot (new timestamped preset), SaveToCurrentParams (overwrite the assigned preset asset in place with live params).
 
 Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31). Same physical button = same action on all HW banks. Only configure HW bank 1 CC numbers in inspector.
 
