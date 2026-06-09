@@ -177,7 +177,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 61c04496839004f91a70c87af3bf66e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ExternalTextureSender
-  simManager: {fileID: 427713103}
+  simManager: {fileID: 0}
   resources:
     spout: {fileID: 11400000, guid: f449ebbe2051c2e4d993eaa773a410de, type: 2}
     ndi: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
@@ -222,110 +222,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &102842652
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 102842654}
-  - component: {fileID: 102842653}
-  - component: {fileID: 102842655}
-  m_Layer: 0
-  m_Name: TermiteSim
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &102842653
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 102842652}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a989f9dacbef242b79081d4a2c6afcd6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
-  cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
-  outputMat: {fileID: 2100000, guid: 08c791a04d6e64e13a17db419673ca8c, type: 2}
-  rezX: 1024
-  rezY: 1024
-  umwelt: {fileID: 11400000, guid: da5ece7fe0bf54404a20c91839ac865f, type: 2}
-  firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.4, y: 0.75}
-  agentsCount: 13100
-  paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
-  agentParams: {fileID: 0}
---- !u!4 &102842654
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 102842652}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 427713104}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &102842655
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 102842652}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
-  simManager: {fileID: 427713103}
-  simIndex: 2
-  waypoints:
-  - {fileID: 11400000, guid: 2f6ff9d830c774f1f95e41e572095125, type: 2}
-  - {fileID: 11400000, guid: a472875e686e540bfba1e22da80a58a3, type: 2}
-  durationSteps: 20000
-  holdSteps: 5000
-  easing:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  paramToggles: []
-  phase: 0
-  currentWaypoint: 0
-  progress: 0
 --- !u!1 &276895385
 GameObject:
   m_ObjectHideFlags: 0
@@ -439,6 +335,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
   cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
   outputMat: {fileID: 2100000, guid: 6f99dd3881dd147bfaaee20c63f77994, type: 2}
+  compositeWeight: 1
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 2f40aa7ce2c9e4a61b8d41b0c6400f1c, type: 2}
@@ -449,91 +346,6 @@ MonoBehaviour:
   agentsCount: 300000
   paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
   agentParams: {fileID: 0}
---- !u!1 &414066865
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 414066867}
-  - component: {fileID: 414066866}
-  - component: {fileID: 414066868}
-  m_Layer: 0
-  m_Name: Biome
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &414066866
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 414066865}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 960
-  biomeRezY: 270
-  fieldConfig: {fileID: 11400000, guid: c7161ed1133fe4e2ca88bd779a0cbee8, type: 2}
-  cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
-  showDebugGrid: 1
-  debugQuadSize: 0.65
-  debugGridSpacing: 0.2
-  debugGridOrigin: {x: -2.5, y: -2.3, z: 0}
-  debugGridColumns: 4
-  showBiomeLabels: 1
-  labelColor: {r: 0.6, g: 0.6, b: 0.6, a: 0.6156863}
-  labelYOffset: 0.4
-  debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
-  debugChannel: 0
-  exportFolder: Exports/Biomes
---- !u!4 &414066867
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 414066865}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -7.58071, y: 0.63914, z: -13.88248}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 544060455}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &414066868
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 414066865}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 84c0a1facb5da4bb6a145b74ec63b5cf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BiomeInjector
-  sources:
-  - name: TODO
-    enabled: 0
-    fieldUV: {x: 0.63, y: 0.48}
-    radius: 0.5
-    falloff: 5.32
-    channel: 4
-    gain: 1
-    mode: 1
-    value: 0.775
-    valueTimeout: 4
-  drawGizmos: 1
-  gizmoColor: {r: 0.3, g: 0.9, b: 1, a: 0.6}
 --- !u!1 &417804407
 GameObject:
   m_ObjectHideFlags: 0
@@ -620,100 +432,6 @@ MonoBehaviour:
   isRecording: 0
   isPlaying: 0
   playbackStep: 0
---- !u!1 &427713102
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 427713104}
-  - component: {fileID: 427713103}
-  - component: {fileID: 427713105}
-  m_Layer: 0
-  m_Name: SimulationManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &427713103
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 427713102}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 3840
-  rezY: 1080
-  stepsPerFrame: 1
-  stepMod: 1
-  limitFPS: 1
-  targetFPS: 60
-  biome: {fileID: 414066866}
-  injector: {fileID: 414066868}
-  simulations:
-  - {fileID: 1618572301}
-  - {fileID: 1063645694}
-  - {fileID: 102842653}
-  externalInput: {fileID: 0}
-  neuronFiring: {fileID: 0}
-  m_DebugOverlayVideoOnOutput: 0
-  m_DebugOverlayStrength: 0.5
-  m_NeuronRingOverlay: 1
-  m_RingColor: {r: 1, g: 0.95, b: 0.8, a: 1}
-  m_RingRadius: 14
-  m_RingThickness: 4
-  m_RingStrength: 1.5
-  m_RingThreshold: 0.1
-  m_RingSpawnScale: {x: 0.8, y: 0.9}
-  compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
-  compositeOutMat: {fileID: 2100000, guid: b34d3ce16b29941bb86a92f7d1b69e9a, type: 2}
-  compositeOutputQuad: {fileID: 944659780}
-  recordingCamera: {fileID: 907546077}
---- !u!4 &427713104
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 427713102}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -7.58071, y: 0.63914, z: -13.88248}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1618572302}
-  - {fileID: 1063645695}
-  - {fileID: 102842654}
-  m_Father: {fileID: 544060455}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &427713105
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 427713102}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a81345919d00e415285bf20e1c5b4d5b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolatorGroup
-  interpolators:
-  - {fileID: 1618572303}
-  - {fileID: 1063645696}
-  - {fileID: 102842655}
-  mft: {fileID: 0}
-  resumeCooldownSeconds: 8
-  midiOverrideActive: 0
 --- !u!1 &527395916
 GameObject:
   m_ObjectHideFlags: 0
@@ -724,7 +442,7 @@ GameObject:
   m_Component:
   - component: {fileID: 527395917}
   m_Layer: 0
-  m_Name: Biome-Sim-v2
+  m_Name: Biome-Sim
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -745,39 +463,6 @@ Transform:
   m_Children:
   - {fileID: 1919109755}
   - {fileID: 2000144459}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &544060454
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 544060455}
-  m_Layer: 0
-  m_Name: Biome-Sim-v1
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!4 &544060455
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 544060454}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 7.58071, y: -0.63914, z: 13.88248}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 414066867}
-  - {fileID: 427713104}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &584847074
@@ -1504,6 +1189,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
   cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
   outputMat: {fileID: 2100000, guid: 08c791a04d6e64e13a17db419673ca8c, type: 2}
+  compositeWeight: 1
   rezX: 1024
   rezY: 1024
   umwelt: {fileID: 11400000, guid: 4f22983a9c17c48b08d81bd1d3b98cf2, type: 2}
@@ -1576,110 +1262,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2000144459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1063645693
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1063645695}
-  - component: {fileID: 1063645694}
-  - component: {fileID: 1063645696}
-  m_Layer: 0
-  m_Name: BoidSim
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1063645694
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1063645693}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c26c19193c8bb4298a6d0331d5741d44, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidSim
-  cs: {fileID: 7200000, guid: 389d82ac9790342749216aaa0602d941, type: 3}
-  outputMat: {fileID: 2100000, guid: e53f1624b50e246e89445d57729ac6b2, type: 2}
-  rezX: 2048
-  rezY: 2048
-  umwelt: {fileID: 11400000, guid: 83e0e0c5cd5bb45ed98a3e0c9e893e30, type: 2}
-  firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 0}
-  csvCoordinatesAreNormalized: 0
-  spawnScale: {x: 0.8, y: 0.9}
-  agentsCount: 10000
-  paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
-  agentParams: {fileID: 0}
---- !u!4 &1063645695
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1063645693}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 427713104}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1063645696
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1063645693}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
-  simManager: {fileID: 427713103}
-  simIndex: 1
-  waypoints:
-  - {fileID: 11400000, guid: d5821dd980ff8457ca07450ad3cbe575, type: 2}
-  - {fileID: 11400000, guid: ef091b619c5a441a398fcdb0b51139d3, type: 2}
-  durationSteps: 20000
-  holdSteps: 5000
-  easing:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  paramToggles: []
-  phase: 0
-  currentWaypoint: 0
-  progress: 0
 --- !u!1 &1076481738
 GameObject:
   m_ObjectHideFlags: 0
@@ -1906,129 +1488,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1470234283}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1618572300
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1618572302}
-  - component: {fileID: 1618572301}
-  - component: {fileID: 1618572303}
-  m_Layer: 0
-  m_Name: PhysarumSim
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1618572301
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1618572300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c2bb3fc8c5fa48c1a5f7bd1fcf7d0bb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
-  cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
-  outputMat: {fileID: 2100000, guid: 6f99dd3881dd147bfaaee20c63f77994, type: 2}
-  rezX: 2048
-  rezY: 2048
-  umwelt: {fileID: 11400000, guid: a6ee80ecf5443440cb4462abc00e19ba, type: 2}
-  firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.8, y: 0.9}
-  agentsCount: 500000
-  paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
-  agentParams: {fileID: 0}
---- !u!4 &1618572302
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1618572300}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 427713104}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1618572303
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1618572300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
-  simManager: {fileID: 427713103}
-  simIndex: 0
-  waypoints:
-  - {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
-  - {fileID: 11400000, guid: 4dca0745de97c4f77a2bdbe173dcb8f2, type: 2}
-  - {fileID: 11400000, guid: e7322211955124c9e8d5f548d76e982c, type: 2}
-  durationSteps: 20000
-  holdSteps: 5000
-  easing:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  paramToggles:
-  - name: moveSpeed
-    enabled: 1
-  - name: senseAngle
-    enabled: 1
-  - name: turnAngle
-    enabled: 1
-  - name: senseDistance
-    enabled: 1
-  - name: depositAmount
-    enabled: 1
-  - name: eatAmount
-    enabled: 1
-  - name: diffuseRate
-    enabled: 1
-  - name: hue
-    enabled: 1
-  - name: saturation
-    enabled: 1
-  phase: 0
-  currentWaypoint: 0
-  progress: 0
 --- !u!1 &1825205985
 GameObject:
   m_ObjectHideFlags: 0
@@ -2123,6 +1582,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidSim
   cs: {fileID: 7200000, guid: 389d82ac9790342749216aaa0602d941, type: 3}
   outputMat: {fileID: 2100000, guid: e53f1624b50e246e89445d57729ac6b2, type: 2}
+  compositeWeight: 1
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 6ccf98ec293264e40ab41b39bf475a92, type: 2}
@@ -2411,7 +1871,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BiomeInjector
   sources:
-  - name: TODO
+  - name: TODO-SENSOR
     enabled: 0
     fieldUV: {x: 0.63, y: 0.48}
     radius: 0.5
@@ -2435,10 +1895,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 640
+  biomeRezX: 320
   biomeRezY: 180
+  stepEvery: 4
   fieldConfig: {fileID: 11400000, guid: 8cdb2f1bdc2444d848cd11e5e774c5c3, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
+  fusedWriteCS: {fileID: 7200000, guid: 9ce42c0778aa14270950ac44dbcad2b1, type: 3}
   showDebugGrid: 1
   debugQuadSize: 0.65
   debugGridSpacing: 0.2
@@ -2450,6 +1912,7 @@ MonoBehaviour:
   debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
   debugChannel: 0
   exportFolder: Exports/Biomes
+  exportNormalized: 1
 --- !u!1 &1938610676
 GameObject:
   m_ObjectHideFlags: 0
@@ -2480,12 +1943,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.OSCMapping
   m_Port: 9000
-  m_SimulationManager: {fileID: 427713103}
+  m_SimulationManager: {fileID: 0}
   m_Simulations:
-  - {fileID: 1618572301}
-  - {fileID: 1063645694}
-  - {fileID: 102842653}
-  m_BiomeInjector: {fileID: 414066868}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  m_BiomeInjector: {fileID: 0}
   m_NeuronFiringSource: {fileID: 2000144462}
 --- !u!4 &1938610678
 Transform:
@@ -2572,12 +2035,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
   rezX: 3840
   rezY: 1080
+  simResolutionScale: 1
   stepsPerFrame: 1
   stepMod: 1
-  limitFPS: 1
+  limitFPS: 0
   targetFPS: 60
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
+  fusedWriteback: 1
   simulations:
   - {fileID: 276895388}
   - {fileID: 1825205988}
@@ -2586,7 +2051,7 @@ MonoBehaviour:
   neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
-  m_NeuronRingOverlay: 1
+  m_NeuronRingOverlay: 0
   m_RingColor: {r: 1, g: 0.95, b: 0.8, a: 1}
   m_RingRadius: 14
   m_RingThickness: 4
@@ -2620,7 +2085,6 @@ SceneRoots:
   - {fileID: 1915234171}
   - {fileID: 907546078}
   - {fileID: 584847076}
-  - {fileID: 544060455}
   - {fileID: 527395917}
   - {fileID: 417804409}
   - {fileID: 1938610678}
