@@ -12,10 +12,21 @@ namespace Biomes
         [SerializeField] public SimulationManager m_SimulationManager;
         [SerializeField] public List<SimulationBase> m_Simulations = new List<SimulationBase>();
         [SerializeField] public BiomeInjector m_BiomeInjector;
+        [SerializeField] public NeuronFiringSource m_NeuronFiringSource;
 
         void Start()
         {
             m_OscServer = new OscServer(m_Port);
+
+            // Neuron firing: external frame index (0..frameCount-1) scrubs the blob.
+            // GetElementAsInt handles both int ('i') and float ('f') OSC type tags.
+            m_OscServer.MessageDispatcher.AddCallback(
+                "/index",
+                (string address, OscDataHandle data) => {
+                    if (m_NeuronFiringSource == null) return;
+                    m_NeuronFiringSource.SetFrame(data.GetElementAsInt(0));
+                }
+            );
 
             // Reset commands
             m_OscServer.MessageDispatcher.AddCallback(
