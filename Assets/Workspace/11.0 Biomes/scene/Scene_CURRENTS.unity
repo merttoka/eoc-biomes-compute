@@ -257,16 +257,13 @@ MonoBehaviour:
   rezX: 1024
   rezY: 1024
   umwelt: {fileID: 11400000, guid: da5ece7fe0bf54404a20c91839ac865f, type: 2}
-  agentsCount: 13100
-  paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
-  agentParams: {fileID: 0}
+  firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.4, y: 0.75}
-  enableFiring: 1
-  firingBlobFile: biomes11/termite_firing.f16
-  firingThreshold: 0.1
-  loopFiring: 1
+  agentsCount: 13100
+  paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
+  agentParams: {fileID: 0}
 --- !u!4 &102842654
 Transform:
   m_ObjectHideFlags: 0
@@ -445,12 +442,13 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 2f40aa7ce2c9e4a61b8d41b0c6400f1c, type: 2}
-  agentsCount: 500000
-  paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
-  agentParams: {fileID: 0}
+  firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
-  neuronScale: {x: 0.4, y: 0.75}
+  spawnScale: {x: 0.4, y: 0.75}
+  agentsCount: 300000
+  paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
+  agentParams: {fileID: 0}
 --- !u!1 &414066865
 GameObject:
   m_ObjectHideFlags: 0
@@ -495,6 +493,7 @@ MonoBehaviour:
   labelYOffset: 0.4
   debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
   debugChannel: 0
+  exportFolder: Exports/Biomes
 --- !u!4 &414066867
 Transform:
   m_ObjectHideFlags: 0
@@ -664,6 +663,7 @@ MonoBehaviour:
   - {fileID: 1063645694}
   - {fileID: 102842653}
   externalInput: {fileID: 0}
+  neuronFiring: {fileID: 0}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
@@ -704,6 +704,9 @@ MonoBehaviour:
   - {fileID: 1618572303}
   - {fileID: 1063645696}
   - {fileID: 102842655}
+  mft: {fileID: 0}
+  resumeCooldownSeconds: 8
+  midiOverrideActive: 0
 --- !u!1 &527395916
 GameObject:
   m_ObjectHideFlags: 0
@@ -1497,16 +1500,13 @@ MonoBehaviour:
   rezX: 1024
   rezY: 1024
   umwelt: {fileID: 11400000, guid: 4f22983a9c17c48b08d81bd1d3b98cf2, type: 2}
-  agentsCount: 13100
-  paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
-  agentParams: {fileID: 0}
+  firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.4, y: 0.75}
-  enableFiring: 1
-  firingBlobFile: biomes11/termite_firing.f16
-  firingThreshold: 0.1
-  loopFiring: 1
+  agentsCount: 13100
+  paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
+  agentParams: {fileID: 0}
 --- !u!114 &1010527584
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1604,6 +1604,10 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 83e0e0c5cd5bb45ed98a3e0c9e893e30, type: 2}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 0}
+  csvCoordinatesAreNormalized: 0
+  spawnScale: {x: 0.8, y: 0.9}
   agentsCount: 10000
   paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
   agentParams: {fileID: 0}
@@ -1930,12 +1934,13 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: a6ee80ecf5443440cb4462abc00e19ba, type: 2}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
+  spawnScale: {x: 0.8, y: 0.9}
   agentsCount: 500000
   paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
   agentParams: {fileID: 0}
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  neuronScale: {x: 0.4, y: 0.75}
 --- !u!4 &1618572302
 Transform:
   m_ObjectHideFlags: 0
@@ -2114,6 +2119,10 @@ MonoBehaviour:
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 6ccf98ec293264e40ab41b39bf475a92, type: 2}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
+  spawnScale: {x: 0.4, y: 0.75}
   agentsCount: 10000
   paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
   agentParams: {fileID: 0}
@@ -2405,7 +2414,7 @@ MonoBehaviour:
     mode: 1
     value: 0.775
     valueTimeout: 4
-  drawGizmos: 1
+  drawGizmos: 0
   gizmoColor: {r: 0.3, g: 0.9, b: 1, a: 0.6}
 --- !u!114 &1919109757
 MonoBehaviour:
@@ -2419,20 +2428,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 960
-  biomeRezY: 270
+  biomeRezX: 640
+  biomeRezY: 180
   fieldConfig: {fileID: 11400000, guid: 8cdb2f1bdc2444d848cd11e5e774c5c3, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   showDebugGrid: 1
   debugQuadSize: 0.65
   debugGridSpacing: 0.2
-  debugGridOrigin: {x: -2.5, y: -2.3, z: 0}
+  debugGridOrigin: {x: -2.7, y: -2.3, z: 0}
   debugGridColumns: 4
   showBiomeLabels: 1
   labelColor: {r: 0.6, g: 0.6, b: 0.6, a: 0.6156863}
   labelYOffset: 0.4
   debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
   debugChannel: 0
+  exportFolder: Exports/Biomes
 --- !u!1 &1938610676
 GameObject:
   m_ObjectHideFlags: 0
@@ -2469,6 +2479,7 @@ MonoBehaviour:
   - {fileID: 1063645694}
   - {fileID: 102842653}
   m_BiomeInjector: {fileID: 414066868}
+  m_NeuronFiringSource: {fileID: 2000144462}
 --- !u!4 &1938610678
 Transform:
   m_ObjectHideFlags: 0
@@ -2494,6 +2505,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2000144459}
   - component: {fileID: 2000144461}
+  - component: {fileID: 2000144462}
   - component: {fileID: 2000144460}
   m_Layer: 0
   m_Name: SimulationManager
@@ -2536,6 +2548,9 @@ MonoBehaviour:
   - {fileID: 276895387}
   - {fileID: 1825205987}
   - {fileID: 1010527584}
+  mft: {fileID: 417804410}
+  resumeCooldownSeconds: 8
+  midiOverrideActive: 0
 --- !u!114 &2000144461
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2561,12 +2576,28 @@ MonoBehaviour:
   - {fileID: 1825205988}
   - {fileID: 1010527583}
   externalInput: {fileID: 0}
+  neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
   compositeOutMat: {fileID: 2100000, guid: b34d3ce16b29941bb86a92f7d1b69e9a, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
+--- !u!114 &2000144462
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2000144458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40bb26352978a47488ae7d645d3d6303, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
+  firingBlobFile: biomes11/termite_firing.f16
+  firingDecaySeconds: 0.5
+  debugLog: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

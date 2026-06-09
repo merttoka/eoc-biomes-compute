@@ -21,7 +21,7 @@ namespace Biomes
         public float hue = 0f;
         public float saturation = 0.5f;
         public float firingSpeedMul = 2f;
-        public float firingDepositAmount = 0.3f;
+        public float firingDepositAmount = 1f;
     }
 
     [CreateAssetMenu(fileName = "BoidParams", menuName = "Biomes/BoidParams")]
