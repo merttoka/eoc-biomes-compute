@@ -29,10 +29,6 @@ uint agentsCount;
 StructuredBuffer<Agent> agentsIn;
 RWStructuredBuffer<Agent> agentsOut;
 
-// Optional firing state (per agent, 0/1). firingEnabled gates it.
-StructuredBuffer<uint> firing;
-uint firingEnabled;
-
 // Optional external initialization positions (e.g., neuron coordinates from CSV)
 StructuredBuffer<float2> neuronPositions;
 uint neuronCount;
@@ -44,6 +40,7 @@ uint time;
 
 #include "includes/random.hlsl"
 #include "includes/termite_type_params.hlsl"
+#include "includes/neuron_firing.hlsl"
 
 // ════════════════════════════════════════════════
 // RESET
@@ -159,7 +156,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Biome speed multiplier (permeability) + firing boost
     float2 uv = a.position / float2((float)rezX, (float)rezY);
     float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
-    float fireMul = (firingEnabled != 0 && firing[id.x] != 0) ? p.firingSpeedMul : 1.0;
+    float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
 
     a.direction = direction * effectiveSpeed;
@@ -187,7 +184,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     TermiteTypeParams p = typeParams[a.typeId];
     uint2 pos = uint2(round(a.position));
 
-    bool isFiring = (firingEnabled != 0) && (firing[id.x] != 0);
+    bool isFiring = IsFiring(id.x, neuronCount);
     float rnd = Hash1u(id.x * 374761393u + time * 3266489917u);
 
     if (isFiring) {
