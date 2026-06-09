@@ -1,0 +1,56 @@
+// Fused biome write-back (optional / experimental — swappable alternative to the
+// per-channel WriteFieldKernel in Biome.compute). Applies ALL of a sim's
+// (channel, amount) deposits in ONE dispatch: each agent computes its biome-field
+// position once, then loops the deposit entries. Replaces N separate WriteFieldKernel
+// dispatches (N = #channels + metabolic heat + oxygen) with a single one — the win
+// scales with agent count (e.g. 300k physarum × N → 300k × 1).
+//
+// Swap in by assigning this shader to Biome.fusedWriteCS and enabling
+// SimulationManager.fusedWriteback. Leave either off to use the default per-channel
+// path (Biome.compute is untouched). Same non-atomic accumulate semantics as
+// WriteFieldKernel: fieldWrite[pos,ch] = clamp(current + amount, 0, 1).
+
+#pragma kernel WriteFieldsKernel
+
+RWTexture2DArray<float> fieldWrite;   // bound to the biome's fieldReadArray
+uint rezX;
+uint rezY;
+uint agentCount;
+float simToFieldX;
+float simToFieldY;
+
+// Matches the 20-byte Agent layout (position, direction, typeId) so .position
+// reads the correct bytes (same as Biome.compute's AgentPos).
+struct AgentPos {
+    float2 position;
+    float2 direction;
+    uint typeId;
+};
+StructuredBuffer<AgentPos> agentPositions;
+
+// (channel, amount) deposits for this sim, applied per agent. int+float = 8 bytes,
+// matching the C# Biome.FusedWrite struct.
+struct FieldWrite {
+    int channel;
+    float amount;
+};
+StructuredBuffer<FieldWrite> writeEntries;
+uint writeEntryCount;
+
+[numthreads(256, 1, 1)]
+void WriteFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentCount) return;
+
+    float2 simPos = agentPositions[id.x].position;
+    uint2 fieldPos = uint2(
+        clamp(simPos.x * simToFieldX, 0, rezX - 1),
+        clamp(simPos.y * simToFieldY, 0, rezY - 1)
+    );
+
+    for (uint e = 0; e < writeEntryCount; e++) {
+        int ch = writeEntries[e].channel;
+        float amt = writeEntries[e].amount;
+        float current = fieldWrite[uint3(fieldPos, ch)];
+        fieldWrite[uint3(fieldPos, ch)] = clamp(current + amt, 0, 1);
+    }
+}

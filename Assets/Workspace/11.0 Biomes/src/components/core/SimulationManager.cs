@@ -23,6 +23,9 @@ namespace Biomes
         [Tooltip("Optional: routes external drivers (plants/robot/neurons) into biome channels at mapped locations.")]
         public BiomeInjector injector;
 
+        [Tooltip("Use the fused single-dispatch write-back (one dispatch applies all of a sim's channel deposits) instead of one dispatch per channel. Requires BiomeWriteFused.compute assigned to Biome.fusedWriteCS. Off = default per-channel path.")]
+        [SerializeField] private bool fusedWriteback = false;
+
         [Header("Simulations")]
         public List<SimulationBase> simulations = new();
 
@@ -57,6 +60,7 @@ namespace Biomes
         private int neuronRingKernel = -1;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
+        private readonly List<Biome.FusedWrite> _writeScratch = new();
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
 
@@ -211,25 +215,30 @@ namespace Biomes
                     int agentCount = sim.GetAgentCount();
                     if (posBuffer == null) continue;
 
-                    // Write each channel specified in Umwelt
-                    foreach (var write in sim.umwelt.writes)
+                    if (fusedWriteback && biome.SupportsFusedWriteback)
                     {
-                        biome.WriteField(write.channel, posBuffer, agentCount,
-                            write.amount, sim.rezX, sim.rezY);
+                        // Fused: gather all deposits, apply in ONE dispatch.
+                        _writeScratch.Clear();
+                        foreach (var write in sim.umwelt.writes)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = write.channel, amount = write.amount });
+                        if (sim.umwelt.metabolicHeat > 0)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Temperature, amount = sim.umwelt.metabolicHeat });
+                        if (sim.umwelt.oxygenConsumption > 0)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Oxygen, amount = -sim.umwelt.oxygenConsumption });
+                        biome.WriteFields(_writeScratch, posBuffer, agentCount, sim.rezX, sim.rezY);
                     }
-
-                    // Metabolic heat
-                    if (sim.umwelt.metabolicHeat > 0)
+                    else
                     {
-                        biome.WriteField(BiomeChannel.Temperature, posBuffer, agentCount,
-                            sim.umwelt.metabolicHeat, sim.rezX, sim.rezY);
-                    }
-
-                    // Oxygen consumption
-                    if (sim.umwelt.oxygenConsumption > 0)
-                    {
-                        biome.WriteField(BiomeChannel.Oxygen, posBuffer, agentCount,
-                            -sim.umwelt.oxygenConsumption, sim.rezX, sim.rezY);
+                        // Default per-channel path (one dispatch per deposit) — unchanged.
+                        foreach (var write in sim.umwelt.writes)
+                            biome.WriteField(write.channel, posBuffer, agentCount,
+                                write.amount, sim.rezX, sim.rezY);
+                        if (sim.umwelt.metabolicHeat > 0)
+                            biome.WriteField(BiomeChannel.Temperature, posBuffer, agentCount,
+                                sim.umwelt.metabolicHeat, sim.rezX, sim.rezY);
+                        if (sim.umwelt.oxygenConsumption > 0)
+                            biome.WriteField(BiomeChannel.Oxygen, posBuffer, agentCount,
+                                -sim.umwelt.oxygenConsumption, sim.rezX, sim.rezY);
                     }
                 }
             }

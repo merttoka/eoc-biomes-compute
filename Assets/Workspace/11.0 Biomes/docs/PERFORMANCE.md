@@ -129,12 +129,12 @@ HDRP.** Hence the ~15–20 fps estimate for the 10 M target on a base M4.
 2. **Per-pixel passes × canvas resolution.** Diffuse + Render + Perception across 3 sims at
    4.2 M px ≈ 340 M+ samples/step. **Resolution is a 4× lever** (half each dimension ⇒ ¼ the
    work) and is now decoupled from output res (see §4).
-3. **Physarum biome write-back = 5 dispatches.** 50 M agent-threads of scatter; collapsible
-   to 1 dispatch (see §5).
+3. **Physarum biome write-back = 5 dispatches.** 50 M agent-threads of scatter; now
+   collapsible to 1 dispatch via the optional fused write-back (§4 #6).
 4. **Boid neighbour loop with oversized `cellSize`.** Cap interaction ranges to shrink cells.
-5. **Biome PDE + debug grid every frame.** Decimate the PDE; disable the debug grid for the
-   show.
-6. **Two SimulationManager rigs + debug grid currently active in the scene** (see §6).
+   (The serial prefix-sum latency wall is now fixed — §4 #5.)
+5. **Biome PDE + debug grid every frame.** Decimate the PDE (`Biome.stepEvery`); disable the
+   debug grid for the show.
 
 ---
 
@@ -147,20 +147,30 @@ All are behaviour-preserving at equal resolution / default settings, and isolate
    (the dominant traffic) and the perception read in every Move kernel; saves ~230 MB.
    Output is saturated 0..1, perception is 0..1 — half precision is ample.
 2. **Composite samples sim outputs by UV** (`SimulationManager.compute`, inline
-   `sampler_linear_clamp`). **Decouples sim resolution from output resolution.** Sims can now
-   render at e.g. 1920×1080 (or lower) while the composite/Syphon output stays 3840×1080 —
-   a **4× cut** on Diffuse/Render/Perception/trail-memory while keeping agent counts. At
-   equal resolution this samples texel centres and is identical to the old integer indexing.
-   *(This also fixes a latent mismatch: sims were 2048² while the composite read pixel-exact
-   at 3840×1080, reading outside the sim texture.)*
+   `sampler_linear_clamp`), **driven by `SimulationManager.simResolutionScale` (0.1–1)**. Each
+   sim renders at `scale × output res` (aspect preserved — both dims scale equally) while the
+   composite/Syphon output stays full-res — a **~1/scale² cut** on
+   Diffuse/Render/Perception/trail-memory while keeping agent counts. At scale 1 this samples
+   texel centres and is identical to the old integer indexing.
+   *(Also fixes a latent mismatch where sims at 2048² were read pixel-exact at 3840×1080.)*
 3. **Cached perception read-entry buffer** (`Biome.cs`). `BuildPerceptionTex` was doing a
    `new ComputeBuffer(...)` + `Release()` every call — **~180 GPU buffer allocs/sec**
-   (3 sims × 60 fps). Now one reusable buffer per biome, grown on demand, freed in
-   `Release()`.
-4. **Biome-step decimation** (`SimulationManager.cs`, `biomeStepEvery`, default 1 = no
-   change). Runs the biome PDE (4 array passes + debug render) once every N sim steps. The
-   field is slow-changing, so **2–4 is visually invisible** and removes those passes from
-   most frames. Sim deposits still accumulate into the field every step, so nothing is lost.
+   (3 sims × 60 fps). Now one reusable buffer per biome, grown on demand, freed in `Release()`.
+4. **Biome PDE decimation — `Biome.stepEvery`** (default 1 = no change). The cadence now lives
+   on the **Biome** (`Biome.Step()` self-decimates) rather than the manager. Runs the PDE
+   (4 array passes + debug render) once every N calls; the field is slow-changing so **2–4 is
+   visually invisible**. Sim deposits still accumulate into the field every step.
+5. **Parallel boid prefix-sum** (`BoidSim.compute`). The spatial-hash `PrefixSumKernel` was
+   `[numthreads(1,1,1)]` (one thread, zero occupancy). Now a single-threadgroup 256-wide
+   chunked Hillis–Steele scan with a serial carry across chunks — same semantics (exclusive
+   scan → `cellOffsets`, zeroes `cellCounts` for the scatter), scales with grid-cell count.
+   No C# change (still dispatched as one group).
+6. **Fused biome write-back (optional, swappable)** — `BiomeWriteFused.compute` +
+   `Biome.fusedWriteCS` + `SimulationManager.fusedWriteback` (default off). When on, all of a
+   sim's `(channel, amount)` deposits apply in **one dispatch** (field pos computed once, loop
+   channels) instead of one `WriteField` dispatch per channel: **physarum 5×N → 1×N agent
+   threads**. Same non-atomic accumulate semantics; the per-channel path stays the untouched
+   default, so it's risk-free to A/B.
 
 ### Operator knobs already in the project (use these for the show)
 - **`SimulationManager.stepMod`** — step (and composite) every Nth frame. `stepMod = 2`
@@ -173,30 +183,23 @@ All are behaviour-preserving at equal resolution / default settings, and isolate
 
 ## 5. Recommended code changes (not yet applied — need a Unity build to verify)
 
-1. **Fuse physarum biome write-back into one dispatch.** Replace the 5 per-channel
-   `WriteField` calls with a single `WriteFields` kernel that loops the (channel, amount)
-   list per agent: **50 M → 10 M agent-threads** for physarum. Pass the channel/amount list
-   as a small *StructuredBuffer cached per-umwelt* (mirror the perception-buffer fix) —
-   **not** `SetFloats` into an HLSL `float[]`, whose 16-byte array stride is a silent-corruption
-   footgun. Behaviour is equivalent (same non-atomic per-channel collisions).
-2. **Parallel prefix sum for the boid hash.** `PrefixSumKernel` is single-threaded; replace
-   with a standard work-efficient scan (or Hillis–Steele) so it isn't a latency wall as cell
-   count grows.
-3. **Expose the render persistence fade.** Both `RenderKernel`s hardcode `current *= 0.9`.
+> Two former items here are now implemented on this branch — **fuse physarum write-back**
+> (§4 #6) and **parallel boid prefix-sum** (§4 #5).
+
+1. **Expose the render persistence fade.** Both `RenderKernel`s hardcode `current *= 0.9`.
    Exposing it lets you raise persistence to compensate for fewer agents (trails linger and
    fill the canvas), preserving the dense look at a fraction of the count.
-4. **Skip metabolic-heat / oxygen write-back when unused**, and consider writing them at a
+2. **Skip metabolic-heat / oxygen write-back when unused**, and consider writing them at a
    *decimated* cadence (they feed the slow biome PDE, which is itself decimated).
 
 ---
 
 ## 6. Scene/config audit (Scene_CURRENTS.unity)
 
-- **Two `SimulationManager` rigs (`Biome-Sim-v1` and `Biome-Sim-v2`) appear active**, each
-  stepping a full stack and compositing to 3840×1080. **Only one should run during the
-  show** — otherwise everything below doubles.
-- **`showDebugGrid: 1`** on both biomes ⇒ 10 `RenderChannelTo` dispatches + 10 quads/materials
-  per biome per frame. **Set to 0 for the exhibition.**
+- **Single `SimulationManager` rig.** (An earlier inactive second rig has been removed.) Keep
+  the scene to one active rig during the show.
+- **`showDebugGrid: 1`** ⇒ 10 `RenderChannelTo` dispatches + 10 quads/materials per biome per
+  frame. **Set to 0 for the exhibition.**
 - Current counts are *far* below target (physarum 300 k–500 k, boid 10 k, termite 13 100),
   so the target represents a **~20–30× physarum, ~10× boid, ~10× termite** increase. Validate
   incrementally.

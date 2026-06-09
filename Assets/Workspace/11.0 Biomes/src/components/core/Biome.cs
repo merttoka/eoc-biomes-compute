@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using EasyButtons;
 
@@ -16,6 +18,9 @@ namespace Biomes
         [Header("Config")]
         public BiomeFieldConfig fieldConfig;
         public ComputeShader cs;
+
+        [Tooltip("Optional swappable write-back shader (assign BiomeWriteFused.compute). When set AND SimulationManager.fusedWriteback is on, all of a sim's channel deposits are applied in ONE dispatch instead of one per channel. Leave null to use the default per-channel path.")]
+        public ComputeShader fusedWriteCS;
 
         // Field storage: double-buffered Texture2DArray (BiomeChannel.Count layers)
         private RenderTexture fieldReadArray;
@@ -441,6 +446,49 @@ namespace Biomes
             Dispatch(writeFieldKernel, agentCount, 1, 1);
         }
 
+        // ── Fused write-back (optional, via fusedWriteCS / BiomeWriteFused.compute) ──
+        [StructLayout(LayoutKind.Sequential)]
+        public struct FusedWrite { public int channel; public float amount; }   // 8 bytes, matches HLSL
+
+        public bool SupportsFusedWriteback => fusedWriteCS != null;
+
+        private ComputeBuffer _writeEntryBuffer;
+        private FusedWrite[] _writeEntryCache;
+        private int _writeFieldsKernel = -1;
+
+        /// <summary>Apply ALL of a sim's (channel, amount) deposits in one dispatch using
+        /// fusedWriteCS (BiomeWriteFused.compute). Same accumulate semantics as WriteField,
+        /// but computes the field position once per agent and loops channels. No-op if
+        /// fusedWriteCS is unassigned — callers should gate on SupportsFusedWriteback.</summary>
+        public void WriteFields(List<FusedWrite> entries, ComputeBuffer agentPositions,
+            int agentCount, int simRezX, int simRezY)
+        {
+            if (fusedWriteCS == null || agentPositions == null || entries == null || entries.Count == 0) return;
+            if (_writeFieldsKernel < 0) _writeFieldsKernel = fusedWriteCS.FindKernel("WriteFieldsKernel");
+
+            int n = entries.Count;
+            if (_writeEntryCache == null || _writeEntryCache.Length < n) _writeEntryCache = new FusedWrite[n];
+            for (int i = 0; i < n; i++) _writeEntryCache[i] = entries[i];
+            if (_writeEntryBuffer == null || _writeEntryBuffer.count < n)
+            {
+                _writeEntryBuffer?.Release();
+                _writeEntryBuffer = new ComputeBuffer(Mathf.Max(1, n), sizeof(int) + sizeof(float));
+            }
+            _writeEntryBuffer.SetData(_writeEntryCache, 0, 0, n);
+
+            fusedWriteCS.SetInt(s_RezXID, biomeRezX);
+            fusedWriteCS.SetInt(s_RezYID, biomeRezY);
+            fusedWriteCS.SetInt("agentCount", agentCount);
+            fusedWriteCS.SetFloat("simToFieldX", (float)biomeRezX / simRezX);
+            fusedWriteCS.SetFloat("simToFieldY", (float)biomeRezY / simRezY);
+            fusedWriteCS.SetInt("writeEntryCount", n);
+            fusedWriteCS.SetBuffer(_writeFieldsKernel, "writeEntries", _writeEntryBuffer);
+            fusedWriteCS.SetBuffer(_writeFieldsKernel, "agentPositions", agentPositions);
+            fusedWriteCS.SetTexture(_writeFieldsKernel, s_FieldWriteID, fieldReadArray);
+            fusedWriteCS.GetKernelThreadGroupSizes(_writeFieldsKernel, out uint tgx, out uint _, out uint __);
+            fusedWriteCS.Dispatch(_writeFieldsKernel, Mathf.CeilToInt((float)agentCount / tgx), 1, 1);
+        }
+
         /// <summary>
         /// External-source injection: stamp soft Gaussian discs into biome channels at
         /// mapped UVs. Writes IN PLACE into fieldReadArray BEFORE Step() — the same seam
@@ -551,6 +599,8 @@ namespace Biomes
             gpu = null;
             perceptionEntryBuffer = null;
             _perceptionEntryData = null;
+            _writeEntryBuffer?.Release();   // not gpu-tracked (own buffer)
+            _writeEntryBuffer = null;
         }
 
         private void DestroyDebugGrid()
