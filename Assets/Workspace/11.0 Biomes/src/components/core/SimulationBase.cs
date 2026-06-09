@@ -25,6 +25,13 @@ namespace Biomes
         // External influence texture (assigned by SimulationManager from ExternalTextureReceiver)
         [NonSerialized] public Texture externalInfluenceTex;
 
+        // Shared neuron firing (assigned by SimulationManager from NeuronFiringSource)
+        [NonSerialized] public ComputeBuffer neuronFiring;
+        [NonSerialized] public int neuronFiringCount;
+        [Header("Neuron Firing")]
+        [Range(0f, 1f)] public float firingThreshold = 0.1f;
+        private ComputeBuffer dummyNeuronFiringBuffer;
+
         // Trail texture array: layers 0..typeCount-1 = per-type, layer typeCount = total
         protected RenderTexture trailReadArray;
         protected RenderTexture trailWriteArray;
@@ -55,6 +62,9 @@ namespace Biomes
         protected static readonly int s_TypeParamsID = Shader.PropertyToID("typeParams");
         protected static readonly int s_TypeCountID = Shader.PropertyToID("typeCount");
         protected static readonly int s_PerceptionTexID = Shader.PropertyToID("perceptionTex");
+        protected static readonly int s_NeuronFiringID = Shader.PropertyToID("neuronFiring");
+        protected static readonly int s_NeuronFiringCountID = Shader.PropertyToID("neuronFiringCount");
+        protected static readonly int s_FiringThresholdID = Shader.PropertyToID("firingThreshold");
         #endregion
 
         public abstract string SimName { get; }
@@ -193,6 +203,28 @@ namespace Biomes
                 cs.SetTexture(k, s_PerceptionTexID, tex);
         }
 
+        // Bind the shared neuron-firing buffer + count + threshold to the given kernels.
+        // Falls back to a 1-element dummy (count 0 => no firing) when no source is wired.
+        protected void BindNeuronFiring(params int[] kernels)
+        {
+            ComputeBuffer buf = neuronFiring;
+            int count = neuronFiringCount;
+            if (buf == null)
+            {
+                if (dummyNeuronFiringBuffer == null)
+                {
+                    dummyNeuronFiringBuffer = gpu.CreateBuffer(1, sizeof(float));
+                    dummyNeuronFiringBuffer.SetData(new float[1] { 0f });
+                }
+                buf = dummyNeuronFiringBuffer;
+                count = 0;
+            }
+            foreach (int k in kernels)
+                cs.SetBuffer(k, s_NeuronFiringID, buf);
+            cs.SetInt(s_NeuronFiringCountID, count);
+            cs.SetFloat(s_FiringThresholdID, firingThreshold);
+        }
+
         public virtual void Release()
         {
             gpu?.ReleaseAll();
@@ -200,6 +232,7 @@ namespace Biomes
             trailReadArray = null;
             trailWriteArray = null;
             perceptionTex = null;
+            dummyNeuronFiringBuffer = null;
         }
 
         void OnDisable() => Release();
