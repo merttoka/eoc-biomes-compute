@@ -18,6 +18,9 @@ namespace Biomes
         [Header("Biome")]
         public Biome biome;
 
+        [Tooltip("Optional: routes external drivers (plants/robot/neurons) into biome channels at mapped locations.")]
+        public BiomeInjector injector;
+
         [Header("Simulations")]
         public List<SimulationBase> simulations = new();
 
@@ -177,6 +180,11 @@ namespace Biomes
                     }
                 }
             }
+
+            // 3.5 External sources (plants/robot/neurons) → biome channels at mapped
+            //     locations. Writes into fieldReadArray pre-Step (same seam as WriteField).
+            if (biome != null)
+                injector?.Inject(biome);
 
             // 4. Step biome (diffusion, interactions, advection)
             if (biome != null)

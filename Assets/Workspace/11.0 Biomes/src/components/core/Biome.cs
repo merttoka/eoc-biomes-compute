@@ -51,6 +51,7 @@ namespace Biomes
         private int generateFlowKernel;
         private int renderDebugKernel;
         private int writeFieldKernel;
+        private int injectStampKernel;
         private int readFieldKernel;
 
         // GPU data: per-channel settings uploaded as structured buffer
@@ -110,6 +111,7 @@ namespace Biomes
             generateFlowKernel = cs.FindKernel("GenerateFlowKernel");
             renderDebugKernel = cs.FindKernel("RenderDebugKernel");
             writeFieldKernel = cs.FindKernel("WriteFieldKernel");
+            injectStampKernel = cs.FindKernel("InjectStampKernel");
             readFieldKernel = cs.FindKernel("ReadFieldKernel");
         }
 
@@ -299,6 +301,24 @@ namespace Biomes
             cs.SetBuffer(writeFieldKernel, "agentPositions", agentPositions);
             cs.SetTexture(writeFieldKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(writeFieldKernel, agentCount, 1, 1);
+        }
+
+        /// <summary>
+        /// External-source injection: stamp soft Gaussian discs into biome channels at
+        /// mapped UVs. Writes IN PLACE into fieldReadArray BEFORE Step() — the same seam
+        /// WriteField uses — so it rides the field ping-pong with no clobber risk. Call
+        /// once per step, after sim write-back and before Step(). stamps = StructuredBuffer
+        /// of InjectStamp (see BiomeInjector); count = active stamp count.
+        /// </summary>
+        public void InjectSources(ComputeBuffer stamps, int count)
+        {
+            if (gpu == null || stamps == null || count <= 0) return;
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt("injectStampCount", count);
+            cs.SetBuffer(injectStampKernel, "injectStamps", stamps);
+            cs.SetTexture(injectStampKernel, s_FieldWriteID, fieldReadArray);
+            Dispatch(injectStampKernel, biomeRezX, biomeRezY, 1);
         }
 
         /// <summary>

@@ -9,6 +9,7 @@
 #pragma kernel GenerateFlowKernel
 #pragma kernel RenderDebugKernel
 #pragma kernel WriteFieldKernel
+#pragma kernel InjectStampKernel
 #pragma kernel ReadFieldKernel
 
 #include "includes/random.hlsl"
@@ -67,6 +68,19 @@ struct AgentPos {
     uint typeId;
 };
 StructuredBuffer<AgentPos> agentPositions;
+
+// Inject API (external spatial sources → biome channels; see BiomeInjector.cs)
+struct InjectStamp {
+    float2 uv;       // 0..1 biome-space center
+    float radius;    // falloff radius in uv units
+    float falloff;   // edge power (1=linear, >1=sharper core)
+    int   channel;   // target biome channel
+    float amount;    // gain * live value (precomputed CPU-side)
+    int   mode;      // 0=additive, 1=max-toward, 2=set-toward
+    float _pad;
+};
+StructuredBuffer<InjectStamp> injectStamps;
+uint injectStampCount;
 
 // Read API (perception)
 struct ReadEntry {
@@ -262,6 +276,37 @@ void WriteFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     float current = fieldWrite[uint3(fieldPos, writeChannel)];
     fieldWrite[uint3(fieldPos, writeChannel)] = clamp(current + writeAmount, 0, 1);
+}
+
+
+// ════════════════════════════════════════════════
+// INJECT EXTERNAL SOURCES → biome channels
+// Runs pre-Step, in-place into fieldRead (bound as fieldWrite) — like WriteField,
+// so it rides the field ping-pong with no clobber risk. Soft Gaussian discs.
+// ════════════════════════════════════════════════
+[numthreads(8, 8, 1)]
+void InjectStampKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
+    float aspect = (float)rezX / (float)rezY;
+
+    for (uint s = 0; s < injectStampCount; s++) {
+        InjectStamp st = injectStamps[s];
+        if (st.radius <= 0) continue;
+        float2 d = uv - st.uv;
+        d.x *= aspect;                 // keep discs round on non-square fields
+        float dist = length(d);
+        if (dist >= st.radius) continue;
+
+        float w = pow(saturate(1.0 - dist / st.radius), max(st.falloff, 1e-3));
+        uint3 c = uint3(id.xy, (uint)st.channel);
+        float cur = fieldWrite[c];
+
+        if (st.mode == 1)       fieldWrite[c] = max(cur, saturate(st.amount * w)); // max-toward (stable gradient)
+        else if (st.mode == 2)  fieldWrite[c] = saturate(lerp(cur, st.amount, w)); // set-toward
+        else                    fieldWrite[c] = saturate(cur + st.amount * w);     // additive
+    }
 }
 
 
