@@ -182,6 +182,13 @@ every 4th step** — ~0.06 M px × 4 passes / 4 = trivial. Therefore:
   GPU time. Spend the freed-up thinking on legibility, not optimization.
 
 ### 5b. Mush gets *worse* as agent count scales — fix it before 10 M, not after
+> ✅ **Shipped 2026-06-09** (`Biome.compute`, `Biome.cs`, `BiomeFieldConfig.cs` + new
+> `BiomeFieldConfig_Homeostatic.asset`): per-channel **relaxation toward baseline**
+> (Oxygen→0.8 replenish, Temperature→0.5 cap), **Q10 decomposition**
+> (`decompositionTempSpan`), and the **permeability runaway fix** (bounded relaxation toward
+> the recomputed noise terrain). All gated: `relaxRate=0` + the legacy integrator branch
+> reproduce the old behaviour for a clean A/B. Decay sinks added to Waste (0.001) + Nutrient
+> (0.0005).
 Today Nutrient/Oxygen/Waste have `decay=0` + constant per-agent deposits + `diffuse≈0.99`,
 so they ramp to a flat clamped 1.0 (Part 1e). **This is a fidelity bug that the scale-up
 amplifies:** 10 M physarum deposit ~30× more than the current 300 k, so the field saturates

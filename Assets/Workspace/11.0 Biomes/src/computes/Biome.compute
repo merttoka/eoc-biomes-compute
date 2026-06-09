@@ -41,9 +41,13 @@ uint channelCount;
 
 // Per-channel settings buffer: float4(diffuseRate, decayRate, advectedByFlow, initialValue)
 StructuredBuffer<float4> channelSettings;
+// Parallel per-channel homeostatic relaxation rate (relax toward initialValue baseline, or
+// for permeability toward the recomputed noise terrain). 0 = off (old one-way behaviour).
+StructuredBuffer<float> channelRelax;
 
 // Cross-field interaction params
 float wasteToNutrientRate;
+float decompTempSpan;       // Q10 exponent span for decomposition (0 ≈ flat, ~4 = strong fronts)
 float tempToFlowStrength;
 float tempToPermeability;
 float noiseScale;
@@ -215,16 +219,31 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float temp     = fieldRead[uint3(id.xy, CH_TEMPERATURE)];
     float perm     = fieldRead[uint3(id.xy, CH_PERMEABILITY)];
 
-    // 1. Waste decomposition → nutrient (temperature accelerates decomposition)
-    float decompRate = wasteToNutrientRate * (0.5 + temp);
+    // 1. Waste decomposition → nutrient. Q10: near-frozen when cold, explosive when hot
+    //    (rate = base·2.74^((temp-0.5)·span)), so fertility tracks the hot zones and travels
+    //    with them instead of ramping uniformly. Clamped, and bounded by available waste.
+    float decompRate = wasteToNutrientRate * pow(2.74, (temp - 0.5) * decompTempSpan);
+    decompRate = min(decompRate, 0.5);
     float decomposed = min(waste, decompRate);
     nutrient += decomposed;
     waste -= decomposed;
 
-    // 2. Temperature affects permeability (higher temp → more fluid)
-    float basePerm = fieldRead[uint3(id.xy, CH_PERMEABILITY)];
-    float tempInfluence = (temp - 0.5) * tempToPermeability;
-    perm = clamp(basePerm + tempInfluence, 0, 1);
+    // 2. Temperature → permeability as a BOUNDED, relaxing target (not an accumulator).
+    //    The noise terrain is a pure function of uv, so recompute it (same as
+    //    InitPermeabilityKernel) and relax toward terrain + a bounded temperature offset.
+    //    Fixes the old runaway integrator (perm += … every step) AND preserves the terrain:
+    //    termite digs (negative writes) carve transient galleries that heal back over time.
+    float relaxPerm = channelRelax[CH_PERMEABILITY];
+    if (relaxPerm > 0.0) {
+        float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
+        float n = FractalSimplexNoise(uv * noiseScale);
+        float permTerrain = smoothstep(noiseThreshold, noiseThreshold + 0.3, n);
+        float permTarget = saturate(permTerrain + (temp - 0.5) * tempToPermeability);
+        perm = lerp(perm, permTarget, relaxPerm);
+    } else {
+        // Legacy path (relaxRate 0): original integrator, for exact A/B comparison.
+        perm = clamp(perm + (temp - 0.5) * tempToPermeability, 0, 1);
+    }
 
     fieldWrite[uint3(id.xy, CH_NUTRIENT)] = clamp(nutrient, 0, 1);
     fieldWrite[uint3(id.xy, CH_WASTE)] = clamp(waste, 0, 1);
@@ -261,7 +280,14 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
         float diffused = avg * diffuseRate;
         float decayed = diffused * (1.0 - decayRate);
-        fieldWrite[uint3(id.xy, c)] = clamp(decayed, 0, 1);
+        // Homeostatic relaxation toward the ambient baseline (= initialValue). For
+        // consumed channels (Oxygen) this replenishes; for accumulating ones
+        // (Temperature) it caps — a dynamic equilibrium proportional to local agent
+        // density instead of a one-way ramp to flat 1.0. relaxRate 0 = identity.
+        float baseline = channelSettings[c].w;
+        float relaxRate = channelRelax[c];
+        float relaxed = lerp(decayed, baseline, relaxRate);
+        fieldWrite[uint3(id.xy, c)] = clamp(relaxed, 0, 1);
     }
 }
 

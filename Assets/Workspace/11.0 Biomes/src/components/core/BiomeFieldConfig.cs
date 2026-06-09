@@ -38,11 +38,18 @@ namespace Biomes
     {
         public string name;
         [Range(0f, 1f)] public float diffuseRate = 0.95f;
+        [Tooltip("Sink toward 0 each step (evaporation/breakdown). Use for deposit channels (Waste, Pheromones).")]
         [Range(0f, 1f)] public float decayRate = 0f;
         public bool advectedByFlow = false;
 
-        // Initial value (uniform fill on reset)
+        // Initial value (uniform fill on reset). Also the relaxation baseline (see relaxRate).
         [Range(0f, 1f)] public float initialValue = 0f;
+
+        [Tooltip("Homeostatic relaxation toward the baseline (= initialValue) each step. Use for " +
+                 "channels that must hold an ambient level instead of ramping (Oxygen 0.8, Temperature " +
+                 "0.5). For Permeability it relaxes toward the recomputed noise terrain (heals digs). " +
+                 "0 = off (one-way decay/accumulate, the old behaviour).")]
+        [Range(0f, 1f)] public float relaxRate = 0f;
     }
 
     [CreateAssetMenu(fileName = "BiomeFieldConfig", menuName = "Biomes/BiomeFieldConfig")]
@@ -50,23 +57,26 @@ namespace Biomes
     {
         public List<FieldChannelSettings> channels = new()
         {
-            new() { name = "Nutrient",      diffuseRate = 0.995f, decayRate = 0f,     advectedByFlow = true,  initialValue = 0.3f },
-            new() { name = "Pheromone_0",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f },
-            new() { name = "Pheromone_1",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f },
-            new() { name = "Pheromone_2",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f },
-            new() { name = "Oxygen",         diffuseRate = 0.995f, decayRate = 0f,     advectedByFlow = true,  initialValue = 0.8f },
-            new() { name = "Temperature",    diffuseRate = 0.997f, decayRate = 0.0005f, advectedByFlow = false, initialValue = 0.5f },
-            new() { name = "Waste",          diffuseRate = 0.99f,  decayRate = 0f,     advectedByFlow = false, initialValue = 0f },
-            new() { name = "Permeability",   diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0.7f },
-            new() { name = "Flow_X",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f },
-            new() { name = "Flow_Y",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f },
+            new() { name = "Nutrient",      diffuseRate = 0.995f, decayRate = 0.0005f, advectedByFlow = true,  initialValue = 0.3f, relaxRate = 0f },
+            new() { name = "Pheromone_0",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Pheromone_1",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Pheromone_2",    diffuseRate = 0.98f,  decayRate = 0.002f, advectedByFlow = true,  initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Oxygen",         diffuseRate = 0.995f, decayRate = 0f,     advectedByFlow = true,  initialValue = 0.8f, relaxRate = 0.01f },
+            new() { name = "Temperature",    diffuseRate = 0.997f, decayRate = 0.0005f, advectedByFlow = false, initialValue = 0.5f, relaxRate = 0.02f },
+            new() { name = "Waste",          diffuseRate = 0.99f,  decayRate = 0.001f, advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Permeability",   diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0.7f, relaxRate = 0.05f },
+            new() { name = "Flow_X",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Flow_Y",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
         };
 
         // Cross-field interaction rates
         [Header("Cross-Field Interactions")]
-        [Range(0f, 0.1f)] public float wasteToNutrientRate = 0.005f;       // decomposition
+        [Range(0f, 0.1f)] public float wasteToNutrientRate = 0.005f;       // decomposition (base rate at temp=0.5)
+        [Tooltip("Q10 temperature exponent span for decomposition: rate = base·2.74^((temp-0.5)·span). " +
+                 "0 ≈ flat; ~4 gives near-frozen-when-cold / explosive-when-hot (travelling fertility fronts).")]
+        [Range(0f, 8f)]   public float decompositionTempSpan = 4f;
         [Range(0f, 1f)]   public float temperatureToFlowStrength = 0.5f;   // convection
-        [Range(0f, 1f)]   public float temperatureToPermeability = 0.3f;   // phase transitions
+        [Range(0f, 1f)]   public float temperatureToPermeability = 0.3f;   // phase transitions (now a bounded offset, see Biome.compute)
 
         [Header("Initial Matter Map")]
         [Range(0f, 10f)] public float noiseScale = 3f;

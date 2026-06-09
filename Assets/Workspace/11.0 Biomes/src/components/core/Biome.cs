@@ -71,6 +71,8 @@ namespace Biomes
 
         // GPU data: per-channel settings uploaded as structured buffer
         private ComputeBuffer channelSettingsBuffer;
+        // Parallel per-channel relaxation rates (homeostatic pull toward baseline / terrain).
+        private ComputeBuffer channelRelaxBuffer;
 
         // Reusable perception read-entry buffer (one per Biome, grown on demand). Replaces
         // the per-call new/Release in BuildPerceptionTex, which churned ~180 GPU buffer
@@ -84,6 +86,8 @@ namespace Biomes
         private static readonly int s_FieldWriteID = Shader.PropertyToID("fieldWrite");
         private static readonly int s_ChannelCountID = Shader.PropertyToID("channelCount");
         private static readonly int s_ChannelSettingsID = Shader.PropertyToID("channelSettings");
+        private static readonly int s_ChannelRelaxID = Shader.PropertyToID("channelRelax");
+        private static readonly int s_DecompTempSpanID = Shader.PropertyToID("decompTempSpan");
         private static readonly int s_DebugOutTexID = Shader.PropertyToID("debugOutTex");
         private static readonly int s_DebugChannelID = Shader.PropertyToID("debugChannel");
         private static readonly int s_DebugNormalizeID = Shader.PropertyToID("debugNormalize");
@@ -144,7 +148,9 @@ namespace Biomes
             // Pack per-channel settings: diffuseRate, decayRate, advectedByFlow, initialValue
             int stride = sizeof(float) * 4;
             channelSettingsBuffer = gpu.CreateBuffer(BiomeChannel.Count, stride);
+            channelRelaxBuffer = gpu.CreateBuffer(BiomeChannel.Count, sizeof(float));
             var data = new float[BiomeChannel.Count * 4];
+            var relax = new float[BiomeChannel.Count];
             for (int i = 0; i < BiomeChannel.Count && i < fieldConfig.channels.Count; i++)
             {
                 var ch = fieldConfig.channels[i];
@@ -152,8 +158,10 @@ namespace Biomes
                 data[i * 4 + 1] = ch.decayRate;
                 data[i * 4 + 2] = ch.advectedByFlow ? 1f : 0f;
                 data[i * 4 + 3] = ch.initialValue;
+                relax[i] = ch.relaxRate;
             }
             channelSettingsBuffer.SetData(data);
+            channelRelaxBuffer.SetData(relax);
         }
 
         private void GPUReset()
@@ -205,13 +213,21 @@ namespace Biomes
             cs.SetBuffer(advectFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
             DispatchFieldPass(advectFieldsKernel);
 
-            // 3. Cross-field interactions (waste→nutrient, temp→permeability)
+            // 3. Cross-field interactions (waste→nutrient via Q10, temp→permeability relax).
+            //    Needs the channel settings + relax rates, the Q10 span, and the noise
+            //    params (permeability relaxes toward the recomputed terrain).
             cs.SetFloat(s_WasteToNutrientRateID, fieldConfig.wasteToNutrientRate);
+            cs.SetFloat(s_DecompTempSpanID, fieldConfig.decompositionTempSpan);
             cs.SetFloat(s_TempToPermID, fieldConfig.temperatureToPermeability);
+            cs.SetFloat(s_NoiseScaleID, fieldConfig.noiseScale);
+            cs.SetFloat(s_NoiseThresholdID, fieldConfig.noiseThreshold);
+            cs.SetBuffer(interactFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
+            cs.SetBuffer(interactFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
             DispatchFieldPass(interactFieldsKernel);
 
-            // 4. Diffuse and decay
+            // 4. Diffuse, decay, and homeostatic relaxation toward baseline.
             cs.SetBuffer(diffuseFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
+            cs.SetBuffer(diffuseFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
             DispatchFieldPass(diffuseFieldsKernel);
 
             // Debug render (reads fieldReadArray, which now holds the final state)
