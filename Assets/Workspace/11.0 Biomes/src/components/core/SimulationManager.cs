@@ -27,6 +27,9 @@ namespace Biomes
         [Header("External Input")]
         [SerializeField] private ExternalTextureReceiver externalInput;
 
+        [Header("Neuron Firing")]
+        [SerializeField] private NeuronFiringSource neuronFiring;
+
         [Header("Debug Overlay")]
         [SerializeField] private bool m_DebugOverlayVideoOnOutput = false;
         [SerializeField, Range(0f, 1f)] private float m_DebugOverlayStrength = 0.5f;
@@ -88,6 +91,10 @@ namespace Biomes
             if (externalInput != null)
                 externalInput.Initialize();
 
+            // Initialize neuron firing source
+            if (neuronFiring != null)
+                neuronFiring.Initialize();
+
             // Reset biome (persists unless explicitly cleared)
             if (biome != null)
                 biome.Reset();
@@ -127,6 +134,17 @@ namespace Biomes
             {
                 if (sim != null)
                     sim.externalInfluenceTex = influenceTex;
+            }
+
+            // 0b. Update neuron firing source (OSC frame + decay) and broadcast its buffer
+            neuronFiring?.UpdateFiring();
+            ComputeBuffer firingBuf = neuronFiring != null ? neuronFiring.Buffer : null;
+            int firingCount = neuronFiring != null ? neuronFiring.NeuronCount : 0;
+            foreach (var sim in simulations)
+            {
+                if (sim == null) continue;
+                sim.neuronFiring = firingBuf;
+                sim.neuronFiringCount = firingCount;
             }
 
             // 1. Build perception textures from biome for each sim
