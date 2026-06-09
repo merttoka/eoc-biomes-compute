@@ -49,7 +49,12 @@ namespace Biomes
         // "from" snapshot: paramName -> value per type index, taken at each leg start
         private readonly Dictionary<string, float[]> _from = new();
         private int _legStartStep;
+        private int _legDuration;                          // current leg length (= durationSteps, or remaining on resume)
         private bool _warnedWrongType;
+
+        // Override-pause state (driven by ParameterInterpolatorGroup for MIDI coexistence)
+        private Phase _overridePausedPhase = Phase.Idle;   // Idle = not override-paused
+        private int _overrideRemaining;                    // leg steps left when paused
 
         private SimulationBase Sim =>
             (simManager != null && simIndex >= 0 && simIndex < simManager.simulations.Count)
@@ -95,8 +100,10 @@ namespace Biomes
 
             currentWaypoint = 0;
             _warnedWrongType = false;
+            _overridePausedPhase = Phase.Idle;
             SnapshotFrom();
             _legStartStep = StepNow();
+            _legDuration = durationSteps;
             phase = Phase.Interpolating;
             progress = 0f;
         }
@@ -113,6 +120,7 @@ namespace Biomes
         {
             phase = Phase.Idle;
             progress = 0f;
+            _overridePausedPhase = Phase.Idle;
         }
 
         [Button("Skip to Next")]
@@ -120,6 +128,47 @@ namespace Biomes
         {
             if (phase == Phase.Interpolating || phase == Phase.Holding)
                 Advance();
+        }
+
+        // ─────────── Override (MIDI coexistence; driven by ParameterInterpolatorGroup) ───────────
+
+        public bool IsOverridePaused => _overridePausedPhase != Phase.Idle;
+
+        /// <summary>Freeze the current leg, remembering how many steps remain, so
+        /// ResumeFromOverride can later continue from edited values over the SAME remaining
+        /// time. No-op unless a leg is actively running.</summary>
+        public void PauseForOverride()
+        {
+            if (phase != Phase.Interpolating && phase != Phase.Holding) return;
+            int elapsed = StepNow() - _legStartStep;
+            _overrideRemaining = phase == Phase.Interpolating
+                ? Mathf.Max(0, _legDuration - elapsed)
+                : Mathf.Max(0, (_legDuration + holdSteps) - elapsed);
+            _overridePausedPhase = phase;
+            phase = Phase.Idle;
+        }
+
+        /// <summary>Resume an override-paused leg from the CURRENT (possibly MIDI-edited) live
+        /// values, continuing toward the same waypoint over the remembered remaining time.</summary>
+        public void ResumeFromOverride()
+        {
+            if (_overridePausedPhase == Phase.Idle) return;
+            var sim = Sim;
+            if (sim == null || sim.LiveParamSet == null) { _overridePausedPhase = Phase.Idle; return; }
+
+            if (_overridePausedPhase == Phase.Interpolating)
+            {
+                SnapshotFrom();                    // 'from' = current edited values (no jump)
+                _legDuration = _overrideRemaining; // finish in the time that was left
+                _legStartStep = StepNow();
+                phase = Phase.Interpolating;
+            }
+            else // resume Holding for the remaining hold time
+            {
+                _legStartStep = StepNow() - (_legDuration + holdSteps - _overrideRemaining);
+                phase = Phase.Holding;
+            }
+            _overridePausedPhase = Phase.Idle;
         }
 
         // ─────────── Drive ───────────
@@ -134,7 +183,7 @@ namespace Biomes
 
             if (phase == Phase.Interpolating)
             {
-                float t = Mathf.Clamp01(durationSteps > 0 ? (float)elapsed / durationSteps : 1f);
+                float t = Mathf.Clamp01(_legDuration > 0 ? (float)elapsed / _legDuration : 1f);
                 progress = t;
                 ApplyLeg(sim.LiveParamSet, easing.Evaluate(t));
 
@@ -146,7 +195,7 @@ namespace Biomes
             }
             else // Holding
             {
-                if (elapsed >= durationSteps + holdSteps)
+                if (elapsed >= _legDuration + holdSteps)
                     Advance();
             }
         }
@@ -192,6 +241,7 @@ namespace Biomes
             }
             SnapshotFrom();
             _legStartStep = StepNow();
+            _legDuration = durationSteps;
             phase = Phase.Interpolating;
             progress = 0f;
         }

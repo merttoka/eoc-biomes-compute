@@ -621,6 +621,19 @@ namespace Biomes
 
         #region Encoder Apply
 
+        /// <summary>Wall-clock time (unscaled) of the last MFT input that changed a parameter.
+        /// ParameterInterpolatorGroup watches this to yield automation to a live performer.</summary>
+        public float LastInputTime { get; private set; }
+        private void MarkInput() => LastInputTime = Time.unscaledTime;
+
+        /// <summary>Force all encoders back to "needs pickup" so the next physical turn must
+        /// re-cross the current value (no jump). Called after automation moves params.</summary>
+        public void InvalidatePickup()
+        {
+            if (_encoderPickedUp == null) return;
+            for (int i = 0; i < _encoderPickedUp.Length; i++) _encoderPickedUp[i] = false;
+        }
+
         private void ApplyEncoder(int encoderIdx, float value, float delta)
         {
             if (_bankBindings == null) return;
@@ -628,6 +641,8 @@ namespace Biomes
             if (globalIdx >= TOTAL_ENCODERS) return;
             var b = _bankBindings[_softBank][globalIdx];
             if (b.target == BindingTarget.None) return;
+
+            MarkInput(); // any bound-encoder turn yields automation to the performer
 
             // Pickup logic: after bank switch, ignore absolute values until
             // the knob crosses through the current param value.
@@ -685,6 +700,8 @@ namespace Biomes
             if (globalIdx >= TOTAL_ENCODERS) return;
             var b = _bankBindings[_softBank][globalIdx];
             if (b.target == BindingTarget.None) return;
+
+            MarkInput();
 
             switch (pushMode)
             {
