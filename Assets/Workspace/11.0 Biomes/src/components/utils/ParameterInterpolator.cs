@@ -40,6 +40,12 @@ namespace Biomes
         [SerializeField] private int currentWaypoint;
         [SerializeField, Range(0f, 1f)] private float progress;
 
+        // Read-only status accessors (for ParameterInterpolatorGroup monitoring).
+        public Phase CurrentPhase => phase;
+        public float Progress => progress;
+        public int CurrentWaypoint => currentWaypoint;
+        public int WaypointCount => waypoints != null ? waypoints.Count : 0;
+
         // "from" snapshot: paramName -> value per type index, taken at each leg start
         private readonly Dictionary<string, float[]> _from = new();
         private int _legStartStep;
