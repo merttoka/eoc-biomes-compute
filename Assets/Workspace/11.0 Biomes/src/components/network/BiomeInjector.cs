@@ -27,7 +27,8 @@ namespace Biomes
             public string name = "source";
             public bool enabled = true;
 
-            [Tooltip("Biome-space center, 0..1. Manually map the physical location here.")]
+            [Tooltip("NORMALIZED biome coordinate, 0..1 (NOT world space). (0,0)=one corner, " +
+                     "(0.5,0.5)=center, (1,1)=opposite corner. This is the manual physical→biome map.")]
             public Vector2 fieldUV = new Vector2(0.5f, 0.5f);
             [Range(0.001f, 0.5f)] public float radius = 0.06f;
             [Range(0.25f, 6f)]    public float falloff = 1.5f;
@@ -35,8 +36,9 @@ namespace Biomes
             [Tooltip("Target biome channel index. 0=Nutrient 1-3=Pheromone 4=Oxygen 5=Temperature 6=Waste 7=Permeability.")]
             [Range(0, BiomeChannel.Count - 1)] public int channel = BiomeChannel.Oxygen;
 
-            [Tooltip("Scales the live value into a deposit amount per step.")]
-            public float gain = 0.01f;
+            [Tooltip("Multiplies the live value. Additive mode: small per-step increment (~0.005-0.05). " +
+                     "Max/Set modes: target-level scale (~1; channel is driven toward gain*value, clamped 0..1).")]
+            public float gain = 1f;
 
             [Tooltip("Persistent sources: prefer MaxToward (builds a stable gradient) over Additive (saturates to a flat blob).")]
             public BlendMode mode = BlendMode.MaxToward;
@@ -116,7 +118,7 @@ namespace Biomes
 
                 _scratch[k++] = new Stamp
                 {
-                    uv = s.fieldUV,
+                    uv = new Vector2(Mathf.Clamp01(s.fieldUV.x), Mathf.Clamp01(s.fieldUV.y)),
                     radius = s.radius,
                     falloff = s.falloff,
                     channel = Mathf.Clamp(s.channel, 0, BiomeChannel.Count - 1),
@@ -141,22 +143,41 @@ namespace Biomes
             _buffer = null;
         }
 
+        // Keep authored values in range so a stamp can never land off the field.
+        void OnValidate()
+        {
+            if (sources == null) return;
+            foreach (var s in sources)
+            {
+                if (s == null) continue;
+                s.fieldUV = new Vector2(Mathf.Clamp01(s.fieldUV.x), Mathf.Clamp01(s.fieldUV.y));
+                s.channel = Mathf.Clamp(s.channel, 0, BiomeChannel.Count - 1);
+            }
+        }
+
         void OnDrawGizmosSelected()
         {
             if (!drawGizmos || sources == null) return;
-            // Visualize each source on this object's local XY plane (1 unit = full biome).
-            // fieldUV (0..1) is the authoritative map; this is just a placement aid.
+            // The biome is a normalized [0,1] field. Draw it as a unit square on this
+            // object's local XY plane — purely a placement aid; fieldUV is the real map.
+            Gizmos.matrix = transform.localToWorldMatrix;
+            Gizmos.color = new Color(1f, 1f, 1f, 0.25f);
+            Gizmos.DrawWireCube(Vector3.zero, new Vector3(1f, 1f, 0f)); // [0,1]² centered at origin
             foreach (var s in sources)
             {
                 if (s == null) continue;
                 Gizmos.color = s.enabled ? gizmoColor : new Color(0.5f, 0.5f, 0.5f, 0.4f);
-                Vector3 c = transform.TransformPoint(new Vector3(s.fieldUV.x - 0.5f, s.fieldUV.y - 0.5f, 0f));
-                Gizmos.DrawWireSphere(c, s.radius * 0.5f);
-#if UNITY_EDITOR
-                UnityEditor.Handles.color = Gizmos.color;
-                UnityEditor.Handles.Label(c, $"{s.name} → ch{s.channel}");
-#endif
+                Gizmos.DrawWireSphere(new Vector3(s.fieldUV.x - 0.5f, s.fieldUV.y - 0.5f, 0f), s.radius);
             }
+            Gizmos.matrix = Matrix4x4.identity;
+#if UNITY_EDITOR
+            foreach (var s in sources)
+            {
+                if (s == null) continue;
+                Vector3 wc = transform.TransformPoint(new Vector3(s.fieldUV.x - 0.5f, s.fieldUV.y - 0.5f, 0f));
+                UnityEditor.Handles.Label(wc, $"{s.name} → ch{s.channel}");
+            }
+#endif
         }
     }
 }
