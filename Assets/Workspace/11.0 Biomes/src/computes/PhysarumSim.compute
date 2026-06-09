@@ -37,6 +37,7 @@ uint time;
 
 #include "includes/random.hlsl"
 #include "includes/physarum_type_params.hlsl"
+#include "includes/neuron_firing.hlsl"
 
 
 // ════════════════════════════════════════════════
@@ -153,7 +154,8 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Apply permeability speed penalty from biome
     float2 uv = a.position / float2((float)rezX, (float)rezY);
     float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
-    float effectiveSpeed = p.moveSpeed * speedMult;
+    float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
+    float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
 
     a.direction = direction * effectiveSpeed;
     a.position += a.direction;
@@ -181,9 +183,10 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     PhysarumTypeParams p = typeParams[a.typeId];
     uint2 pos = uint2(round(a.position));
 
-    // Deposit into own layer
+    // Deposit into own layer (brighter when the agent's neuron is firing)
+    float dep = IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount;
     float own = trailWrite[uint3(pos, a.typeId)];
-    trailWrite[uint3(pos, a.typeId)] = clamp(own + p.depositAmount, 0, 1);
+    trailWrite[uint3(pos, a.typeId)] = clamp(own + dep, 0, 1);
 
     // Eat from other layers
     for (uint t = 0; t < typeCount; t++) {

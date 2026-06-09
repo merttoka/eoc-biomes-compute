@@ -20,6 +20,8 @@ namespace Biomes
         public float diffuseRate = 0.985f;
         public float hue = 0f;
         public float saturation = 0.5f;
+        public float firingSpeedMul = 2f;
+        public float firingDepositAmount = 1f;
     }
 
     [CreateAssetMenu(fileName = "BoidParams", menuName = "Biomes/BoidParams")]
@@ -42,6 +44,8 @@ namespace Biomes
             new("hue",             0f,    1f),
             new("saturation",      0f,    1f),
             new("diffuseRate",     0.9f,  1f),
+            new("firingSpeedMul",      1f,  5f),
+            new("firingDepositAmount", 0f,  1f),
         };
 
         public (float min, float max) GetRange(string paramName)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.Rendering;
 using EasyButtons;
@@ -24,6 +25,21 @@ namespace Biomes
 
         // External influence texture (assigned by SimulationManager from ExternalTextureReceiver)
         [NonSerialized] public Texture externalInfluenceTex;
+
+        // Shared neuron firing (assigned by SimulationManager from NeuronFiringSource)
+        [NonSerialized] public ComputeBuffer neuronFiring;
+        [NonSerialized] public int neuronFiringCount;
+        [Header("Neuron Firing")]
+        [Range(0f, 1f)] public float firingThreshold = 0.1f;
+        private ComputeBuffer dummyNeuronFiringBuffer;
+
+        [Header("Neuron Positions (optional CSV seeding)")]
+        public TextAsset labelsPositionsCsv;
+        public bool csvCoordinatesAreNormalized = false;
+        [Tooltip("How much of the canvas agents fill (0-1). (1,1)=full canvas")]
+        public Vector2 spawnScale = new Vector2(0.8f, 0.9f);
+        protected ComputeBuffer neuronPositionsBuffer;
+        protected ComputeBuffer dummyNeuronBuffer;
 
         // Trail texture array: layers 0..typeCount-1 = per-type, layer typeCount = total
         protected RenderTexture trailReadArray;
@@ -55,6 +71,12 @@ namespace Biomes
         protected static readonly int s_TypeParamsID = Shader.PropertyToID("typeParams");
         protected static readonly int s_TypeCountID = Shader.PropertyToID("typeCount");
         protected static readonly int s_PerceptionTexID = Shader.PropertyToID("perceptionTex");
+        protected static readonly int s_NeuronFiringID = Shader.PropertyToID("neuronFiring");
+        protected static readonly int s_NeuronFiringCountID = Shader.PropertyToID("neuronFiringCount");
+        protected static readonly int s_FiringThresholdID = Shader.PropertyToID("firingThreshold");
+        protected static readonly int s_NeuronPositionsID = Shader.PropertyToID("neuronPositions");
+        protected static readonly int s_NeuronCountID = Shader.PropertyToID("neuronCount");
+        protected static readonly int s_NeuronScaleID = Shader.PropertyToID("neuronScale");
         #endregion
 
         public abstract string SimName { get; }
@@ -193,6 +215,97 @@ namespace Biomes
                 cs.SetTexture(k, s_PerceptionTexID, tex);
         }
 
+        // Bind the shared neuron-firing buffer + count + threshold to the given kernels.
+        // Falls back to a 1-element dummy (count 0 => no firing) when no source is wired.
+        protected void BindNeuronFiring(params int[] kernels)
+        {
+            ComputeBuffer buf = neuronFiring;
+            int count = neuronFiringCount;
+            if (buf == null)
+            {
+                if (dummyNeuronFiringBuffer == null)
+                {
+                    dummyNeuronFiringBuffer = gpu.CreateBuffer(1, sizeof(float));
+                    dummyNeuronFiringBuffer.SetData(new float[1] { 0f });
+                }
+                buf = dummyNeuronFiringBuffer;
+                count = 0;
+            }
+            foreach (int k in kernels)
+                cs.SetBuffer(k, s_NeuronFiringID, buf);
+            cs.SetInt(s_NeuronFiringCountID, count);
+            cs.SetFloat(s_FiringThresholdID, firingThreshold);
+        }
+
+        // Parse labelsPositionsCsv, upload neuron positions, bind to the given reset
+        // kernel, and set neuronCount/neuronScale globals. Returns the neuron count
+        // (0 => the reset kernel should random-scatter).
+        protected int BuildNeuronPositions(int resetKernel)
+        {
+            if (dummyNeuronBuffer == null)
+            {
+                dummyNeuronBuffer = gpu.CreateBuffer(1, sizeof(float) * 2);
+                dummyNeuronBuffer.SetData(new Vector2[1] { Vector2.zero });
+            }
+
+            int neuronCount = 0;
+            if (labelsPositionsCsv != null && !string.IsNullOrEmpty(labelsPositionsCsv.text))
+            {
+                var positions = ParseCsvFloat2(labelsPositionsCsv.text);
+                if (csvCoordinatesAreNormalized || LooksNormalized01(positions))
+                    for (int i = 0; i < positions.Count; i++)
+                        positions[i] = new Vector2(positions[i].x * rezX, positions[i].y * rezY);
+
+                neuronCount = positions.Count;
+                if (neuronCount > 0)
+                {
+                    neuronPositionsBuffer = gpu.CreateBuffer(neuronCount, sizeof(float) * 2);
+                    neuronPositionsBuffer.SetData(positions);
+                    cs.SetBuffer(resetKernel, s_NeuronPositionsID, neuronPositionsBuffer);
+                }
+                else cs.SetBuffer(resetKernel, s_NeuronPositionsID, dummyNeuronBuffer);
+            }
+            else cs.SetBuffer(resetKernel, s_NeuronPositionsID, dummyNeuronBuffer);
+
+            cs.SetInt(s_NeuronCountID, neuronCount);
+            cs.SetVector(s_NeuronScaleID, new Vector4(spawnScale.x, spawnScale.y, 0, 0));
+            return neuronCount;
+        }
+
+        public static List<Vector2> ParseCsvFloat2(string csv)
+        {
+            var list = new List<Vector2>();
+            var lines = csv.Split('\n');
+            var inv = CultureInfo.InvariantCulture;
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#")) continue;
+                var parts = line.Split(',');
+                if (parts.Length < 3) continue;
+                if (float.TryParse(parts[1], NumberStyles.Float, inv, out float x) &&
+                    float.TryParse(parts[2], NumberStyles.Float, inv, out float y))
+                    list.Add(new Vector2(x, (1 - y)));
+            }
+            return list;
+        }
+
+        protected static bool LooksNormalized01(List<Vector2> points)
+        {
+            if (points == null || points.Count == 0) return false;
+            float maxX = float.MinValue, maxY = float.MinValue;
+            float minX = float.MaxValue, minY = float.MaxValue;
+            int sampleCount = Mathf.Min(points.Count, 2048);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                var p = points[i];
+                if (float.IsNaN(p.x) || float.IsNaN(p.y)) continue;
+                maxX = Mathf.Max(maxX, p.x); maxY = Mathf.Max(maxY, p.y);
+                minX = Mathf.Min(minX, p.x); minY = Mathf.Min(minY, p.y);
+            }
+            return (minX >= -0.01f && maxX <= 1.01f && minY >= -0.01f && maxY <= 1.01f);
+        }
+
         public virtual void Release()
         {
             gpu?.ReleaseAll();
@@ -200,6 +313,9 @@ namespace Biomes
             trailReadArray = null;
             trailWriteArray = null;
             perceptionTex = null;
+            dummyNeuronFiringBuffer = null;
+            neuronPositionsBuffer = null;
+            dummyNeuronBuffer = null;
         }
 
         void OnDisable() => Release();

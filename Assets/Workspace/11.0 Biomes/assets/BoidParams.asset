@@ -27,6 +27,8 @@ MonoBehaviour:
     diffuseRate: 0.95
     hue: 0.67
     saturation: 0.3906348
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
   - separationRange: 131.57353
     alignmentRange: 240.68184
     attractionRange: 178.004
@@ -40,6 +42,8 @@ MonoBehaviour:
     diffuseRate: 0.985
     hue: 0.4
     saturation: 0.5
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
   - separationRange: 11.350525
     alignmentRange: 91.88185
     attractionRange: 49.967575
@@ -53,6 +57,8 @@ MonoBehaviour:
     diffuseRate: 0.985
     hue: 0.50783783
     saturation: 0.54
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
   - separationRange: 159.86458
     alignmentRange: 319.24292
     attractionRange: 477.2197
@@ -66,6 +72,8 @@ MonoBehaviour:
     diffuseRate: 0.985
     hue: 0
     saturation: 0.42
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
   ranges:
   - name: maxSpeed
     min: 0.1

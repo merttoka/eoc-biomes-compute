@@ -8,6 +8,8 @@ struct PhysarumTypeParams {
     float diffuseRate;
     float hue;
     float saturation;
-};  // 36 bytes (9 floats)
+    float firingSpeedMul;
+    float firingDepositAmount;
+};  // 44 bytes (11 floats)
 StructuredBuffer<PhysarumTypeParams> typeParams;
 uint typeCount;

@@ -23,6 +23,8 @@ MonoBehaviour:
     diffuseRate: 0.6
     hue: 0.12
     saturation: 0.5
+    firingSpeedMul: 5
+    firingDepositAmount: 1
   - senseAngle: 257.92447
     senseDistance: 49.515236
     turnAngle: 70.2429
@@ -32,6 +34,8 @@ MonoBehaviour:
     diffuseRate: 0.6
     hue: 0.29
     saturation: 0.5
+    firingSpeedMul: 5
+    firingDepositAmount: 1
   - senseAngle: 233.09532
     senseDistance: 107.44918
     turnAngle: 50.654305
@@ -41,6 +45,8 @@ MonoBehaviour:
     diffuseRate: 0.6
     hue: 0.55
     saturation: 0.5
+    firingSpeedMul: 5
+    firingDepositAmount: 1
   - senseAngle: 15.529959
     senseDistance: 78.802765
     turnAngle: 56.564983
@@ -50,6 +56,8 @@ MonoBehaviour:
     diffuseRate: 0.87
     hue: 0.57
     saturation: 0.5
+    firingSpeedMul: 5
+    firingDepositAmount: 1
   ranges:
   - name: moveSpeed
     min: 0.1

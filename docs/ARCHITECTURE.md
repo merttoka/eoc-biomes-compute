@@ -68,7 +68,8 @@ src/
     core/     SimulationManager, SimulationBase, Biome, BiomeFieldConfig,
               UmweltMapping, ExternalInputProvider, GPUResourceManager
     Sim/      BoidSim, PhysarumSim, TermiteSim (concrete SimulationBase subclasses)
-    network/  MidiFighterTwister, MIDIMapping, OSCMapping (control surfaces)
+    network/  MidiFighterTwister, MIDIMapping, OSCMapping, BiomeInjector,
+              NeuronFiringSource, ExternalTexture* (control surfaces + external inputs)
     utils/    ParameterRecorder, ParameterInterpolator, ScreenLayout
   params/     BoidParams, PhysarumParams, TermiteParams, ParamRange, ColorPalette, IParamSet
   Editor/     custom inspectors (ParamsEditor, MFT/MIDI editors, ScreenLayoutPreview)
@@ -123,19 +124,27 @@ sim resolution; sim↔field coordinates are mapped by ratio.
 ### 3.4 Simulations — `SimulationBase` → `BoidSim` / `PhysarumSim` / `TermiteSim`
 
 `SimulationBase` is the abstract GPU-agent template: trail texture arrays (per-type
-+ total), a perception texture, an external-influence texture, and the common kernel
-set (reset/move/write-trails/diffuse/render). Subclasses implement the agent model:
++ total), a perception texture, an external-influence texture, **neuron-position seeding**
+(`BuildNeuronPositions` from `labels_positions.csv`) and **shared neuron firing**
+(`BindNeuronFiring`, `firingThreshold`), and the common kernel set
+(reset/move/write-trails/diffuse/render). Subclasses implement the agent model:
 
 - **`PhysarumSim`** — slime-mold agents (sense-angle/distance, turn, deposit, eat).
-  Can seed agents from a neuron-positions CSV (the "neuron firing" visuals).
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
   ranges, food-seeking).
 - **`TermiteSim`** — neuron-coupled pheromone-stigmergy swarm (ported from
-  `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat", plus an optional
-  per-agent **firing** signal: a `float16` blob in `StreamingAssets/biomes11/`
-  (preprocessed from a 729 MB CSV by `tools/firing_csv_to_f16.py`, agent `i`→neuron
-  `i % 131`) doubles speed and lays bright trails. Builds permeability mounds through
-  the Biome/Umwelt. Spec: [[superpowers/specs/2026-06-07-termite-sim-design]].
+  `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat". Builds permeability
+  mounds through the Biome/Umwelt. Spec: [[superpowers/specs/2026-06-07-termite-sim-design]].
+
+**Neuron firing is shared, not termite-private** (see [[adr/0006-osc-neuron-firing]]). All
+three sims seed `agent i → neuron i % 131` at the same CSV positions, and read one shared
+firing vector each step: `agent → neuron → firing[neuron] ≥ firingThreshold` →
+`firingSpeedMul` (faster) + `firingDepositAmount` (brighter trail), via
+`computes/includes/neuron_firing.hlsl`. The firing *values* come from a `float16` blob
+(`StreamingAssets/biomes11/termite_firing.f16`, 131 neurons × 180000 frames, preprocessed
+by `tools/firing_csv_to_f16.py`); the playhead is **external** — see §3.7. Because CSV row
+*k* = blob neuron *k* = each sim's seed position, a firing neuron excites the agents
+physically on it in every biome.
 
 All support **multiple agent types** (up to 8), each with its own parameters and
 HSV color, uploaded as a per-type structured buffer every step.
@@ -181,7 +190,18 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
 - **`MidiFighterTwister` / `MIDIMapping`** — MFT hardware → normalized
   `SetParameter`/`SetParameterDelta`. `SaveParams` action writes timestamped `.asset`
   snapshots (the memory daemon's input).
-- **`OSCMapping`** — OSC control of the same parameter API (TD / external drivers).
+- **`OSCMapping`** — OSC control of the same parameter API (TD / external drivers), plus
+  `/index <int>` → `NeuronFiringSource.SetFrame` (the firing playhead).
+- **`NeuronFiringSource`** — the **firing playhead** ([[adr/0006-osc-neuron-firing]]).
+  Owns the firing blob + neuron positions; an external patch sends `/index <int>` to scrub
+  which frame is shown (file = values, OSC = playhead — no auto-advance). Holds the last
+  frame and **decays firing to quiet** (`firingDecaySeconds`) when silent. Each step it
+  emits a shared 131-float buffer (row × decay) that `SimulationManager` broadcasts to every
+  sim. Thread-safe intake (field + dirty flag, the `BiomeInjector` pattern).
+- **Firing-ring overlay** — `NeuronRingKernel` (`SimulationManager.compute`) draws one
+  count-independent ring per firing neuron on top of the composite. Needed because the
+  composite is a pure additive sum → physarum's dense firing saturates the canvas and hides
+  termite/boid firing; the rings key off firing intensity directly, not agent counts.
 - **`ParameterRecorder`** — records per-step parameter *changes* as a JSON event
   track; replays them deterministically against `SimStepCount`.
 - **`ParameterInterpolator`** — eases live params from current state through an

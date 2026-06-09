@@ -30,18 +30,6 @@ namespace Biomes
         public override IParamSet LiveParamSet => agentParams;
         public override ScriptableObject PresetParamSet => paramsSO;
 
-        [Header("Initial Positions Neurons CSV")]
-        public TextAsset labelsPositionsCsv;
-        public bool csvCoordinatesAreNormalized = false;
-        [Tooltip("How much of the canvas neurons fill (0-1). x=width, y=height. (1,1)=full canvas")]
-        public Vector2 neuronScale = new Vector2(0.8f, 0.9f);
-        private ComputeBuffer neuronPositionsBuffer;
-        private ComputeBuffer dummyNeuronBuffer;
-
-        private static readonly int s_NeuronPositionsID = Shader.PropertyToID("neuronPositions");
-        private static readonly int s_NeuronCountID = Shader.PropertyToID("neuronCount");
-        private static readonly int s_NeuronScaleID = Shader.PropertyToID("neuronScale");
-
         protected override int TypeCount => agentParams != null ? agentParams.types.Count : 1;
 
         private ComputeBuffer typeParamsBuffer;
@@ -54,6 +42,7 @@ namespace Biomes
             public float senseAngle, senseDistance, turnAngle, moveSpeed;
             public float depositAmount, eatAmount;
             public float diffuseRate, hue, saturation;
+            public float firingSpeedMul, firingDepositAmount;
         }
         #endregion
 
@@ -74,10 +63,6 @@ namespace Biomes
             readAgentsBuffer = gpu.CreateBuffer(agentsCount, sizeof(float) * 4 + sizeof(uint));
             writeAgentsBuffer = gpu.CreateBuffer(agentsCount, sizeof(float) * 4 + sizeof(uint));
             typeParamsBuffer = gpu.CreateBuffer(8, Marshal.SizeOf<PhysarumTypeParamsGPU>());
-
-            dummyNeuronBuffer = gpu.CreateBuffer(1, sizeof(float) * 2);
-            var zero = new Vector2[1] { Vector2.zero };
-            dummyNeuronBuffer.SetData(zero);
         }
 
         protected override void GPUReset()
@@ -91,39 +76,8 @@ namespace Biomes
             cs.SetInt(s_AgentsCountID, agentsCount);
             cs.SetBuffer(resetAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
 
-            // Parse neuron positions CSV and bind to reset kernel
-            int neuronCount = 0;
-            if (labelsPositionsCsv != null && !string.IsNullOrEmpty(labelsPositionsCsv.text))
-            {
-                var positions = ParseCsvFloat2(labelsPositionsCsv.text);
-                if (csvCoordinatesAreNormalized || LooksNormalized01(positions))
-                {
-                    for (int i = 0; i < positions.Count; i++)
-                    {
-                        var p = positions[i];
-                        p.x *= rezX;
-                        p.y *= rezY;
-                        positions[i] = p;
-                    }
-                }
-                neuronCount = positions.Count;
-                if (neuronCount > 0)
-                {
-                    neuronPositionsBuffer = gpu.CreateBuffer(neuronCount, sizeof(float) * 2);
-                    neuronPositionsBuffer.SetData(positions);
-                    cs.SetBuffer(resetAgentsKernel, s_NeuronPositionsID, neuronPositionsBuffer);
-                }
-                else
-                {
-                    cs.SetBuffer(resetAgentsKernel, s_NeuronPositionsID, dummyNeuronBuffer);
-                }
-            }
-            else
-            {
-                cs.SetBuffer(resetAgentsKernel, s_NeuronPositionsID, dummyNeuronBuffer);
-            }
-            cs.SetInt(s_NeuronCountID, neuronCount);
-            cs.SetVector(s_NeuronScaleID, new Vector4(neuronScale.x, neuronScale.y, 0, 0));
+            // Parse neuron positions CSV (inherited) and bind to reset kernel
+            BuildNeuronPositions(resetAgentsKernel);
 
             Dispatch(resetAgentsKernel, agentsCount, 1, 1);
             (readAgentsBuffer, writeAgentsBuffer) = (writeAgentsBuffer, readAgentsBuffer);
@@ -148,6 +102,8 @@ namespace Biomes
                     diffuseRate = t.diffuseRate,
                     hue = t.hue,
                     saturation = t.saturation,
+                    firingSpeedMul = t.firingSpeedMul,
+                    firingDepositAmount = t.firingDepositAmount,
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
@@ -162,6 +118,7 @@ namespace Biomes
         {
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
+            BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
 
             // Move
             cs.SetInt(s_AgentsCountID, agentsCount);
@@ -257,40 +214,5 @@ namespace Biomes
         [Button] public void RandomizeParams() => agentParams?.RandomizeParams();
         [Button] public void RandomizeColors() => agentParams?.RandomizeColors();
 
-        #region CSV Parsing
-        private static List<Vector2> ParseCsvFloat2(string csv)
-        {
-            var list = new List<Vector2>();
-            var lines = csv.Split('\n');
-            var inv = CultureInfo.InvariantCulture;
-            foreach (var raw in lines)
-            {
-                var line = raw.Trim();
-                if (string.IsNullOrEmpty(line) || line.StartsWith("#")) continue;
-                var parts = line.Split(',');
-                if (parts.Length < 3) continue;
-                if (float.TryParse(parts[1], NumberStyles.Float, inv, out float x) &&
-                    float.TryParse(parts[2], NumberStyles.Float, inv, out float y))
-                    list.Add(new Vector2(x, (1 - y)));
-            }
-            return list;
-        }
-
-        private static bool LooksNormalized01(List<Vector2> points)
-        {
-            if (points == null || points.Count == 0) return false;
-            float maxX = float.MinValue, maxY = float.MinValue;
-            float minX = float.MaxValue, minY = float.MaxValue;
-            int sampleCount = Mathf.Min(points.Count, 2048);
-            for (int i = 0; i < sampleCount; i++)
-            {
-                var p = points[i];
-                if (float.IsNaN(p.x) || float.IsNaN(p.y)) continue;
-                maxX = Mathf.Max(maxX, p.x); maxY = Mathf.Max(maxY, p.y);
-                minX = Mathf.Min(minX, p.x); minY = Mathf.Min(minY, p.y);
-            }
-            return (minX >= -0.01f && maxX <= 1.01f && minY >= -0.01f && maxY <= 1.01f);
-        }
-        #endregion
     }
 }
