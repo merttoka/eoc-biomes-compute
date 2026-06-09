@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd63b0e76cca44f07a819907eaf3c59e, type: 3}
+  m_Name: BiomeFieldConfig_Alt
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BiomeFieldConfig
+  channels:
+  - name: Nutrient
+    diffuseRate: 0.97
+    decayRate: 0.0008
+    advectedByFlow: 1
+    initialValue: 0.35
+  - name: Pheromone_0
+    diffuseRate: 0.98
+    decayRate: 0.006
+    advectedByFlow: 1
+    initialValue: 0
+  - name: Pheromone_1
+    diffuseRate: 0.98
+    decayRate: 0.004
+    advectedByFlow: 1
+    initialValue: 0
+  - name: Pheromone_2
+    diffuseRate: 0.985
+    decayRate: 0.001
+    advectedByFlow: 1
+    initialValue: 0
+  - name: Oxygen
+    diffuseRate: 0.995
+    decayRate: 0.0015
+    advectedByFlow: 1
+    initialValue: 0.7
+  - name: Temperature
+    diffuseRate: 0.997
+    decayRate: 0.001
+    advectedByFlow: 0
+    initialValue: 0.5
+  - name: Waste
+    diffuseRate: 0.99
+    decayRate: 0.0006
+    advectedByFlow: 1
+    initialValue: 0
+  - name: Permeability
+    diffuseRate: 0
+    decayRate: 0
+    advectedByFlow: 0
+    initialValue: 0.65
+  - name: Flow_X
+    diffuseRate: 0.85
+    decayRate: 0.03
+    advectedByFlow: 0
+    initialValue: 0
+  - name: Flow_Y
+    diffuseRate: 0.85
+    decayRate: 0.03
+    advectedByFlow: 0
+    initialValue: 0
+  wasteToNutrientRate: 0.03
+  temperatureToFlowStrength: 0.62
+  temperatureToPermeability: 0.01
+  noiseScale: 4
+  noiseThreshold: 0.35
