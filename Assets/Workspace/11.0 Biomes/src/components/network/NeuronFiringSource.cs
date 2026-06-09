@@ -22,6 +22,9 @@ namespace Biomes
         [Tooltip("Log frame changes to the Console (main thread)")]
         public bool debugLog = false;
 
+        [Tooltip("Same labels_positions.csv as the sims — used to place firing-ring markers in the composite overlay")]
+        public TextAsset labelsPositionsCsv;
+
         // Blob (loaded once)
         private ushort[] _firingHalf;   // flat float16 bits: frame*_neuronCount + neuron
         private int _neuronCount;
@@ -39,7 +42,13 @@ namespace Biomes
         private float[] _scaled;    // _row * _intensity, uploaded each step
         private ComputeBuffer _buffer;
 
+        // Neuron positions (normalized 0..1, y-flipped) for the firing-ring overlay
+        private ComputeBuffer _posBuffer;
+        private int _posCount;
+
         public ComputeBuffer Buffer => _buffer;
+        public ComputeBuffer PositionsBuffer => _posBuffer;
+        public int PositionsCount => _posCount;
         public int NeuronCount => _neuronCount;
         public int FrameCount => _frameCount;
         public int CurrentFrame => _currentFrame;
@@ -58,13 +67,25 @@ namespace Biomes
             int n = Mathf.Max(1, _neuronCount);
             _row = new float[n];
             _scaled = new float[n];
-            ReleaseBuffer();
+            ReleaseBuffers();
             _buffer = new ComputeBuffer(n, sizeof(float));
             _buffer.SetData(new float[n]);
+            LoadPositions();
             _currentFrame = -1;
             _intensity = 0f;
             _lastTime = Time.unscaledTime;
             _dirty = false;
+        }
+
+        private void LoadPositions()
+        {
+            _posCount = 0;
+            if (labelsPositionsCsv == null || string.IsNullOrEmpty(labelsPositionsCsv.text)) return;
+            var pts = SimulationBase.ParseCsvFloat2(labelsPositionsCsv.text); // normalized 0..1, y-flipped
+            if (pts == null || pts.Count == 0) return;
+            _posCount = pts.Count;
+            _posBuffer = new ComputeBuffer(_posCount, sizeof(float) * 2);
+            _posBuffer.SetData(pts.ToArray());
         }
 
         /// <summary>Called once per sim step by SimulationManager (main thread).</summary>
@@ -130,9 +151,13 @@ namespace Biomes
             System.Buffer.BlockCopy(bytes, 0, _firingHalf, 0, bytes.Length);
         }
 
-        private void ReleaseBuffer() { _buffer?.Release(); _buffer = null; }
-        void OnDisable() => ReleaseBuffer();
-        void OnDestroy() => ReleaseBuffer();
+        private void ReleaseBuffers()
+        {
+            _buffer?.Release(); _buffer = null;
+            _posBuffer?.Release(); _posBuffer = null;
+        }
+        void OnDisable() => ReleaseBuffers();
+        void OnDestroy() => ReleaseBuffers();
 
         [Button]
         public void TestLoadAndLog()

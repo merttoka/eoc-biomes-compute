@@ -34,6 +34,16 @@ namespace Biomes
         [SerializeField] private bool m_DebugOverlayVideoOnOutput = false;
         [SerializeField, Range(0f, 1f)] private float m_DebugOverlayStrength = 0.5f;
 
+        [Header("Neuron Firing Ring Overlay")]
+        [SerializeField] private bool m_NeuronRingOverlay = true;
+        [SerializeField] private Color m_RingColor = new Color(1f, 0.95f, 0.8f, 1f);
+        [SerializeField, Range(1f, 80f)] private float m_RingRadius = 14f;
+        [SerializeField, Range(0.5f, 40f)] private float m_RingThickness = 4f;
+        [SerializeField, Range(0f, 5f)] private float m_RingStrength = 1.5f;
+        [SerializeField, Range(0f, 1f)] private float m_RingThreshold = 0.1f;
+        [Tooltip("Match the sims' spawnScale so rings land on agent clusters")]
+        [SerializeField] private Vector2 m_RingSpawnScale = new Vector2(0.8f, 0.9f);
+
         [Header("Output")]
         public ComputeShader compositeCS;
         public Material compositeOutMat;
@@ -42,6 +52,7 @@ namespace Biomes
 
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
+        private int neuronRingKernel = -1;
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
 
@@ -57,6 +68,15 @@ namespace Biomes
         private static readonly int s_SimCountID = Shader.PropertyToID("simCount");
         private static readonly int s_ExternalOverlayTexID = Shader.PropertyToID("externalOverlay");
         private static readonly int s_OverlayStrengthID = Shader.PropertyToID("overlayStrength");
+        private static readonly int s_RingFiringID = Shader.PropertyToID("ringFiring");
+        private static readonly int s_RingPositionsID = Shader.PropertyToID("ringPositions");
+        private static readonly int s_RingCountID = Shader.PropertyToID("ringCount");
+        private static readonly int s_RingThresholdID = Shader.PropertyToID("ringThreshold");
+        private static readonly int s_RingSpawnScaleID = Shader.PropertyToID("ringSpawnScale");
+        private static readonly int s_RingRadiusID = Shader.PropertyToID("ringRadius");
+        private static readonly int s_RingThicknessID = Shader.PropertyToID("ringThickness");
+        private static readonly int s_RingStrengthID = Shader.PropertyToID("ringStrength");
+        private static readonly int s_RingColorID = Shader.PropertyToID("ringColor");
 
         void Awake()
         {
@@ -109,7 +129,11 @@ namespace Biomes
 
             compositeOutTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear, name: "composite_out");
             if (compositeCS != null)
+            {
                 compositeRenderKernel = compositeCS.FindKernel("CompositeRenderKernel");
+                neuronRingKernel = compositeCS.HasKernel("NeuronRingKernel")
+                    ? compositeCS.FindKernel("NeuronRingKernel") : -1;
+            }
 
             Render();
         }
@@ -255,6 +279,33 @@ namespace Biomes
                 Mathf.CeilToInt((float)rezX / wx),
                 Mathf.CeilToInt((float)rezY / wy),
                 Mathf.CeilToInt(1f / wz));
+
+            // Neuron firing-ring overlay: count-independent markers at firing neurons,
+            // drawn on top of the composite so termite/boid firing isn't lost in physarum's flood.
+            if (m_NeuronRingOverlay && neuronRingKernel >= 0 && neuronFiring != null
+                && neuronFiring.Buffer != null && neuronFiring.PositionsBuffer != null)
+            {
+                int ringCount = Mathf.Min(neuronFiring.NeuronCount, neuronFiring.PositionsCount);
+                if (ringCount > 0)
+                {
+                    compositeCS.SetInt(s_RezXID, rezX);
+                    compositeCS.SetInt(s_RezYID, rezY);
+                    compositeCS.SetTexture(neuronRingKernel, s_CompositeOutTexID, compositeOutTex);
+                    compositeCS.SetBuffer(neuronRingKernel, s_RingFiringID, neuronFiring.Buffer);
+                    compositeCS.SetBuffer(neuronRingKernel, s_RingPositionsID, neuronFiring.PositionsBuffer);
+                    compositeCS.SetInt(s_RingCountID, ringCount);
+                    compositeCS.SetFloat(s_RingThresholdID, m_RingThreshold);
+                    compositeCS.SetVector(s_RingSpawnScaleID, new Vector4(m_RingSpawnScale.x, m_RingSpawnScale.y, 0, 0));
+                    compositeCS.SetFloat(s_RingRadiusID, m_RingRadius);
+                    compositeCS.SetFloat(s_RingThicknessID, m_RingThickness);
+                    compositeCS.SetFloat(s_RingStrengthID, m_RingStrength);
+                    compositeCS.SetVector(s_RingColorID, m_RingColor);
+                    compositeCS.GetKernelThreadGroupSizes(neuronRingKernel, out uint rwx, out uint rwy, out uint _);
+                    compositeCS.Dispatch(neuronRingKernel,
+                        Mathf.CeilToInt((float)rezX / rwx),
+                        Mathf.CeilToInt((float)rezY / rwy), 1);
+                }
+            }
 
             if (compositeOutMat != null)
                 compositeOutMat.SetTexture("_UnlitColorMap", compositeOutTex);

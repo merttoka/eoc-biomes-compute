@@ -2,6 +2,7 @@
 
 #pragma kernel CompositeRenderKernel
 #pragma kernel ResetTextureKernel
+#pragma kernel NeuronRingKernel
 
 uint rezX;
 uint rezY;
@@ -20,6 +21,17 @@ Texture2D<float4> externalOverlay;
 float overlayStrength;
 
 RWTexture2D<float4> compositeOut;
+
+// Neuron firing-ring overlay: one count-independent marker per firing neuron.
+StructuredBuffer<float>  ringFiring;     // per-neuron intensity (decayed)
+StructuredBuffer<float2> ringPositions;  // normalized 0..1 (y-flipped), same CSV as sims
+int    ringCount;
+float  ringThreshold;
+float2 ringSpawnScale;   // match the sims' spawnScale so rings land on agent clusters
+float  ringRadius;       // pixels
+float  ringThickness;    // pixels (gaussian sigma of the ring band)
+float  ringStrength;
+float4 ringColor;
 
 float4 SampleSim(uint index, uint2 pos) {
     if (index == 0) return simInput0[pos];
@@ -57,4 +69,32 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
 void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
     compositeOut[id.xy] = float4(0, 0, 0, 1);
+}
+
+// Draw a soft ring at each firing neuron, additively, on top of the composite.
+// Count-independent: one ring per neuron, brightness/radius scale with firing intensity.
+[numthreads(8, 8, 1)]
+void NeuronRingKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float2 px = float2(id.xy) + 0.5;
+    float2 rez = float2((float)rezX, (float)rezY);
+    float t = max(ringThickness, 0.5);
+    float3 add = float3(0, 0, 0);
+
+    for (int k = 0; k < ringCount; k++) {
+        float f = ringFiring[k];
+        if (f < ringThreshold) continue;
+        // Same transform the sims use to place agents: normalized * spawnScale, centered.
+        float2 np = ringPositions[k] * ringSpawnScale + (1.0 - ringSpawnScale) * 0.5;
+        float2 npix = np * rez;
+        float d = distance(px, npix);
+        float r = ringRadius * (0.6 + 0.4 * saturate(f));      // radius pulses with intensity
+        float band = exp(-((d - r) * (d - r)) / (2.0 * t * t)); // gaussian ring
+        add += ringColor.rgb * band * saturate(f) * ringStrength;
+    }
+
+    float4 c = compositeOut[id.xy];
+    c.rgb = saturate(c.rgb + add);
+    compositeOut[id.xy] = c;
 }

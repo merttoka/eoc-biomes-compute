@@ -272,7 +272,7 @@ namespace Biomes
             return neuronCount;
         }
 
-        protected static List<Vector2> ParseCsvFloat2(string csv)
+        public static List<Vector2> ParseCsvFloat2(string csv)
         {
             var list = new List<Vector2>();
             var lines = csv.Split('\n');
