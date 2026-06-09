@@ -150,11 +150,17 @@ namespace Biomes
             int layers = TypeCount + 1;
             trailReadArray = CreateTrailArray(layers, SimName + "_trailRead");
             trailWriteArray = CreateTrailArray(layers, SimName + "_trailWrite");
-            outTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear, name: SimName + "_out");
+            // ARGBHalf (8 B/px) instead of ARGBFloat (16 B/px): output color is saturated
+            // 0..1 so half precision is ample, and it halves bandwidth on the per-pixel
+            // render/composite/Syphon path — the dominant memory traffic at 2×FHD.
+            outTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
+                RenderTextureFormat.ARGBHalf, SimName + "_out");
 
-            // Perception texture (populated by Biome)
+            // Perception texture (populated by Biome). RGB carry chemotaxis/speed/avoidance,
+            // all in 0..1 — half precision is plenty and halves the per-frame read cost in
+            // every sim's MoveAgents kernel (the hottest sampler in the project).
             perceptionTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Bilinear,
-                RenderTextureFormat.ARGBFloat, SimName + "_perception");
+                RenderTextureFormat.ARGBHalf, SimName + "_perception");
 
             resetTexKernel = cs.FindKernel("ResetTextureKernel");
             resetAgentsKernel = cs.FindKernel("ResetAgentsKernel");

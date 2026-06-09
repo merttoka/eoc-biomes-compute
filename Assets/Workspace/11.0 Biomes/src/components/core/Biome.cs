@@ -61,6 +61,12 @@ namespace Biomes
         // GPU data: per-channel settings uploaded as structured buffer
         private ComputeBuffer channelSettingsBuffer;
 
+        // Reusable perception read-entry buffer (one per Biome, grown on demand). Replaces
+        // the per-call new/Release in BuildPerceptionTex, which churned ~180 GPU buffer
+        // allocations/sec (3 sims × 60 fps). Data is re-uploaded each call (a few entries).
+        private ComputeBuffer perceptionEntryBuffer;
+        private float[] _perceptionEntryData;
+
         private static readonly int s_RezXID = Shader.PropertyToID("rezX");
         private static readonly int s_RezYID = Shader.PropertyToID("rezY");
         private static readonly int s_FieldReadID = Shader.PropertyToID("fieldRead");
@@ -387,36 +393,43 @@ namespace Biomes
         public void BuildPerceptionTex(RenderTexture perceptionTex, UmweltMapping umwelt,
             int simRezX, int simRezY)
         {
-            // Upload read entries as structured buffer (done each frame — could cache)
+            // Upload read entries into the reusable buffer (grown on demand).
             int entryCount = umwelt.reads.Count;
             if (entryCount == 0) return;
 
+            // (Re)allocate the shared buffer only when it must grow. Tracked by the GPU
+            // manager so Release() frees it with everything else.
+            if (perceptionEntryBuffer == null || perceptionEntryBuffer.count < entryCount)
+            {
+                if (perceptionEntryBuffer != null) perceptionEntryBuffer.Release();
+                perceptionEntryBuffer = gpu.CreateBuffer(entryCount, sizeof(float) * 4);
+                _perceptionEntryData = new float[entryCount * 4];
+            }
+            else if (_perceptionEntryData == null || _perceptionEntryData.Length < entryCount * 4)
+            {
+                _perceptionEntryData = new float[entryCount * 4];
+            }
+
             // Pack: int channel, float weight, int effect, float _pad
-            var entryData = new float[entryCount * 4];
             for (int i = 0; i < entryCount; i++)
             {
                 var r = umwelt.reads[i];
-                entryData[i * 4 + 0] = System.BitConverter.Int32BitsToSingle(r.channel);
-                entryData[i * 4 + 1] = r.weight;
-                entryData[i * 4 + 2] = System.BitConverter.Int32BitsToSingle((int)r.effect);
-                entryData[i * 4 + 3] = 0f;
+                _perceptionEntryData[i * 4 + 0] = System.BitConverter.Int32BitsToSingle(r.channel);
+                _perceptionEntryData[i * 4 + 1] = r.weight;
+                _perceptionEntryData[i * 4 + 2] = System.BitConverter.Int32BitsToSingle((int)r.effect);
+                _perceptionEntryData[i * 4 + 3] = 0f;
             }
-
-            // TODO: cache this buffer per umwelt to avoid per-frame alloc
-            var entryBuffer = new ComputeBuffer(entryCount, sizeof(float) * 4);
-            entryBuffer.SetData(entryData);
+            perceptionEntryBuffer.SetData(_perceptionEntryData, 0, 0, entryCount * 4);
 
             cs.SetInt("readEntryCount", entryCount);
             cs.SetInt("perceptionRezX", simRezX);
             cs.SetInt("perceptionRezY", simRezY);
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetBuffer(readFieldKernel, "readEntries", entryBuffer);
+            cs.SetBuffer(readFieldKernel, "readEntries", perceptionEntryBuffer);
             cs.SetTexture(readFieldKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(readFieldKernel, "perceptionTex", perceptionTex);
             Dispatch(readFieldKernel, simRezX, simRezY, 1);
-
-            entryBuffer.Release();
         }
 
         // --- Clear modes ---
@@ -461,8 +474,10 @@ namespace Biomes
         public void Release()
         {
             DestroyDebugGrid();
-            gpu?.ReleaseAll();
+            gpu?.ReleaseAll();   // frees channelSettingsBuffer + perceptionEntryBuffer (both tracked)
             gpu = null;
+            perceptionEntryBuffer = null;
+            _perceptionEntryData = null;
         }
 
         private void DestroyDebugGrid()

@@ -8,6 +8,7 @@ tags: [meta, index]
 ## Architecture (living)
 - [[ARCHITECTURE]] — system reference (Unity runtime + memory overview)
 - [[migration]] — memory architecture plan + open questions
+- [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
 - [[superpowers/specs/2026-06-08-osc-neuron-firing-design]] — OSC-driven shared neuron firing ([[superpowers/plans/2026-06-08-osc-neuron-firing|plan]])

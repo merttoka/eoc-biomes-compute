@@ -12,6 +12,8 @@ namespace Biomes
         [Range(32, 4096)] public int rezY = 1024;
         [Range(0, 10)] public int stepsPerFrame = 1;
         [Range(1, 50)] public int stepMod = 1;
+        [Tooltip("Run the biome PDE (flow/advect/interact/diffuse + debug render) once every N sim steps. The field is slow-changing, so 2-4 is visually invisible and removes its 4 full-array passes from most frames. Agent write-back still accumulates every step.")]
+        [Range(1, 16)] public int biomeStepEvery = 1;
         public bool limitFPS = true;
         [Range(24, 165)] public int targetFPS = 60;
 
@@ -130,7 +132,8 @@ namespace Biomes
                 sim.Reset();
             }
 
-            compositeOutTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear, name: "composite_out");
+            compositeOutTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
+                RenderTextureFormat.ARGBHalf, name: "composite_out");
             simWeightsBuffer = gpu.CreateBuffer(8, sizeof(float));
             if (compositeCS != null)
             {
@@ -232,8 +235,11 @@ namespace Biomes
             if (biome != null)
                 injector?.Inject(biome);
 
-            // 4. Step biome (diffusion, interactions, advection)
-            if (biome != null)
+            // 4. Step biome (diffusion, interactions, advection). Decimated by biomeStepEvery:
+            //    the field is slow-changing, so skipping the PDE on most frames is invisible
+            //    while removing its passes. Deposits from sims accumulate into the field every
+            //    step regardless (WriteField above), so nothing is lost between PDE steps.
+            if (biome != null && (_simStepCount % Mathf.Max(1, biomeStepEvery) == 0))
                 biome.Step();
 
             Render();
