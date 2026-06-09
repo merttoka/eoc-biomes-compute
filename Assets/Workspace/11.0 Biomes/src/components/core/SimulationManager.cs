@@ -10,10 +10,10 @@ namespace Biomes
         [Header("Resolution & Timing")]
         [Range(32, 4096)] public int rezX = 1024;
         [Range(32, 4096)] public int rezY = 1024;
+        [Tooltip("Render each sim at this fraction of the manager resolution; the composite upsamples to full output. Aspect ratio is preserved (both dims scale equally). 1 = full res. Lowering this is roughly a 1/scale^2 lever on per-pixel work (diffuse/render/perception). Takes effect on Reset.")]
+        [Range(0.1f, 1f)] public float simResolutionScale = 1f;
         [Range(0, 10)] public int stepsPerFrame = 1;
         [Range(1, 50)] public int stepMod = 1;
-        [Tooltip("Run the biome PDE (flow/advect/interact/diffuse + debug render) once every N sim steps. The field is slow-changing, so 2-4 is visually invisible and removes its 4 full-array passes from most frames. Agent write-back still accumulates every step.")]
-        [Range(1, 16)] public int biomeStepEvery = 1;
         public bool limitFPS = true;
         [Range(24, 165)] public int targetFPS = 60;
 
@@ -128,7 +128,11 @@ namespace Biomes
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
-                sim.SetResolution(rezX, rezY);
+                // Scale sim resolution by simResolutionScale, preserving the manager's
+                // aspect ratio (both dims scale equally). Composite UV-samples back up.
+                sim.SetResolution(
+                    Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
+                    Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
                 sim.Reset();
             }
 
@@ -235,11 +239,10 @@ namespace Biomes
             if (biome != null)
                 injector?.Inject(biome);
 
-            // 4. Step biome (diffusion, interactions, advection). Decimated by biomeStepEvery:
-            //    the field is slow-changing, so skipping the PDE on most frames is invisible
-            //    while removing its passes. Deposits from sims accumulate into the field every
-            //    step regardless (WriteField above), so nothing is lost between PDE steps.
-            if (biome != null && (_simStepCount % Mathf.Max(1, biomeStepEvery) == 0))
+            // 4. Step biome (diffusion, interactions, advection). Biome self-decimates the
+            //    PDE internally via its stepEvery (the field is slow-changing). Deposits from
+            //    sims accumulate into the field every step regardless (WriteField above).
+            if (biome != null)
                 biome.Step();
 
             Render();
@@ -373,7 +376,11 @@ namespace Biomes
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
-                sim.SetResolution(rezX, rezY);
+                // Scale sim resolution by simResolutionScale, preserving the manager's
+                // aspect ratio (both dims scale equally). Composite UV-samples back up.
+                sim.SetResolution(
+                    Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
+                    Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
                 sim.Reset();
             }
         }

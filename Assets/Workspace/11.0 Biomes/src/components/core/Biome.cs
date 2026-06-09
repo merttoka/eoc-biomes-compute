@@ -9,6 +9,10 @@ namespace Biomes
         [Range(32, 1024)] public int biomeRezX = 256;
         [Range(32, 1024)] public int biomeRezY = 256;
 
+        [Tooltip("Run the field PDE (flow/advect/interact/diffuse + debug render) once every N times Step() is called. The field is slow-changing, so 2-4 is visually invisible and removes its full-array passes from most frames. Agent write-back accumulates into the field every step regardless.")]
+        [Range(1, 16)] public int stepEvery = 1;
+        private int _stepCounter;
+
         [Header("Config")]
         public BiomeFieldConfig fieldConfig;
         public ComputeShader cs;
@@ -171,6 +175,12 @@ namespace Biomes
 
         public void Step()
         {
+            // Self-decimate: run the PDE only every `stepEvery` calls. Early-return is
+            // before any pass/swap, so the field ping-pong stays consistent on skipped
+            // frames; sim deposits (WriteField, called separately) still land every step.
+            _stepCounter++;
+            if (_stepCounter % Mathf.Max(1, stepEvery) != 0) return;
+
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
             cs.SetInt(s_ChannelCountID, BiomeChannel.Count);
