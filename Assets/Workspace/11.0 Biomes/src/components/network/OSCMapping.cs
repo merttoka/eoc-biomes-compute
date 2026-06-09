@@ -103,17 +103,19 @@ namespace Biomes
             foreach (var src in m_BiomeInjector.sources)
             {
                 if (src == null || string.IsNullOrEmpty(src.name)) continue;
-                string srcName = src.name; // capture for the closures
+                string srcName = src.name;                       // SetValue/SetPosition key
+                string baseAddr = BiomeInjector.OscAddressFor(src); // explicit override or /inject/<name>
+                if (string.IsNullOrEmpty(baseAddr)) continue;
 
                 m_OscServer.MessageDispatcher.AddCallback(
-                    $"/inject/{srcName}",
+                    baseAddr,
                     (string addr, OscDataHandle data) => {
                         m_BiomeInjector.SetValue(srcName, data.GetElementAsFloat(0));
                     }
                 );
 
                 m_OscServer.MessageDispatcher.AddCallback(
-                    $"/inject/{srcName}/pos",
+                    $"{baseAddr}/pos",
                     (string addr, OscDataHandle data) => {
                         m_BiomeInjector.SetPosition(srcName, data.GetElementAsFloat(0), data.GetElementAsFloat(1));
                     }

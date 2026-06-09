@@ -162,8 +162,114 @@ move that converts the relax-to-mush field into travelling fertility fronts.
 
 ---
 
+## Part 5 — Perf-aware refresh (2026-06-09, exhibition pass)
+
+Re-examined the biome/ALife structure through the **performance** lens (the M4 exhibition
+scale-up) and the three live asks: ecosystem richness, neuron-trigger display, injector
+usability. See [[PERFORMANCE]] for the GPU budget this is reconciled against.
+
+### 5a. The key realization: ecosystem richness is essentially **free** on the GPU
+The frame budget is spent on **physarum agent count** (Move / WriteTrails / write-back) and
+**per-pixel sim passes at output res**. The biome PDE runs on a **320×180 grid, decimated to
+every 4th step** — ~0.06 M px × 4 passes / 4 = trivial. Therefore:
+- **Adding biome channels is ~free.** Each channel is +0.23 MB (320×180×2B×2 buffers) and
+  one more iteration of the per-texel channel loops on a tiny, decimated grid. The 10→11
+  Humidity growth costs nothing measurable. *Budget is not the reason to hold at 10.*
+- **Richer Umwelts are ~free.** Perception build now runs at `perceptionResScale` (≈0.25);
+  more `reads` = a slightly longer per-texel loop on a small texture. More `writes` = with
+  fused write-back, a longer in-register per-agent loop, **same dispatch count**.
+- **So the only real costs of "more ecosystem" are authoring complexity and *mush*** — not
+  GPU time. Spend the freed-up thinking on legibility, not optimization.
+
+### 5b. Mush gets *worse* as agent count scales — fix it before 10 M, not after
+Today Nutrient/Oxygen/Waste have `decay=0` + constant per-agent deposits + `diffuse≈0.99`,
+so they ramp to a flat clamped 1.0 (Part 1e). **This is a fidelity bug that the scale-up
+amplifies:** 10 M physarum deposit ~30× more than the current 300 k, so the field saturates
+~30× faster, the perception R/G gradients flatten, agents lose their cue, and the composite
+washes out. **The "make it alive" Tier-1 work (Part 2) is therefore a prerequisite for the
+high-count target, not a nice-to-have:**
+- **Decay sinks** (Oxygen `decay≈0.001`, Waste `decay≈0.0005`, Nutrient small) — asset-only,
+  zero code, zero perf. Do this first; it stops the saturation.
+- **Q10 decomposition** (replace linear `(0.5+temp)` with `pow(2.74,(temp−0.5)·span)` +
+  clamp) — a few lines in `InteractFieldsKernel`, runs on the decimated grid = free.
+- **Fix the `temperatureToPermeability` runaway integrator** (Part 1e) — it accumulates
+  unbounded; make it relax toward a baseline. One line, free.
+
+### 5c. Channel-structure recommendations (ranked, all perf-cheap)
+1. **Decay sinks + Q10 + perm-integrator fix** (5b) — *do before scaling counts.*
+2. **Humidity channel (10→11).** Worth it; the PDF's #1. Code touch: bump
+   `BiomeChannel.Count`/`Names` (`BiomeFieldConfig.cs`), `CH_COUNT` + a `#define`
+   (`Biome.compute`), add a `FieldChannelSettings` row, extend `ExternalTextureSender`'s
+   `ChannelNames` (currently 9, already **stale** — missing Pheromone_2). High-diffusion,
+   agent-consumed, Temperature evaporates it; gives termites a real build cue
+   (`evaporation ≈ |∇Humidity|`). Perf: negligible.
+3. **Permeability-as-topography (Laplacian stigmergy), no new channel** — curvature in
+   `InteractFieldsKernel` (neighbours already sampled) drives build/dig so mounds
+   self-organize. Free; medium authoring risk (needs a slow relaxation clamp).
+4. **Make the dead `B` (avoidance) channel real for physarum + termite** (3 lines each,
+   mirror `BoidSim` avoidance read) → asymmetric predator/prey instead of mutual freeze.
+   Free. ⚠️ `perception.b` is one summed scalar — one avoidance meaning per sim.
+5. **Retire / repurpose dead wiring:** `externalInfluenceTex` is assigned every frame but no
+   shader samples it (Part 1e) — either delete it or turn it into a real Texture-valued
+   injector source (5e). `Pheromone_2` has no consumer loop — give termites a
+   self-Pheromone_2 chemotaxis read for mound autocatalysis (free, asset-only).
+
+### 5d. Displaying neuron triggers — get the HUD ring off the composite
+The gaussian ring overlay reads as a HUD on top of an organic field — you flagged it, and
+it's now off by default for the show. Firing **already** expresses organically (firing
+agents move faster + deposit brighter via `firingSpeedMul`/`firingDepositAmount`). Better
+structural options, roughly in order of "in-keeping with the evolved ecosystem":
+
+1. **Firing → biome stamp (ecological, recommended).** `NeuronFiringSource` already loads the
+   neuron→uv table (`PositionsCPU`) and the live decayed values (`ScaledValues`). Feed firing
+   neurons through the **injector primitive** as location-accurate stamps — e.g. a Temperature
+   or Nutrient pulse at each firing neuron's uv. The field then *responds* (flow re-aims, Q10
+   flares, agents flock in) so "the network lit up here" becomes an emergent bloom, not a
+   drawn marker. This **unifies neuron triggers and external sensors into one mechanism**
+   (a neuron is just another injector source whose value/position come from the blob). Cheap:
+   a handful of stamps per active neuron, reuses `InjectStampKernel`.
+2. **Firing → trail-layer scar (graphic but organic).** Inject firing into a sim's
+   `trailReadArray` to *rupture* established veins → the transport network visibly re-routes
+   around the disturbance. Immediate and striking, still part of the medium rather than over it.
+3. **Rings as a separate Syphon "infographic" layer (your idea).** Keep `NeuronRingKernel`
+   but render it to its **own** RenderTexture (not `compositeOut`) and publish it as a
+   dedicated stream via `ExternalTextureSender` (new `SendSource.NeuronRings`). TD composites
+   / styles it independently — data-viz stays out of the art. Cheap (the kernel already
+   exists and is compacted to active neurons; just retarget it + add one send source).
+4. If a *subtle* in-composite cue is still wanted: replace the hard ring with a soft local
+   **bloom/persistence lift** in a disc — reads as "a pulse passed through" rather than a ring.
+
+> Recommendation: **(1) for the room, (3) for documentation/screens.** Both reuse existing
+> machinery (injector + sender); neither draws on the composite. Decide whether neuron
+> disruption is *ecological* (slow, perturb channels) or *graphic* (scar trails) per Part 3's
+> open question — they're different aesthetics; you can route different neuron groups to each.
+
+### 5e. Injector usability + external-sensor connection
+Shipped this pass (additive, defaults preserve current behaviour — `BiomeInjector.cs`,
+`OSCMapping.cs`, `MIDI_OSC.md`):
+- **Raw→0..1 calibration** per source (`inputMin`/`inputMax`) so real sensor ranges (ppm,
+  distance, lux) map without TD-side math; **EMA `smoothing`** denoises jittery feeds.
+- **`oscAddress` override** decouples the wire protocol from the display name (rename a
+  source without breaking the sender).
+- **"Log Live Source Values"** button — per-source channel, uv, raw→calibrated value, OSC
+  address, and time-since-last-message, so bring-up shows at a glance which sensors arrive.
+
+Still recommended (not yet built — need your call on direction):
+- **Click-to-place in a composite-aspect preview**, or drive `fieldUV` from a scene transform
+  aligned to the projection, so "pin the plant *there*" isn't manual 0..1 guessing. (Today's
+  gizmo lives on an arbitrary transform plane.)
+- **Texture-valued injector source** (revive `externalInfluenceTex`): sample a TD-painted
+  texture into a channel — e.g. a depth-camera silhouette → Temperature, or a projection-mask
+  → Nutrient. One new stamp `mode`/source type; makes spatial sensor data first-class.
+- **Connection model:** standardize on **TD as the sensor hub** (it already speaks serial /
+  MQTT / Art-Net / DMX / HTTP) emitting OSC `/inject/<name>`; Unity stays OSC-in only. The
+  calibration + monitor above make raw feeds usable directly, so most sensors need zero
+  Unity-side code — just a source row + a TD→OSC route.
+
+---
+
 ## Open questions
-1. **Channel budget:** OK to grow 10→11 for Humidity (the PDF's #1 pick), or stay at 10 and fake moisture off Permeability/Oxygen?
+1. **Channel budget:** ~~OK to grow 10→11 for Humidity?~~ → **Yes — it's perf-free** ([[PERFORMANCE]] §; Part 5a). Sequence it after the mush fix (5b).
 2. **Robot mapping:** static "altar" hot-spot, or does the arm's physical pose sweep the stamp uv as it moves?
 3. **Neuron disruption register:** ecological (perturb biome channels, slow) vs graphic (scar trails directly, immediate)? Or both, per neuron group?
 4. **Plant signal:** live CO₂/light sensors per plant, or constant emitters the artist tunes?
