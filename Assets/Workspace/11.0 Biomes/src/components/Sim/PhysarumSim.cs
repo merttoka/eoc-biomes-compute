@@ -42,6 +42,7 @@ namespace Biomes
             public float senseAngle, senseDistance, turnAngle, moveSpeed;
             public float depositAmount, eatAmount;
             public float diffuseRate, hue, saturation;
+            public float firingSpeedMul, firingDepositAmount;
         }
         #endregion
 
@@ -101,6 +102,8 @@ namespace Biomes
                     diffuseRate = t.diffuseRate,
                     hue = t.hue,
                     saturation = t.saturation,
+                    firingSpeedMul = t.firingSpeedMul,
+                    firingDepositAmount = t.firingDepositAmount,
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
@@ -115,6 +118,7 @@ namespace Biomes
         {
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
+            BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
 
             // Move
             cs.SetInt(s_AgentsCountID, agentsCount);
