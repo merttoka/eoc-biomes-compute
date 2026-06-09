@@ -20,6 +20,9 @@ Texture2D<float4> simInput7;
 Texture2D<float4> externalOverlay;
 float overlayStrength;
 
+// Per-sim composite weights (index matches simInput0..7 / simulations list).
+StructuredBuffer<float> simWeights;
+
 RWTexture2D<float4> compositeOut;
 
 // Neuron firing-ring overlay: one count-independent marker per firing neuron.
@@ -52,8 +55,8 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     float4 color = float4(0, 0, 0, 1);
     for (uint i = 0; i < simCount; i++) {
         float4 simColor = SampleSim(i, id.xy);
-        // Additive blend
-        color.rgb += simColor.rgb;
+        // Weighted additive blend
+        color.rgb += simColor.rgb * simWeights[i];
     }
     // Overlay external input
     if (overlayStrength > 0.0)

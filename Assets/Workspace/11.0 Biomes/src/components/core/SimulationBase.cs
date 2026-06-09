@@ -13,6 +13,9 @@ namespace Biomes
         public ComputeShader cs;
         public Material outputMat;
 
+        [Tooltip("Weight of this sim's output in the final additive composite (1 = full). Lower a dense sim (e.g. physarum) so it stops saturating the canvas and drowning the others.")]
+        [Range(0f, 4f)] public float compositeWeight = 1f;
+
         [HideInInspector] public int rezX = 1024;
         [HideInInspector] public int rezY = 1024;
 

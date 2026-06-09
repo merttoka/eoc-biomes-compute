@@ -53,6 +53,8 @@ namespace Biomes
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
         private int neuronRingKernel = -1;
+        private ComputeBuffer simWeightsBuffer;
+        private readonly float[] _simWeightsCache = new float[8];
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
 
@@ -66,6 +68,7 @@ namespace Biomes
         private static readonly int s_RezYID = Shader.PropertyToID("rezY");
         private static readonly int s_CompositeOutTexID = Shader.PropertyToID("compositeOut");
         private static readonly int s_SimCountID = Shader.PropertyToID("simCount");
+        private static readonly int s_SimWeightsID = Shader.PropertyToID("simWeights");
         private static readonly int s_ExternalOverlayTexID = Shader.PropertyToID("externalOverlay");
         private static readonly int s_OverlayStrengthID = Shader.PropertyToID("overlayStrength");
         private static readonly int s_RingFiringID = Shader.PropertyToID("ringFiring");
@@ -128,6 +131,7 @@ namespace Biomes
             }
 
             compositeOutTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear, name: "composite_out");
+            simWeightsBuffer = gpu.CreateBuffer(8, sizeof(float));
             if (compositeCS != null)
             {
                 compositeRenderKernel = compositeCS.FindKernel("CompositeRenderKernel");
@@ -259,6 +263,13 @@ namespace Biomes
             }
 
             compositeCS.SetTexture(compositeRenderKernel, s_CompositeOutTexID, compositeOutTex);
+
+            // Per-sim composite weights (index matches simInput0..7)
+            for (int i = 0; i < 8; i++)
+                _simWeightsCache[i] = (i < simulations.Count && simulations[i] != null)
+                    ? simulations[i].compositeWeight : 1f;
+            simWeightsBuffer.SetData(_simWeightsCache);
+            compositeCS.SetBuffer(compositeRenderKernel, s_SimWeightsID, simWeightsBuffer);
 
             // Overlay external input on composite
             RenderTexture overlayTex = (externalInput != null) ? externalInput.OutputTexture : null;
