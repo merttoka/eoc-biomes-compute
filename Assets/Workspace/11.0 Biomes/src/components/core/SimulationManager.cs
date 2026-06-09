@@ -12,6 +12,8 @@ namespace Biomes
         [Range(32, 4096)] public int rezY = 1024;
         [Tooltip("Render each sim at this fraction of the manager resolution; the composite upsamples to full output. Aspect ratio is preserved (both dims scale equally). 1 = full res. Lowering this is roughly a 1/scale^2 lever on per-pixel work (diffuse/render/perception). Takes effect on Reset.")]
         [Range(0.1f, 1f)] public float simResolutionScale = 1f;
+        [Tooltip("Build each sim's perception texture at this fraction of its sim resolution. Perception only upsamples the low-res biome field (it carries no sim-res detail), and every sim reads it through bilinear UV sampling — 0.25-0.5 is visually identical and removes a full-res build pass per sim per step. Takes effect on Reset.")]
+        [Range(0.05f, 1f)] public float perceptionResScale = 1f;
         [Range(0, 10)] public int stepsPerFrame = 1;
         [Range(1, 50)] public int stepMod = 1;
         public bool limitFPS = true;
@@ -25,6 +27,9 @@ namespace Biomes
 
         [Tooltip("Use the fused single-dispatch write-back (one dispatch applies all of a sim's channel deposits) instead of one dispatch per channel. Requires BiomeWriteFused.compute assigned to Biome.fusedWriteCS. Off = default per-channel path.")]
         [SerializeField] private bool fusedWriteback = false;
+
+        [Tooltip("Write metabolic heat / oxygen consumption to the biome only every Nth step, with the amount scaled by N to conserve total flux. They feed slow PDE channels, so 2-4 is invisible; at 10 M physarum each skipped step saves tens of millions of scatter writes. 1 = every step (default).")]
+        [Range(1, 8)] public int metabolismEvery = 1;
 
         [Header("Simulations")]
         public List<SimulationBase> simulations = new();
@@ -60,6 +65,14 @@ namespace Biomes
         private int neuronRingKernel = -1;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
+
+        // Compacted firing-ring data: only neurons above threshold are uploaded, so the
+        // per-pixel ring loop runs over the handful of ACTIVE neurons instead of all 131,
+        // and the whole dispatch is skipped while the network is quiet.
+        private ComputeBuffer ringPosCompactBuffer;
+        private ComputeBuffer ringFireCompactBuffer;
+        private Vector2[] _ringPosCache;
+        private float[] _ringFireCache;
         private readonly List<Biome.FusedWrite> _writeScratch = new();
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
@@ -137,6 +150,7 @@ namespace Biomes
                 sim.SetResolution(
                     Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
                     Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
+                sim.perceptionResScale = perceptionResScale;
                 sim.Reset();
             }
 
@@ -186,13 +200,16 @@ namespace Biomes
                 sim.neuronFiringCount = firingCount;
             }
 
-            // 1. Build perception textures from biome for each sim
+            // 1. Build perception textures from biome for each sim. The build runs at
+            //    the perception texture's own resolution (perceptionResScale × sim res);
+            //    sims read it by UV so the sizes need not match.
             if (biome != null)
             {
                 foreach (var sim in simulations)
                 {
-                    if (sim == null || sim.umwelt == null) continue;
-                    biome.BuildPerceptionTex(sim.perceptionTex, sim.umwelt, sim.rezX, sim.rezY);
+                    if (sim == null || sim.umwelt == null || sim.perceptionTex == null) continue;
+                    biome.BuildPerceptionTex(sim.perceptionTex, sim.umwelt,
+                        sim.perceptionTex.width, sim.perceptionTex.height);
                 }
             }
 
@@ -203,9 +220,15 @@ namespace Biomes
                 sim.Step();
             }
 
-            // 3. Sims write back to biome
+            // 3. Sims write back to biome. Metabolic heat / oxygen feed slow PDE channels,
+            //    so they may run at a decimated cadence (metabolismEvery), amount scaled
+            //    by the cadence to conserve total flux.
             if (biome != null)
             {
+                int metabEvery = Mathf.Max(1, metabolismEvery);
+                bool metabolismNow = (_simStepCount % metabEvery) == 0;
+                float metabScale = metabEvery;
+
                 for (int i = 0; i < simulations.Count; i++)
                 {
                     var sim = simulations[i];
@@ -221,10 +244,10 @@ namespace Biomes
                         _writeScratch.Clear();
                         foreach (var write in sim.umwelt.writes)
                             _writeScratch.Add(new Biome.FusedWrite { channel = write.channel, amount = write.amount });
-                        if (sim.umwelt.metabolicHeat > 0)
-                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Temperature, amount = sim.umwelt.metabolicHeat });
-                        if (sim.umwelt.oxygenConsumption > 0)
-                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Oxygen, amount = -sim.umwelt.oxygenConsumption });
+                        if (metabolismNow && sim.umwelt.metabolicHeat > 0)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Temperature, amount = sim.umwelt.metabolicHeat * metabScale });
+                        if (metabolismNow && sim.umwelt.oxygenConsumption > 0)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Oxygen, amount = -sim.umwelt.oxygenConsumption * metabScale });
                         biome.WriteFields(_writeScratch, posBuffer, agentCount, sim.rezX, sim.rezY);
                     }
                     else
@@ -233,12 +256,12 @@ namespace Biomes
                         foreach (var write in sim.umwelt.writes)
                             biome.WriteField(write.channel, posBuffer, agentCount,
                                 write.amount, sim.rezX, sim.rezY);
-                        if (sim.umwelt.metabolicHeat > 0)
+                        if (metabolismNow && sim.umwelt.metabolicHeat > 0)
                             biome.WriteField(BiomeChannel.Temperature, posBuffer, agentCount,
-                                sim.umwelt.metabolicHeat, sim.rezX, sim.rezY);
-                        if (sim.umwelt.oxygenConsumption > 0)
+                                sim.umwelt.metabolicHeat * metabScale, sim.rezX, sim.rezY);
+                        if (metabolismNow && sim.umwelt.oxygenConsumption > 0)
                             biome.WriteField(BiomeChannel.Oxygen, posBuffer, agentCount,
-                                -sim.umwelt.oxygenConsumption, sim.rezX, sim.rezY);
+                                -sim.umwelt.oxygenConsumption * metabScale, sim.rezX, sim.rezY);
                     }
                 }
             }
@@ -311,18 +334,47 @@ namespace Biomes
 
             // Neuron firing-ring overlay: count-independent markers at firing neurons,
             // drawn on top of the composite so termite/boid firing isn't lost in physarum's flood.
-            if (m_NeuronRingOverlay && neuronRingKernel >= 0 && neuronFiring != null
-                && neuronFiring.Buffer != null && neuronFiring.PositionsBuffer != null)
+            // Compacted CPU-side to the neurons above threshold: the per-pixel kernel loop
+            // shrinks from all 131 neurons (~540 M iterations/frame at 2×FHD) to the few
+            // active ones, and quiet frames skip the dispatch entirely.
+            if (m_NeuronRingOverlay && neuronRingKernel >= 0 && neuronFiring != null)
             {
-                int ringCount = Mathf.Min(neuronFiring.NeuronCount, neuronFiring.PositionsCount);
-                if (ringCount > 0)
+                var scaled = neuronFiring.ScaledValues;
+                var posCPU = neuronFiring.PositionsCPU;
+                int cap = (scaled != null && posCPU != null) ? Mathf.Min(scaled.Length, posCPU.Count) : 0;
+                int active = 0;
+                if (cap > 0)
                 {
+                    if (_ringFireCache == null || _ringFireCache.Length < cap)
+                    {
+                        _ringFireCache = new float[cap];
+                        _ringPosCache = new Vector2[cap];
+                    }
+                    for (int i = 0; i < cap; i++)
+                    {
+                        float f = scaled[i];
+                        if (f < m_RingThreshold) continue;
+                        _ringFireCache[active] = f;
+                        _ringPosCache[active] = posCPU[i];
+                        active++;
+                    }
+                }
+                if (active > 0)
+                {
+                    if (ringFireCompactBuffer == null || ringFireCompactBuffer.count < cap)
+                    {
+                        ringFireCompactBuffer = gpu.CreateBuffer(cap, sizeof(float));
+                        ringPosCompactBuffer = gpu.CreateBuffer(cap, sizeof(float) * 2);
+                    }
+                    ringFireCompactBuffer.SetData(_ringFireCache, 0, 0, active);
+                    ringPosCompactBuffer.SetData(_ringPosCache, 0, 0, active);
+
                     compositeCS.SetInt(s_RezXID, rezX);
                     compositeCS.SetInt(s_RezYID, rezY);
                     compositeCS.SetTexture(neuronRingKernel, s_CompositeOutTexID, compositeOutTex);
-                    compositeCS.SetBuffer(neuronRingKernel, s_RingFiringID, neuronFiring.Buffer);
-                    compositeCS.SetBuffer(neuronRingKernel, s_RingPositionsID, neuronFiring.PositionsBuffer);
-                    compositeCS.SetInt(s_RingCountID, ringCount);
+                    compositeCS.SetBuffer(neuronRingKernel, s_RingFiringID, ringFireCompactBuffer);
+                    compositeCS.SetBuffer(neuronRingKernel, s_RingPositionsID, ringPosCompactBuffer);
+                    compositeCS.SetInt(s_RingCountID, active);
                     compositeCS.SetFloat(s_RingThresholdID, m_RingThreshold);
                     compositeCS.SetVector(s_RingSpawnScaleID, new Vector4(m_RingSpawnScale.x, m_RingSpawnScale.y, 0, 0));
                     compositeCS.SetFloat(s_RingRadiusID, m_RingRadius);
@@ -353,8 +405,10 @@ namespace Biomes
             if (biome != null)
                 biome.Release();
 
-            gpu?.ReleaseAll();
+            gpu?.ReleaseAll();   // frees ring compact buffers too (gpu-tracked)
             gpu = null;
+            ringPosCompactBuffer = null;
+            ringFireCompactBuffer = null;
         }
 
         void OnDestroy() => Release();
@@ -390,6 +444,7 @@ namespace Biomes
                 sim.SetResolution(
                     Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
                     Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
+                sim.perceptionResScale = perceptionResScale;
                 sim.Reset();
             }
         }

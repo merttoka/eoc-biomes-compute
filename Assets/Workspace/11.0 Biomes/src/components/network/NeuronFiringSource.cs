@@ -45,10 +45,16 @@ namespace Biomes
         // Neuron positions (normalized 0..1, y-flipped) for the firing-ring overlay
         private ComputeBuffer _posBuffer;
         private int _posCount;
+        private System.Collections.Generic.List<Vector2> _posList;
 
         public ComputeBuffer Buffer => _buffer;
         public ComputeBuffer PositionsBuffer => _posBuffer;
         public int PositionsCount => _posCount;
+        /// <summary>Current per-neuron firing values (already intensity-scaled), CPU-side.
+        /// Lets the ring overlay compact to active neurons and skip the dispatch when quiet.</summary>
+        public float[] ScaledValues => _scaled;
+        /// <summary>Normalized neuron positions (same CSV order as ScaledValues), CPU-side.</summary>
+        public System.Collections.Generic.IReadOnlyList<Vector2> PositionsCPU => _posList;
         public int NeuronCount => _neuronCount;
         public int FrameCount => _frameCount;
         public int CurrentFrame => _currentFrame;
@@ -80,9 +86,11 @@ namespace Biomes
         private void LoadPositions()
         {
             _posCount = 0;
+            _posList = null;
             if (labelsPositionsCsv == null || string.IsNullOrEmpty(labelsPositionsCsv.text)) return;
             var pts = SimulationBase.ParseCsvFloat2(labelsPositionsCsv.text); // normalized 0..1, y-flipped
             if (pts == null || pts.Count == 0) return;
+            _posList = pts;
             _posCount = pts.Count;
             _posBuffer = new ComputeBuffer(_posCount, sizeof(float) * 2);
             _posBuffer.SetData(pts.ToArray());

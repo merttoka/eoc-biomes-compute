@@ -17,7 +17,7 @@ namespace Biomes
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
         [Header("Agents")]
-        [Range(32, 20000)] public int agentsCount = 500;
+        [Range(32, 250000)] public int agentsCount = 500;
         private ComputeBuffer readAgentsBuffer;
         private ComputeBuffer writeAgentsBuffer;
 
@@ -36,9 +36,11 @@ namespace Biomes
         private int hashAndCountKernel;
         private int prefixSumKernel;
         private int scatterKernel;
+        private int reorderAgentsKernel;
         private ComputeBuffer cellCountsBuffer;
         private ComputeBuffer cellOffsetsBuffer;
         private ComputeBuffer sortedBoidIndicesBuffer;
+        private ComputeBuffer sortedAgentsBuffer;
 
         private ComputeBuffer typeParamsBuffer;
         private BoidTypeParamsGPU[] _typeParamsCache;
@@ -73,6 +75,8 @@ namespace Biomes
         private static readonly int s_SortedBoidIndicesID = Shader.PropertyToID("sortedBoidIndices");
         private static readonly int s_CellOffsetsReadID = Shader.PropertyToID("cellOffsetsRead");
         private static readonly int s_SortedIndicesReadID = Shader.PropertyToID("sortedIndicesRead");
+        private static readonly int s_AgentsSortedID = Shader.PropertyToID("agentsSorted");
+        private static readonly int s_AgentsSortedReadID = Shader.PropertyToID("agentsSortedRead");
 
         public override ComputeBuffer GetAgentPositionBuffer() => readAgentsBuffer;
         public override int GetAgentCount() => agentsCount;
@@ -91,6 +95,7 @@ namespace Biomes
             hashAndCountKernel = cs.FindKernel("HashAndCountKernel");
             prefixSumKernel = cs.FindKernel("PrefixSumKernel");
             scatterKernel = cs.FindKernel("ScatterKernel");
+            reorderAgentsKernel = cs.FindKernel("ReorderAgentsKernel");
         }
 
         protected override void InitBuffers()
@@ -102,6 +107,7 @@ namespace Biomes
             cellCountsBuffer = gpu.CreateBuffer(maxCells, sizeof(uint));
             cellOffsetsBuffer = gpu.CreateBuffer(maxCells, sizeof(uint));
             sortedBoidIndicesBuffer = gpu.CreateBuffer(agentsCount, sizeof(uint));
+            sortedAgentsBuffer = gpu.CreateBuffer(agentsCount, sizeof(float) * 4 + sizeof(uint));
             typeParamsBuffer = gpu.CreateBuffer(8, Marshal.SizeOf<BoidTypeParamsGPU>());
         }
 
@@ -206,6 +212,12 @@ namespace Biomes
             cs.SetBuffer(scatterKernel, s_CellOffsetsID, cellOffsetsBuffer);
             cs.SetBuffer(scatterKernel, s_SortedBoidIndicesID, sortedBoidIndicesBuffer);
             Dispatch(scatterKernel, agentsCount, 1, 1);
+
+            // Copy agents into cell order so the Move neighbour loop reads contiguously.
+            cs.SetBuffer(reorderAgentsKernel, s_AgentsInID, readAgentsBuffer);
+            cs.SetBuffer(reorderAgentsKernel, s_SortedIndicesReadID, sortedBoidIndicesBuffer);
+            cs.SetBuffer(reorderAgentsKernel, s_AgentsSortedID, sortedAgentsBuffer);
+            Dispatch(reorderAgentsKernel, agentsCount, 1, 1);
         }
 
         private void GPUMoveAgentsKernel()
@@ -215,6 +227,7 @@ namespace Biomes
             cs.SetBuffer(moveAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_CellOffsetsReadID, cellOffsetsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_SortedIndicesReadID, sortedBoidIndicesBuffer);
+            cs.SetBuffer(moveAgentsKernel, s_AgentsSortedReadID, sortedAgentsBuffer);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);
             Dispatch(moveAgentsKernel, agentsCount, 1, 1);
         }

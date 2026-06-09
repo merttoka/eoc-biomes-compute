@@ -6,6 +6,7 @@
 #pragma kernel HashAndCountKernel
 #pragma kernel PrefixSumKernel
 #pragma kernel ScatterKernel
+#pragma kernel ReorderAgentsKernel
 #pragma kernel MoveAgentsKernel
 #pragma kernel WriteTrailsKernel
 #pragma kernel DiffuseTextureKernel
@@ -39,9 +40,16 @@ RWStructuredBuffer<uint> sortedBoidIndices;
 StructuredBuffer<uint> cellOffsetsRead;
 StructuredBuffer<uint> sortedIndicesRead;
 
+// Agents copied into cell order (ReorderAgentsKernel) so the neighbour loop in
+// MoveAgentsKernel streams contiguous 20-byte records instead of gathering
+// agentsIn[sortedIndices[j]] at random — the loop is the sim's bandwidth hotspot.
+RWStructuredBuffer<Agent> agentsSorted;
+StructuredBuffer<Agent> agentsSortedRead;
+
 uint rezX;
 uint rezY;
 uint time;
+float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
 
 #include "includes/random.hlsl"
 #include "includes/boid_type_params.hlsl"
@@ -176,6 +184,14 @@ void ScatterKernel(uint3 id : SV_DISPATCHTHREADID) {
     sortedBoidIndices[cellOffsets[cellKey] + localIdx] = id.x;
 }
 
+// Copy agents into cell order. One coherent gather here turns the hundreds of
+// scattered agent reads per boid in MoveAgentsKernel into sequential streams.
+[numthreads(1024, 1, 1)]
+void ReorderAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    agentsSorted[id.x] = agentsIn[sortedIndicesRead[id.x]];
+}
+
 
 // ════════════════════════════════════════════════
 // BOID FORCES
@@ -248,7 +264,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
             for (uint j = cellStart; j < cellEnd; j++) {
                 uint otherIdx = sortedIndicesRead[j];
                 if (otherIdx == id.x) continue;
-                Agent other = agentsIn[otherIdx];
+                Agent other = agentsSortedRead[j];
 
                 float2 diff = b.position - other.position;
                 float sqDist = ToroidalDistanceSq(diff, fRX, fRY);
@@ -286,17 +302,18 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
         float2 posLeft = (b.position + rotate(normVel, p.sensorAngleRad) * sd) / float2(fRX, fRY);
         float2 posRight = (b.position + rotate(normVel, -p.sensorAngleRad) * sd) / float2(fRX, fRY);
 
-        // Own trail + biome chemotaxis combined
+        // Own trail + biome chemotaxis combined (one fetch per sensor; the ahead
+        // sample also carries the avoidance channel, so it isn't fetched twice)
+        float4 pAhead = perceptionTex.SampleLevel(sampler_perceptionTex, posAhead, 0);
         float ahead = trailRead.SampleLevel(sampler_trailRead, float3(posAhead, b.typeId), 0)
-                    + (perceptionTex.SampleLevel(sampler_perceptionTex, posAhead, 0).r - 0.5) * 2.0;
+                    + (pAhead.r - 0.5) * 2.0;
         float left = trailRead.SampleLevel(sampler_trailRead, float3(posLeft, b.typeId), 0)
                    + (perceptionTex.SampleLevel(sampler_perceptionTex, posLeft, 0).r - 0.5) * 2.0;
         float right = trailRead.SampleLevel(sampler_trailRead, float3(posRight, b.typeId), 0)
                     + (perceptionTex.SampleLevel(sampler_perceptionTex, posRight, 0).r - 0.5) * 2.0;
 
         // Avoidance signal adds repulsion
-        float avoidAhead = perceptionTex.SampleLevel(sampler_perceptionTex, posAhead, 0).b;
-        ahead -= avoidAhead;
+        ahead -= pAhead.b;
 
         float2 foodForce = float2(0, 0);
         if (left > ahead && left > right) {
@@ -347,10 +364,13 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float own = trailWrite[uint3(pos, b.typeId)];
     trailWrite[uint3(pos, b.typeId)] = clamp(own + dep, 0, 1);
 
-    for (uint t = 0; t < typeCount; t++) {
-        if (t == b.typeId) continue;
-        float other = trailWrite[uint3(pos, t)];
-        trailWrite[uint3(pos, t)] = clamp(other - p.eatAmount, 0, 1);
+    // eatAmount == 0 changes nothing — skip the per-layer read-modify-writes.
+    if (p.eatAmount > 0) {
+        for (uint t = 0; t < typeCount; t++) {
+            if (t == b.typeId) continue;
+            float other = trailWrite[uint3(pos, t)];
+            trailWrite[uint3(pos, t)] = clamp(other - p.eatAmount, 0, 1);
+        }
     }
 }
 
@@ -393,6 +413,6 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     }
     float4 current = outTex[id.xy];
     current += color;
-    current *= 0.9;
+    current *= persistence;
     outTex[id.xy] = saturate(current);
 }

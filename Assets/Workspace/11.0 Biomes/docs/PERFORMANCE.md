@@ -98,13 +98,19 @@ reads each).
 **Boid (100 k) — the second hotspot, for a subtle reason:**
 - Spatial hash: `Clear`, `HashAndCount`, `PrefixSum`, `Scatter`. **`PrefixSumKernel` is
   `[numthreads(1,1,1)]` — a single GPU thread looping over every grid cell serially.** Low
-  occupancy, pure latency.
+  occupancy, pure latency. *(Fixed — §4 #5.)*
 - `MoveAgentsKernel`: 100 k threads × neighbour loop over a 3×3 cell block. **`cellSize` =
   the *max* interaction range across all boid types**, and `BoidParams` has
   `separationRange` up to ~492 px. A 492-px cell over a 2048² canvas ⇒ very few, very large
   cells ⇒ **hundreds of neighbours per boid**, each an uncoalesced agent read. Cost scales
   ~ N × (local density) and balloons with the large ranges. **This, not the count alone, is
   the boid risk.**
+- Put numbers on it: the loop scans ~9·cellSize²·(N/canvasArea) agents per boid, i.e. it is
+  **quadratic in N at fixed range**. At N = 100 k on 3840×1080 with ranges capped to 96 px
+  (cellSize 96), that's ~2 000 scanned neighbours × 100 k boids = **~200 M agent reads
+  (~4 GB) per step — not viable.** At 64 px and 40 k boids it's ~10 M reads (~0.2 GB after
+  the §4b #4 reorder) — fine. **Choose the boid count and range cap together:**
+  scanned ≈ 9·r²·N²/(3840·1080); keep that product under ~30 M.
 
 **Termite (131 k) — cheap:** same per-agent shape as physarum but 76× fewer agents. Move
 ~1.2 M samples; Diffuse 4.2 M × 1 × 9 = 38 M; biome write-back 6 × 131 k. Keep at 131 k.
@@ -177,34 +183,102 @@ All are behaviour-preserving at equal resolution / default settings, and isolate
   runs the whole sim at 30 fps while the app/Syphon still present at 60 (same texture sent
   twice). Halves sim cost for a 30-fps-effective look.
 - **`SimulationManager.stepsPerFrame`** — keep at 1.
+- **`SimulationManager.simResolutionScale`** — sims at 0.5 × output res ≈ ¼ the per-pixel work.
+- **`SimulationManager.perceptionResScale`** — 0.25 recommended (§4b #1).
+- **`SimulationManager.metabolismEvery`** — 2–4 recommended (§4b #7).
+- **`renderPersistence`** per sim — raise toward 0.95–0.98 when cutting agent counts (§8).
 - **`compositeWeight`** per sim — rebalance brightness after changing counts.
 
 ---
 
+## 4b. Second pass — additional changes on `claude/biomes-11-performance-3aog3h` (2026-06-09)
+
+All default-preserving (identical behaviour until a knob is moved), except #4–#6 which are
+exact-result optimizations that are always on:
+
+1. **Perception texture downscale — `SimulationManager.perceptionResScale`** (default 1).
+   `BuildPerceptionTex` ran at full sim resolution per sim per step (3 × 4.2 M threads at
+   2×FHD, each looping the umwelt read entries + an 8 B write), yet *every bit of its
+   content comes from the 320×180 biome field via bilinear samples* — it is pure
+   upsampling. All three Move kernels read it by UV through a bilinear sampler, so the
+   texture can be a fraction of sim res with no information loss. At 0.25 the build pass
+   shrinks 16×, and the perception reads in Move (the 4 hottest samples per agent ×
+   ~10 M agents) hit a texture that fits in cache. Recommend **0.25** for the show
+   (e.g. 1920×1080 sims → 480×270 perception, still above the biome field's 320×180).
+2. **Neuron firing-ring overlay compaction** (`SimulationManager.Render` +
+   `NeuronFiringSource.ScaledValues/PositionsCPU`). `NeuronRingKernel` looped **all 131
+   neurons per output pixel** — ~543 M loop iterations + a `ringFiring[k]` buffer read each,
+   every frame the overlay is on, even when nothing fires. Now the CPU (which already owns
+   the decayed per-neuron values) compacts to the neurons above `ringThreshold` and uploads
+   only those; quiet frames skip the dispatch entirely. Typical cost drops ~25–100×;
+   visual output is identical.
+3. **`renderPersistence` exposed** (`SimulationBase`, was hardcoded `current *= 0.9` in all
+   three `RenderKernel`s). The main "fewer agents, same density" lever — raise toward
+   0.95–0.98 as counts come down (§8).
+4. **Boid neighbour loop reads agents in cell order.** New `ReorderAgentsKernel` copies
+   agents into spatial-hash order after the scatter (one coherent 100 k-thread pass +
+   2 MB buffer); the Move inner loop — which scans *hundreds to thousands* of neighbours
+   per boid (see §5.2) — now streams contiguous 20 B records instead of gathering
+   `agentsIn[sortedIndices[j]]` at random. Same iteration order, bit-identical results,
+   roughly halves the loop's effective bandwidth.
+5. **Boid `MoveAgents` redundant perception fetch removed** (the `posAhead` texel was
+   sampled twice, once for `.r` and once for `.b`).
+6. **`WriteTrails` skips the eat loop when `eatAmount == 0`** (physarum + boid). The loop
+   was doing (typeCount−1) read-modify-writes per agent that provably changed nothing —
+   at 10 M physarum, 30 M wasted incoherent RMWs per step. Presets currently have
+   `eatAmount > 0`, so nothing changes by default; zeroing a type's `eatAmount` is now a
+   real perf lever, not just a behaviour switch.
+7. **`SimulationManager.metabolismEvery`** (default 1). Metabolic-heat / oxygen write-back
+   runs every Nth step with the amount scaled by N (flux-conserving). They feed slow,
+   decimated PDE channels; at 10 M physarum on the per-channel path each skipped step
+   saves 2 × 10 M scatter threads (with fused write-back, 2 of 5 per-agent RMWs).
+   **2–4 is invisible.**
+8. **Boid `agentsCount` inspector cap raised 20 k → 250 k** (the 100 k target wasn't even
+   settable).
+
 ## 5. Recommended code changes (not yet applied — need a Unity build to verify)
 
-> Two former items here are now implemented on this branch — **fuse physarum write-back**
-> (§4 #6) and **parallel boid prefix-sum** (§4 #5).
+> Former items #1 (expose persistence) and #2 (decimate metabolism write-back) are now
+> implemented — §4b #3 and #7.
 
-1. **Expose the render persistence fade.** Both `RenderKernel`s hardcode `current *= 0.9`.
-   Exposing it lets you raise persistence to compensate for fewer agents (trails linger and
-   fill the canvas), preserving the dense look at a fraction of the count.
-2. **Skip metabolic-heat / oxygen write-back when unused**, and consider writing them at a
-   *decimated* cadence (they feed the slow biome PDE, which is itself decimated).
+1. **Pack the per-type trail layers into one ARGBHalf texture** — *the biggest remaining
+   structural win, ~2× on physarum's per-pixel and sensor traffic.* All three sims keep
+   trails as an RHalf `Texture2DArray` of typeCount+1 layers (per-type + total). With
+   typeCount ≤ 4 (currently 4/4/1), one `Texture2D<float4>` holds all types in RGBA and
+   the "total" layer disappears (it's `dot(s, mask)` in-register):
+   - Sensor reads: 6 array samples (own + total × 3 sensors) → **3 float4 samples**.
+   - Diffuse: 36 scalar samples + 5 writes per pixel → **9 float4 samples + 1 write**.
+   - WriteTrails deposit+eat: 4 scattered RMWs per agent → **1** (also fewer lost updates,
+     since deposit and eat become a single read-modify-write).
+   - Render: 4 layer reads → 1.
+   Memory drops 10 B/px → 8 B/px. Bilinear filtering of packed float4 is component-wise
+   identical to per-layer filtering, so behaviour is preserved. Cost: a rewrite of all six
+   kernels × 3 sims + `SimulationBase` trail allocation, and a hard typeCount ≤ 4 limit —
+   needs an editor session to validate, which is why it isn't on this branch.
+2. **Fuse Render into Diffuse.** `RenderKernel` re-reads the per-type layers Diffuse just
+   wrote (4 reads/px at 4.2 M px). Computing the output colour inside Diffuse saves a full
+   per-pixel pass per sim per step (keep a standalone Render for the post-Reset paint).
+   Smaller than #1; only worth doing after it.
+3. **Skip `_buffer.SetData` in `NeuronFiringSource.UpdateFiring` when intensity is 0**
+   (tiny — 131 floats/step — but free).
 
 ---
 
-## 6. Scene/config audit (Scene_CURRENTS.unity)
+## 6. Scene/config audit (Scene_CURRENTS.unity, re-checked 2026-06-09)
 
-- **Single `SimulationManager` rig.** (An earlier inactive second rig has been removed.) Keep
-  the scene to one active rig during the show.
-- **`showDebugGrid: 1`** ⇒ 10 `RenderChannelTo` dispatches + 10 quads/materials per biome per
-  frame. **Set to 0 for the exhibition.**
-- Current counts are *far* below target (physarum 300 k–500 k, boid 10 k, termite 13 100),
-  so the target represents a **~20–30× physarum, ~10× boid, ~10× termite** increase. Validate
+- **Single `SimulationManager` rig**, now at **3840×1080**, `simResolutionScale: 1`,
+  `fusedWriteback: 1`, biome **320×180** with `stepEvery: 4`, ring overlay off. Good.
+- **`showDebugGrid: 1` is still on** ⇒ 10 `RenderChannelTo` dispatches + 10 quads/materials
+  per biome PDE step, *and* 10 extra HDRP draw calls at output res every frame.
+  **Set to 0 for the exhibition.**
+- Current counts are *far* below target (physarum 300 k, boid 10 k, termite 13 100),
+  so the target represents a **~30× physarum, 10× boid, 10× termite** increase. Validate
   incrementally.
-- Sims run at 2048²; with change #2 you can drop them to 1920×1080 (or 1280×720) and keep the
-  3840×1080 output.
+- Sims run at the manager res (3840×1080); set `simResolutionScale` ≈ 0.5 to run them at
+  ~1920×540 while keeping the 3840×1080 composite.
+- **HDRP camera**: if TouchDesigner is the only display path (Syphon carries the composite
+  regardless), consider shrinking the Unity window / letting the camera render a minimal
+  view — the HDRP frame at 3840×1080 costs a few ms that the sims could use.
 
 ---
 
@@ -237,7 +311,7 @@ On-screen density is the **trail field**, not the agent dots. Cutting physarum f
 - **`diffuseRate` ↑ toward ~0.98–0.995** — trails spread and fill the gaps between sparser
   agents so the mat reads as continuous.
 - **`senseDistance` / `moveSpeed` ↑ slightly** — sparser agents explore more canvas.
-- **Render persistence ↑** (raise the hardcoded `0.9`, see §5.3) — coverage lingers.
+- **`renderPersistence` ↑** (now exposed per sim, §4b #3; was hardcoded 0.9) — coverage lingers.
 - **`compositeWeight`** to restore overall brightness.
 - Keep `eatAmount` modest so the denser deposits aren't immediately erased.
 
