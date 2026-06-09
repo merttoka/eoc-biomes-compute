@@ -51,6 +51,11 @@ float noiseThreshold;
 
 // Debug
 int debugChannel;
+// Export-only contrast stretch: when debugNormalize != 0, val -> (val-min)*invRange
+// before the colormap, so faint channels become visible. Realtime paths leave it 0.
+int debugNormalize;
+float debugNormMin;
+float debugNormInvRange;
 
 // Write API
 int writeChannel;
@@ -358,6 +363,7 @@ void RenderDebugKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
     float val = fieldRead[uint3(id.xy, debugChannel)];
+    if (debugNormalize != 0) val = saturate((val - debugNormMin) * debugNormInvRange);
 
     // Color-code by channel type
     float4 color;

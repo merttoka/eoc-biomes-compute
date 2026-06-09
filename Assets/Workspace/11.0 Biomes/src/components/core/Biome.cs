@@ -43,6 +43,8 @@ namespace Biomes
         [Header("PNG Export")]
         [Tooltip("Folder (relative to the project root, i.e. the parent of Assets/) where channel PNGs are written. A subfolder named after this GameObject is created so multiple biomes don't collide.")]
         public string exportFolder = "Exports/Biomes";
+        [Tooltip("Per-channel contrast stretch (each channel's min..max -> full range) so faint fields are visible. Export-only — realtime rendering is unaffected.")]
+        public bool exportNormalized = true;
 
         private GPUResourceManager gpu;
 
@@ -75,6 +77,9 @@ namespace Biomes
         private static readonly int s_ChannelSettingsID = Shader.PropertyToID("channelSettings");
         private static readonly int s_DebugOutTexID = Shader.PropertyToID("debugOutTex");
         private static readonly int s_DebugChannelID = Shader.PropertyToID("debugChannel");
+        private static readonly int s_DebugNormalizeID = Shader.PropertyToID("debugNormalize");
+        private static readonly int s_DebugNormMinID = Shader.PropertyToID("debugNormMin");
+        private static readonly int s_DebugNormInvRangeID = Shader.PropertyToID("debugNormInvRange");
         private static readonly int s_WasteToNutrientRateID = Shader.PropertyToID("wasteToNutrientRate");
         private static readonly int s_TempToFlowStrengthID = Shader.PropertyToID("tempToFlowStrength");
         private static readonly int s_TempToPermID = Shader.PropertyToID("tempToPermeability");
@@ -263,6 +268,24 @@ namespace Biomes
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
             cs.SetInt(s_DebugChannelID, channel);
+            cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
+            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
+            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
+            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+        }
+
+        /// <summary>Like RenderChannelTo but stretches the channel by (val-min)*invRange
+        /// before the colormap, so faint fields read clearly. Export-only — realtime paths
+        /// use RenderChannelTo (normalize off).</summary>
+        public void RenderChannelNormalizedTo(int channel, RenderTexture dst, float min, float invRange)
+        {
+            if (gpu == null || dst == null) return;
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt(s_DebugChannelID, channel);
+            cs.SetInt(s_DebugNormalizeID, 1);
+            cs.SetFloat(s_DebugNormMinID, min);
+            cs.SetFloat(s_DebugNormInvRangeID, invRange);
             cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
             Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
@@ -298,10 +321,47 @@ namespace Biomes
             tmp.Create();
             var readback = new Texture2D(biomeRezX, biomeRezY, TextureFormat.RGBA32, false);
 
+            // For normalized export: a same-format (RHalf) copy of one channel layer, read
+            // back to the CPU to find that channel's min/max. Export-only, so a blocking
+            // readback is fine.
+            RenderTexture rawRT = null;
+            Texture2D rawTex = null;
+            if (exportNormalized)
+            {
+                rawRT = new RenderTexture(biomeRezX, biomeRezY, 0, RenderTextureFormat.RHalf)
+                {
+                    dimension = UnityEngine.Rendering.TextureDimension.Tex2D,
+                };
+                rawRT.Create();
+                rawTex = new Texture2D(biomeRezX, biomeRezY, TextureFormat.RGBAFloat, false);
+            }
+
             var prevActive = RenderTexture.active;
             for (int i = 0; i < BiomeChannel.Count; i++)
             {
-                RenderChannelTo(i, tmp);
+                if (exportNormalized)
+                {
+                    // Pull the raw channel field to the CPU and stretch by its own min..max.
+                    Graphics.CopyTexture(fieldReadArray, i, 0, rawRT, 0, 0);
+                    RenderTexture.active = rawRT;
+                    rawTex.ReadPixels(new Rect(0, 0, biomeRezX, biomeRezY), 0, 0);
+                    rawTex.Apply();
+                    var px = rawTex.GetPixels();
+                    float mn = float.MaxValue, mx = float.MinValue;
+                    for (int p = 0; p < px.Length; p++)
+                    {
+                        float v = px[p].r;
+                        if (float.IsNaN(v) || float.IsInfinity(v)) continue;
+                        if (v < mn) mn = v;
+                        if (v > mx) mx = v;
+                    }
+                    float invRange = (mx > mn) ? 1f / (mx - mn) : 0f; // flat channel -> 0 (renders black)
+                    RenderChannelNormalizedTo(i, tmp, mn, invRange);
+                }
+                else
+                {
+                    RenderChannelTo(i, tmp);
+                }
 
                 RenderTexture.active = tmp;
                 readback.ReadPixels(new Rect(0, 0, biomeRezX, biomeRezY), 0, 0);
@@ -315,8 +375,10 @@ namespace Biomes
             tmp.Release();
             Destroy(tmp);
             Destroy(readback);
+            if (rawRT != null) { rawRT.Release(); Destroy(rawRT); }
+            if (rawTex != null) Destroy(rawTex);
 
-            Debug.Log($"[Biome] Exported {BiomeChannel.Count} channel PNGs → {dir}");
+            Debug.Log($"[Biome] Exported {BiomeChannel.Count} channel PNGs → {dir}{(exportNormalized ? " (normalized)" : "")}");
 
 #if UNITY_EDITOR
             UnityEditor.AssetDatabase.Refresh();
@@ -339,6 +401,7 @@ namespace Biomes
             if (debugOutputMat != null)
             {
                 cs.SetInt(s_DebugChannelID, debugChannel);
+                cs.SetInt(s_DebugNormalizeID, 0);
                 cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
                 cs.SetTexture(renderDebugKernel, s_DebugOutTexID, debugOutTex);
                 Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
