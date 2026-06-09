@@ -666,6 +666,13 @@ MonoBehaviour:
   neuronFiring: {fileID: 0}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
+  m_NeuronRingOverlay: 1
+  m_RingColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  m_RingRadius: 14
+  m_RingThickness: 4
+  m_RingStrength: 1.5
+  m_RingThreshold: 0.1
+  m_RingSpawnScale: {x: 0.8, y: 0.9}
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
   compositeOutMat: {fileID: 2100000, guid: b34d3ce16b29941bb86a92f7d1b69e9a, type: 2}
   compositeOutputQuad: {fileID: 944659780}
@@ -2579,6 +2586,13 @@ MonoBehaviour:
   neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
+  m_NeuronRingOverlay: 1
+  m_RingColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  m_RingRadius: 14
+  m_RingThickness: 4
+  m_RingStrength: 1.5
+  m_RingThreshold: 0.1
+  m_RingSpawnScale: {x: 0.4, y: 0.75}
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
   compositeOutMat: {fileID: 2100000, guid: b34d3ce16b29941bb86a92f7d1b69e9a, type: 2}
   compositeOutputQuad: {fileID: 944659780}
@@ -2598,6 +2612,7 @@ MonoBehaviour:
   firingBlobFile: biomes11/termite_firing.f16
   firingDecaySeconds: 0.5
   debugLog: 1
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
