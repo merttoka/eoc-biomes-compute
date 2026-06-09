@@ -124,15 +124,43 @@ void HashAndCountKernel(uint3 id : SV_DISPATCHTHREADID) {
     InterlockedAdd(cellCounts[cy * gridW + cx], 1);
 }
 
-[numthreads(1, 1, 1)]
-void PrefixSumKernel(uint3 id : SV_DISPATCHTHREADID) {
+// Exclusive prefix sum over cellCounts -> cellOffsets, also zeroing cellCounts so
+// ScatterKernel can reuse them as per-cell running counters. Runs as a SINGLE
+// threadgroup (Dispatch(prefixSumKernel,1,1,1) -> ceil(1/256)=1 group): the 256
+// threads stride the grid in chunks, doing a Hillis-Steele scan per chunk with a
+// serial carry (`running`) across chunks. Replaces the old [numthreads(1,1,1)]
+// fully-serial loop (zero GPU occupancy). Bounds (gridW*gridH, SCAN_THREADS) are
+// uniform across threads, so every thread reaches every barrier.
+#define SCAN_THREADS 256
+groupshared uint g_scan[SCAN_THREADS];
+
+[numthreads(SCAN_THREADS, 1, 1)]
+void PrefixSumKernel(uint3 gtid : SV_GROUPTHREADID) {
+    uint tid = gtid.x;
     uint totalCells = gridW * gridH;
-    uint sum = 0;
-    for (uint i = 0; i < totalCells; i++) {
-        cellOffsets[i] = sum;
-        uint count = cellCounts[i];
-        sum += count;
-        cellCounts[i] = 0;
+    uint running = 0u;
+
+    for (uint base = 0u; base < totalCells; base += SCAN_THREADS) {
+        uint i = base + tid;
+        uint v = (i < totalCells) ? cellCounts[i] : 0u;
+        g_scan[tid] = v;
+        GroupMemoryBarrierWithGroupSync();
+
+        // Inclusive Hillis-Steele scan within the chunk (single-buffered: read, sync, write, sync).
+        for (uint offset = 1u; offset < SCAN_THREADS; offset <<= 1) {
+            uint add = (tid >= offset) ? g_scan[tid - offset] : 0u;
+            GroupMemoryBarrierWithGroupSync();
+            g_scan[tid] += add;
+            GroupMemoryBarrierWithGroupSync();
+        }
+
+        uint inclusive = g_scan[tid];
+        if (i < totalCells) {
+            cellOffsets[i] = running + inclusive - v;   // exclusive prefix
+            cellCounts[i]  = 0u;                          // reset for ScatterKernel reuse
+        }
+        running += g_scan[SCAN_THREADS - 1];             // chunk total (out-of-range lanes added 0)
+        GroupMemoryBarrierWithGroupSync();
     }
 }
 
