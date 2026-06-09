@@ -50,6 +50,7 @@ namespace Biomes
             public float valueTimeout = 0f;
 
             [NonSerialized] public float lastSetTime = -1f;
+            [NonSerialized] public volatile bool valueDirty; // set off-thread by SetValue, consumed in Inject
         }
 
         public List<Source> sources = new();
@@ -75,17 +76,32 @@ namespace Biomes
         private ComputeBuffer _buffer;
         private Stamp[] _scratch;
 
-        /// <summary>Push a live value to a named source (e.g. from an OSC or sensor callback).
-        /// Cheap; safe to call every frame.</summary>
+        /// <summary>Push a live value (0..1) to a named source — e.g. from an OSC/sensor
+        /// callback. Thread-safe: only writes plain fields (no Unity API), so it is safe to
+        /// call from an OSC receive thread. The valueTimeout clock is stamped on the main
+        /// thread in Inject.</summary>
         public void SetValue(string sourceName, float v)
         {
-            for (int i = 0; i < sources.Count; i++)
+            var list = sources;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
             {
-                if (sources[i] != null && sources[i].name == sourceName)
-                {
-                    sources[i].value = v;
-                    sources[i].lastSetTime = Time.time;
-                }
+                var s = list[i];
+                if (s != null && s.name == sourceName) { s.value = v; s.valueDirty = true; }
+            }
+        }
+
+        /// <summary>Move a named source to a new normalized biome UV (0..1) — e.g. a robot
+        /// pose driving the stamp location. Thread-safe; clamped to [0,1].</summary>
+        public void SetPosition(string sourceName, float u, float v)
+        {
+            var list = sources;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var s = list[i];
+                if (s != null && s.name == sourceName)
+                    s.fieldUV = new Vector2(Mathf.Clamp01(u), Mathf.Clamp01(v));
             }
         }
 
@@ -112,6 +128,7 @@ namespace Biomes
                 var s = sources[i];
                 if (s == null || !s.enabled || s.radius <= 0f) continue;
 
+                if (s.valueDirty) { s.lastSetTime = now; s.valueDirty = false; } // stamp set-time on main thread
                 float val = s.value;
                 if (s.valueTimeout > 0f && s.lastSetTime >= 0f && now - s.lastSetTime > s.valueTimeout)
                     val = 0f; // sensor-dropout guard: stale value decays to nothing

@@ -11,6 +11,7 @@ namespace Biomes
 
         [SerializeField] public SimulationManager m_SimulationManager;
         [SerializeField] public List<SimulationBase> m_Simulations = new List<SimulationBase>();
+        [SerializeField] public BiomeInjector m_BiomeInjector;
 
         void Start()
         {
@@ -46,6 +47,9 @@ namespace Biomes
                 }
             }
 
+            // Biome injector source drivers: /inject/<name> <value>, /inject/<name>/pos <u> <v>
+            RegisterInjectorSources();
+
             // Catch-all debug
             m_OscServer.MessageDispatcher.AddCallback(
                 "*",
@@ -77,6 +81,34 @@ namespace Biomes
                     }
                 );
             }
+        }
+
+        // Register OSC drivers for each BiomeInjector source (by source name):
+        //   /inject/<name>       <value 0..1>   → SetValue (e.g. plant CO2/light, robot proximity)
+        //   /inject/<name>/pos   <u> <v>        → SetPosition (e.g. robot pose → location)
+        private void RegisterInjectorSources()
+        {
+            if (m_BiomeInjector == null || m_BiomeInjector.sources == null) return;
+            foreach (var src in m_BiomeInjector.sources)
+            {
+                if (src == null || string.IsNullOrEmpty(src.name)) continue;
+                string srcName = src.name; // capture for the closures
+
+                m_OscServer.MessageDispatcher.AddCallback(
+                    $"/inject/{srcName}",
+                    (string addr, OscDataHandle data) => {
+                        m_BiomeInjector.SetValue(srcName, data.GetElementAsFloat(0));
+                    }
+                );
+
+                m_OscServer.MessageDispatcher.AddCallback(
+                    $"/inject/{srcName}/pos",
+                    (string addr, OscDataHandle data) => {
+                        m_BiomeInjector.SetPosition(srcName, data.GetElementAsFloat(0), data.GetElementAsFloat(1));
+                    }
+                );
+            }
+            Debug.Log($"[OSC] Registered {m_BiomeInjector.sources.Count} injector source(s) under /inject/<name>");
         }
 
         void OnDestroy()
