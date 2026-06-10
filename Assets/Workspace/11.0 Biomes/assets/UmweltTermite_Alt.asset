@@ -26,7 +26,7 @@ MonoBehaviour:
     weight: -0.2
     effect: 0
   - channel: 3
-    weight: 0.05
+    weight: 0.5
     effect: 0
   writes:
   - channel: 7
