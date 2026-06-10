@@ -16,6 +16,14 @@ namespace Biomes
         [Tooltip("Weight of this sim's output in the final additive composite (1 = full). Lower a dense sim (e.g. physarum) so it stops saturating the canvas and drowning the others.")]
         [Range(0f, 4f)] public float compositeWeight = 1f;
 
+        [Tooltip("Per-frame retention of the rendered output (was hardcoded 0.9). Raising toward 0.95-0.98 makes trails linger and fill the canvas — the main lever to keep the dense look with fewer agents.")]
+        [Range(0.5f, 0.995f)] public float renderPersistence = 0.9f;
+
+        // Scale of the perception texture relative to sim resolution (set by
+        // SimulationManager before Reset). Perception is built from the low-res biome
+        // field and sampled by UV, so it can be much smaller than the sim canvas.
+        [NonSerialized] public float perceptionResScale = 1f;
+
         [HideInInspector] public int rezX = 1024;
         [HideInInspector] public int rezY = 1024;
 
@@ -80,6 +88,7 @@ namespace Biomes
         protected static readonly int s_NeuronPositionsID = Shader.PropertyToID("neuronPositions");
         protected static readonly int s_NeuronCountID = Shader.PropertyToID("neuronCount");
         protected static readonly int s_NeuronScaleID = Shader.PropertyToID("neuronScale");
+        protected static readonly int s_PersistenceID = Shader.PropertyToID("persistence");
         #endregion
 
         public abstract string SimName { get; }
@@ -150,11 +159,21 @@ namespace Biomes
             int layers = TypeCount + 1;
             trailReadArray = CreateTrailArray(layers, SimName + "_trailRead");
             trailWriteArray = CreateTrailArray(layers, SimName + "_trailWrite");
-            outTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear, name: SimName + "_out");
+            // ARGBHalf (8 B/px) instead of ARGBFloat (16 B/px): output color is saturated
+            // 0..1 so half precision is ample, and it halves bandwidth on the per-pixel
+            // render/composite/Syphon path — the dominant memory traffic at 2×FHD.
+            outTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
+                RenderTextureFormat.ARGBHalf, SimName + "_out");
 
-            // Perception texture (populated by Biome)
-            perceptionTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Bilinear,
-                RenderTextureFormat.ARGBFloat, SimName + "_perception");
+            // Perception texture (populated by Biome). RGB carry chemotaxis/speed/avoidance,
+            // all in 0..1 — half precision is plenty and halves the per-frame read cost in
+            // every sim's MoveAgents kernel (the hottest sampler in the project).
+            // Built from the low-res biome field and read by UV everywhere, so it can be
+            // smaller than the sim canvas (perceptionResScale, set by SimulationManager).
+            int pw = Mathf.Max(8, Mathf.RoundToInt(rezX * Mathf.Clamp(perceptionResScale, 0.05f, 1f)));
+            int ph = Mathf.Max(8, Mathf.RoundToInt(rezY * Mathf.Clamp(perceptionResScale, 0.05f, 1f)));
+            perceptionTex = gpu.CreateTexture2D(pw, ph, FilterMode.Bilinear,
+                RenderTextureFormat.ARGBHalf, SimName + "_perception");
 
             resetTexKernel = cs.FindKernel("ResetTextureKernel");
             resetAgentsKernel = cs.FindKernel("ResetAgentsKernel");
@@ -166,12 +185,14 @@ namespace Biomes
             InitSimKernels();
             InitBuffers();
             GPUReset();
+            cs.SetFloat(s_PersistenceID, renderPersistence);
             Render();
         }
 
         public virtual void Step()
         {
             cs.SetInt(s_TimeID, WrappedFrame);
+            cs.SetFloat(s_PersistenceID, renderPersistence);
             GPUStep();
             SwapTrailArrays();
             Render();

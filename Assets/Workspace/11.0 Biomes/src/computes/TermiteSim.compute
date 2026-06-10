@@ -37,6 +37,7 @@ float2 neuronScale;
 uint rezX;
 uint rezY;
 uint time;
+float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
 
 #include "includes/random.hlsl"
 #include "includes/termite_type_params.hlsl"
@@ -242,6 +243,6 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     }
     float4 current = outTex[id.xy];
     current += color;
-    current *= 0.9;
+    current *= persistence;
     outTex[id.xy] = saturate(current);
 }

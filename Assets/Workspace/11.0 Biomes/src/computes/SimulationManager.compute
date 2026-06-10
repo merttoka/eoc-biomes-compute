@@ -17,6 +17,13 @@ Texture2D<float4> simInput5;
 Texture2D<float4> simInput6;
 Texture2D<float4> simInput7;
 
+// Linear-clamp inline sampler: lets the composite UV-sample each sim's output so a sim
+// can render at a LOWER internal resolution than this composite/output (e.g. sims at
+// 1920×1080 → composite at 3840×1080). At equal resolution this samples texel centers
+// and is identical to integer indexing. Decoupling sim res from output res is a 4× cost
+// lever on diffuse/render/perception while preserving agent counts.
+SamplerState sampler_linear_clamp;
+
 Texture2D<float4> externalOverlay;
 float overlayStrength;
 
@@ -36,15 +43,15 @@ float  ringThickness;    // pixels (gaussian sigma of the ring band)
 float  ringStrength;
 float4 ringColor;
 
-float4 SampleSim(uint index, uint2 pos) {
-    if (index == 0) return simInput0[pos];
-    if (index == 1) return simInput1[pos];
-    if (index == 2) return simInput2[pos];
-    if (index == 3) return simInput3[pos];
-    if (index == 4) return simInput4[pos];
-    if (index == 5) return simInput5[pos];
-    if (index == 6) return simInput6[pos];
-    if (index == 7) return simInput7[pos];
+float4 SampleSim(uint index, float2 uv) {
+    if (index == 0) return simInput0.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 1) return simInput1.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 2) return simInput2.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 3) return simInput3.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 4) return simInput4.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 5) return simInput5.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 6) return simInput6.SampleLevel(sampler_linear_clamp, uv, 0);
+    if (index == 7) return simInput7.SampleLevel(sampler_linear_clamp, uv, 0);
     return float4(0, 0, 0, 0);
 }
 
@@ -52,9 +59,10 @@ float4 SampleSim(uint index, uint2 pos) {
 void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
+    float2 uv = (float2(id.xy) + 0.5) / float2((float)rezX, (float)rezY);
     float4 color = float4(0, 0, 0, 1);
     for (uint i = 0; i < simCount; i++) {
-        float4 simColor = SampleSim(i, id.xy);
+        float4 simColor = SampleSim(i, uv);
         // Weighted additive blend
         color.rgb += simColor.rgb * simWeights[i];
     }

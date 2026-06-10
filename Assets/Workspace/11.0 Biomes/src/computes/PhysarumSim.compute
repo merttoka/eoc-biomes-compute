@@ -34,6 +34,7 @@ float2 neuronScale; // how much of the canvas neurons fill (0-1), e.g. (0.8, 0.9
 uint rezX;
 uint rezY;
 uint time;
+float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
 
 #include "includes/random.hlsl"
 #include "includes/physarum_type_params.hlsl"
@@ -188,11 +189,15 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float own = trailWrite[uint3(pos, a.typeId)];
     trailWrite[uint3(pos, a.typeId)] = clamp(own + dep, 0, 1);
 
-    // Eat from other layers
-    for (uint t = 0; t < typeCount; t++) {
-        if (t == a.typeId) continue;
-        float other = trailWrite[uint3(pos, t)];
-        trailWrite[uint3(pos, t)] = clamp(other - p.eatAmount, 0, 1);
+    // Eat from other layers. eatAmount == 0 changes nothing, so skip its
+    // (typeCount-1) read-modify-writes per agent — at 10 M agents that's tens of
+    // millions of incoherent memory transactions a step.
+    if (p.eatAmount > 0) {
+        for (uint t = 0; t < typeCount; t++) {
+            if (t == a.typeId) continue;
+            float other = trailWrite[uint3(pos, t)];
+            trailWrite[uint3(pos, t)] = clamp(other - p.eatAmount, 0, 1);
+        }
     }
 }
 
@@ -235,6 +240,6 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     }
     float4 current = outTex[id.xy];
     current += color;
-    current *= 0.9;
+    current *= persistence;
     outTex[id.xy] = saturate(current);
 }

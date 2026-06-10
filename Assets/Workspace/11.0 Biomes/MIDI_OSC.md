@@ -28,8 +28,20 @@ Temperature, neuron firing → Pheromone) into biome channels at mapped location
 | `/inject/<name>/pos` | 2 floats `u v` (`0..1`) | move the source's biome location (e.g. robot pose → location) |
 
 Value is multiplied by the source's `gain` and stamped into its channel each step
-(pre-Step, so it advects + diffuses). Set the source's `Value Timeout` to ~1–2 s so a
-dropped sensor decays to 0. Sources register at `Start` — define them before Play.
+(pre-Step, so it advects + diffuses). Sources register at `Start` — define them before Play.
+
+**Raw sensor calibration (on each source):** sensors rarely send 0..1. Set `Input Min`/
+`Input Max` to the raw range you actually see (ppm, distance, etc.) and the injector remaps
++ clamps to 0..1 for you; `Smoothing` (0–0.99 EMA) denoises a jittery feed without TD-side
+work. `Value Timeout` (~1–2 s) decays a dropped sensor to 0. `OSC Address` overrides the
+default `/inject/<name>` so you can rename a source without rewiring the sender. The
+**"Log Live Source Values"** inspector button dumps each source's channel, uv, raw→calibrated
+value, OSC address, and seconds-since-last-message — run it in Play to see which sensors
+actually arrive.
+
+> **Recommended pattern:** route every physical sensor through TouchDesigner (the hub) and
+> have TD emit `/inject/<name> <float>`. Keep raw units if you like — calibrate per-source in
+> Unity. TD already speaks serial/MQTT/Art-Net/DMX/HTTP, so Unity only ever needs OSC-in.
 
 ---
 

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using UnityEngine;
+using EasyButtons;
 
 namespace Biomes
 {
@@ -27,6 +29,11 @@ namespace Biomes
             public string name = "source";
             public bool enabled = true;
 
+            [Tooltip("Optional OSC address override. Blank = listen on /inject/<name>. Set this " +
+                     "to decouple the wire protocol from the display name (rename freely without " +
+                     "breaking the sensor mapping).")]
+            public string oscAddress = "";
+
             [Tooltip("NORMALIZED biome coordinate, 0..1 (NOT world space). (0,0)=one corner, " +
                      "(0.5,0.5)=center, (1,1)=opposite corner. This is the manual physical→biome map.")]
             public Vector2 fieldUV = new Vector2(0.5f, 0.5f);
@@ -36,21 +43,36 @@ namespace Biomes
             [Tooltip("Target biome channel.")]
             [BiomeChannelField] public int channel = BiomeChannel.Oxygen;
 
-            [Tooltip("Multiplies the live value. Additive mode: small per-step increment (~0.005-0.05). " +
-                     "Max/Set modes: target-level scale (~1; channel is driven toward gain*value, clamped 0..1).")]
+            [Tooltip("Multiplies the (calibrated, smoothed) value. Additive mode: small per-step " +
+                     "increment (~0.005-0.05). Max/Set modes: target-level scale (~1).")]
             public float gain = 1f;
 
             [Tooltip("Persistent sources: prefer MaxToward (builds a stable gradient) over Additive (saturates to a flat blob).")]
             public BlendMode mode = BlendMode.MaxToward;
 
-            [Tooltip("Live value (0..1 typical). Edit live, or push via SetValue(name, v) from OSC/sensor.")]
-            [Range(0f, 1f)] public float value = 1f;
+            [Header("Raw input → 0..1 calibration")]
+            [Tooltip("Raw sensor range that maps to 0..1. Most sensors don't send 0..1 — set the " +
+                     "min/max you actually see (e.g. a CO₂ ppm or distance range) and the injector " +
+                     "remaps + clamps for you. Leave 0..1 for an already-normalized feed.")]
+            public float inputMin = 0f;
+            public float inputMax = 1f;
+            [Tooltip("Temporal smoothing (EMA) of the calibrated value: 0 = none (snappy), " +
+                     "0.9 = heavy (slow, denoised). Tames jittery sensors without TD-side work.")]
+            [Range(0f, 0.99f)] public float smoothing = 0f;
+
+            [Tooltip("Live RAW value (pre-calibration). Edit here to test, or push via SetValue(name, v) from OSC/sensor.")]
+            public float value = 1f;
 
             [Tooltip("Seconds before an un-refreshed value decays to 0 (sensor-dropout guard). 0 = never.")]
             public float valueTimeout = 0f;
 
             [NonSerialized] public float lastSetTime = -1f;
             [NonSerialized] public volatile bool valueDirty; // set off-thread by SetValue, consumed in Inject
+            // Monitoring (main-thread, for the editor readout): post-calibration smoothed value
+            // actually stamped, and wall-clock of the last received message.
+            [NonSerialized] public float monCalibrated;
+            [NonSerialized] public float monLastMsgTime = -1f;
+            [NonSerialized] public bool  monStale;
         }
 
         public List<Source> sources = new();
@@ -91,6 +113,15 @@ namespace Biomes
             }
         }
 
+        /// <summary>Remap raw input to 0..1 by [inputMin,inputMax], clamped. Identity for the
+        /// default 0..1 range. Degenerate range (min≈max) → 0.</summary>
+        private static float Calibrate(float raw, float lo, float hi)
+        {
+            float span = hi - lo;
+            if (Mathf.Abs(span) < 1e-6f) return 0f;
+            return Mathf.Clamp01((raw - lo) / span);
+        }
+
         /// <summary>Move a named source to a new normalized biome UV (0..1) — e.g. a robot
         /// pose driving the stamp location. Thread-safe; clamped to [0,1].</summary>
         public void SetPosition(string sourceName, float u, float v)
@@ -128,10 +159,13 @@ namespace Biomes
                 var s = sources[i];
                 if (s == null || !s.enabled || s.radius <= 0f) continue;
 
-                if (s.valueDirty) { s.lastSetTime = now; s.valueDirty = false; } // stamp set-time on main thread
-                float val = s.value;
-                if (s.valueTimeout > 0f && s.lastSetTime >= 0f && now - s.lastSetTime > s.valueTimeout)
-                    val = 0f; // sensor-dropout guard: stale value decays to nothing
+                if (s.valueDirty) { s.lastSetTime = now; s.monLastMsgTime = now; s.valueDirty = false; } // stamp set-time on main thread
+
+                // Calibrate raw → 0..1, guard sensor dropout, then EMA-smooth.
+                float cal = Calibrate(s.value, s.inputMin, s.inputMax);
+                s.monStale = (s.valueTimeout > 0f && s.lastSetTime >= 0f && now - s.lastSetTime > s.valueTimeout);
+                if (s.monStale) cal = 0f; // stale value decays to nothing
+                s.monCalibrated = Mathf.Lerp(cal, s.monCalibrated, Mathf.Clamp(s.smoothing, 0f, 0.99f));
 
                 _scratch[k++] = new Stamp
                 {
@@ -139,7 +173,7 @@ namespace Biomes
                     radius = s.radius,
                     falloff = s.falloff,
                     channel = Mathf.Clamp(s.channel, 0, BiomeChannel.Count - 1),
-                    amount = s.gain * val,
+                    amount = s.gain * s.monCalibrated,
                     mode = (int)s.mode,
                     pad = 0f,
                 };
@@ -152,6 +186,37 @@ namespace Biomes
             }
             _buffer.SetData(_scratch, 0, 0, k);
             biome.InjectSources(_buffer, k);
+        }
+
+        /// <summary>The OSC address a source listens on: its explicit override, or
+        /// /inject/&lt;name&gt; by default. Used by OSCMapping to register callbacks.</summary>
+        public static string OscAddressFor(Source s)
+        {
+            if (s == null) return null;
+            if (!string.IsNullOrEmpty(s.oscAddress)) return s.oscAddress;
+            if (string.IsNullOrEmpty(s.name)) return null;
+            return $"/inject/{s.name}";
+        }
+
+        /// <summary>Bring-up aid: dump each source's wiring + live state to the Console so you
+        /// can see at a glance which sensors are actually arriving. Run in Play mode.</summary>
+        [Button("Log Live Source Values")]
+        public void LogLiveValues()
+        {
+            if (sources == null || sources.Count == 0) { Debug.Log("[BiomeInjector] no sources"); return; }
+            float now = Application.isPlaying ? Time.time : -1f;
+            var sb = new StringBuilder("[BiomeInjector] live sources:\n");
+            foreach (var s in sources)
+            {
+                if (s == null) continue;
+                string age = (now >= 0f && s.monLastMsgTime >= 0f)
+                    ? $"{now - s.monLastMsgTime:0.0}s ago" : "never";
+                sb.Append($"  • {s.name} → {BiomeChannel.Names[Mathf.Clamp(s.channel, 0, BiomeChannel.Count - 1)]}")
+                  .Append($" @uv({s.fieldUV.x:0.00},{s.fieldUV.y:0.00})")
+                  .Append($"  raw={s.value:0.000} → cal={s.monCalibrated:0.000}")
+                  .Append($"  osc={OscAddressFor(s)}  lastMsg={age}{(s.monStale ? " [STALE]" : "")}\n");
+            }
+            Debug.Log(sb.ToString());
         }
 
         void OnDestroy()

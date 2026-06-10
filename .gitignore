@@ -10,6 +10,9 @@ tools/.venv/
 **/__pycache__/
 *.pyc
 
+# Biome channel PNG exports (output artifacts)
+/Exports/
+
 # ==========================================
 # Unity Generated Files and Folders
 # ==========================================
