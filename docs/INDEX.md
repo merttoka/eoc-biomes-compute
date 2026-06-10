@@ -15,12 +15,14 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-06-10-branch-validation-equilibrium-fix]] — branch validation, 15-agent review (9 findings), homeostatic equilibrium fix, boid 0–64 rescale, scene adopts homeostatic config
 - [[sessions/2026-06-09-ecosystem-io-investigation]] — ecosystem/IO investigation: GPU-free richness, mush fix, neuron-display redesign, injector ergonomics
 - [[sessions/2026-06-09-second-performance-pass]] — second perf pass: perception downscale, ring compaction, boid coalescing, persistence knob
 - [[sessions/2026-06-09-osc-neuron-firing]] — shared OSC-driven neuron firing + ring overlay
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
 ## ADRs (newest first)
+- [[adr/0007-mass-conserving-diffusion-relax-channels]] — diffusion operator gated per channel class (homeostatic vs stigmergic)
 - [[adr/0006-osc-neuron-firing]] — neuron firing is an external OSC-driven shared signal
 - [[adr/0005-includes-copied-verbatim]] — `Includes/` not vendored
 - [[adr/0004-td-as-orchestration-hub]] — TouchDesigner as central hub
