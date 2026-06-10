@@ -278,14 +278,26 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         }
         avg /= 9.0;
 
-        float diffused = avg * diffuseRate;
+        float baseline = channelSettings[c].w;
+        float relaxRate = channelRelax[c];
+
+        // avg*diffuseRate leaks (1-diffuseRate) of the whole field per step. For
+        // pheromone channels (relaxRate 0) that leak IS the trail evaporation; for
+        // homeostatic channels it drags the equilibrium below the baseline
+        // (x* = r*b / (1-(1-r)*d*(1-k)), e.g. Oxygen 0.535 instead of 0.8), so they
+        // get mass-conserving mixing instead: a uniform field maps to itself.
+        float diffused;
+        if (relaxRate > 0.0) {
+            float center = fieldRead[uint3(id.xy, c)];
+            diffused = lerp(center, avg, diffuseRate);
+        } else {
+            diffused = avg * diffuseRate;
+        }
         float decayed = diffused * (1.0 - decayRate);
         // Homeostatic relaxation toward the ambient baseline (= initialValue). For
         // consumed channels (Oxygen) this replenishes; for accumulating ones
         // (Temperature) it caps — a dynamic equilibrium proportional to local agent
         // density instead of a one-way ramp to flat 1.0. relaxRate 0 = identity.
-        float baseline = channelSettings[c].w;
-        float relaxRate = channelRelax[c];
         float relaxed = lerp(decayed, baseline, relaxRate);
         fieldWrite[uint3(id.xy, c)] = clamp(relaxed, 0, 1);
     }
