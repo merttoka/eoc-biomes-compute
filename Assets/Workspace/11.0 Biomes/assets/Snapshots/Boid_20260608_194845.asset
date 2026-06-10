@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidParams
   typeCount: 4
   types:
-  - separationRange: 79.58268
-    alignmentRange: 130.6614
-    attractionRange: 138.51968
+  - separationRange: 10.186583
+    alignmentRange: 16.724659
+    attractionRange: 17.730519
     maxSpeed: 2.6464567
     maxForce: 2.0291338
     depositAmount: 0.17322835
@@ -27,9 +27,9 @@ MonoBehaviour:
     diffuseRate: 0.95
     hue: 0.26771653
     saturation: 0.3906348
-  - separationRange: 63.866142
-    alignmentRange: 173.8819
-    attractionRange: 118.874016
+  - separationRange: 8.1748662
+    alignmentRange: 22.256883
+    attractionRange: 15.215874
     maxSpeed: 1.1417323
     maxForce: 1.6433071
     depositAmount: 0.11023622
@@ -40,9 +40,9 @@ MonoBehaviour:
     diffuseRate: 0.985
     hue: 0.047244094
     saturation: 0.8938486
-  - separationRange: 150.30708
-    alignmentRange: 209.2441
-    attractionRange: 142.44882
+  - separationRange: 19.239306
+    alignmentRange: 26.783245
+    attractionRange: 18.233449
     maxSpeed: 1.2960631
     maxForce: 1.3346456
     depositAmount: 0.1496063
@@ -53,9 +53,9 @@ MonoBehaviour:
     diffuseRate: 0.985
     hue: 0.47244096
     saturation: 0.7489205
-  - separationRange: 107.08662
-    alignmentRange: 319.24292
-    attractionRange: 334.97638
+  - separationRange: 13.707087
+    alignmentRange: 40.863094
+    attractionRange: 42.876977
     maxSpeed: 1.4889765
     maxForce: 0.7559055
     depositAmount: 0.1496063
@@ -74,14 +74,14 @@ MonoBehaviour:
     min: 0.1
     max: 5
   - name: separateRange
-    min: 1
-    max: 500
+    min: 0
+    max: 64
   - name: alignRange
-    min: 1
-    max: 500
+    min: 0
+    max: 64
   - name: attractRange
-    min: 1
-    max: 500
+    min: 0
+    max: 64
   - name: depositAmount
     min: 0
     max: 1
