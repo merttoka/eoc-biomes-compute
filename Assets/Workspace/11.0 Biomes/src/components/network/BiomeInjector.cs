@@ -95,7 +95,7 @@ namespace Biomes
         [Range(0f, 1f)] public float dispersalFireThreshold = 0.1f;
 
         public enum FiringDispersalSource { NeuronPositions, AgentPositions }
-        [Tooltip("NeuronPositions = fixed CSV neuron coords. AgentPositions = live agent positions of the sim below (pulses erupt from where the swarm actually is).")]
+        [Tooltip("NeuronPositions = fixed CSV neuron coords (no readback). AgentPositions = live agent positions of the sim below (pulses erupt from where the swarm actually is) — PERF: this does a SYNCHRONOUS GPU readback every frame (CPU stall). Fine at ~131 agents; keep firingAgentStampCap low for larger sims.")]
         public FiringDispersalSource firingDispersalSource = FiringDispersalSource.NeuronPositions;
         [Tooltip("Sim whose live agent positions drive AgentPositions mode (e.g. the TermiteSim). Agent i uses firing neuron (i % neuronCount).")]
         public SimulationBase firingAgentSim;
@@ -164,6 +164,41 @@ namespace Biomes
                 var s = list[i];
                 if (s != null && s.name == sourceName)
                     s.fieldUV = new Vector2(Mathf.Clamp01(u), Mathf.Clamp01(v));
+            }
+        }
+
+        /// <summary>Drive a named source's FULL stamp from one message: position (u,v),
+        /// radius, falloff, and value — e.g. an audio engine placing a sized Dispersal hit
+        /// anywhere. Thread-safe (plain-field writes, same pattern as SetValue/SetPosition);
+        /// radius/falloff clamped to their inspector ranges.</summary>
+        public void SetStamp(string sourceName, float u, float v, float radius, float falloff, float value)
+        {
+            var list = sources;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var s = list[i];
+                if (s == null || s.name != sourceName) continue;
+                s.fieldUV = new Vector2(Mathf.Clamp01(u), Mathf.Clamp01(v));
+                s.radius  = Mathf.Clamp(radius, 0.001f, 0.5f);
+                s.falloff = Mathf.Clamp(falloff, 0.25f, 6f);
+                s.value   = value;
+                s.valueDirty = true;
+            }
+        }
+
+        /// <summary>Resize a named source's stamp (radius, falloff) without changing its value
+        /// or position. Thread-safe; clamped to the inspector ranges.</summary>
+        public void SetShape(string sourceName, float radius, float falloff)
+        {
+            var list = sources;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var s = list[i];
+                if (s == null || s.name != sourceName) continue;
+                s.radius  = Mathf.Clamp(radius, 0.001f, 0.5f);
+                s.falloff = Mathf.Clamp(falloff, 0.25f, 6f);
             }
         }
 
@@ -273,14 +308,15 @@ namespace Biomes
 
             int readCount = Mathf.Min(agentCount, Mathf.Min(buf.count, firingAgentStampCap));
             if (_agentScratch == null || _agentScratch.Length < readCount)
-                _agentScratch = new AgentLayout[readCount];
+                _agentScratch = new AgentLayout[Mathf.Max(readCount, _agentScratch != null ? _agentScratch.Length * 2 : 8)];
             buf.GetData(_agentScratch, 0, 0, readCount);
 
             float rezX = Mathf.Max(1, firingAgentSim.rezX);
             float rezY = Mathf.Max(1, firingAgentSim.rezY);
             for (int i = 0; i < readCount; i++)
             {
-                float f = scaled[i % neuronCount] / (1 + i / neuronCount);
+                int copy = i / neuronCount;                       // 0 for the first neuronCount agents, then 1, 2, ...
+                float f = scaled[i % neuronCount] / (copy + 1);   // duplicate copies fire progressively weaker (discrete per copy)
                 if (f < dispersalFireThreshold) continue;
                 Vector2 p = _agentScratch[i].position;
                 Vector2 uv = new Vector2(Mathf.Clamp01(p.x / rezX), Mathf.Clamp01(p.y / rezY));
@@ -335,6 +371,53 @@ namespace Biomes
                   .Append($"  osc={OscAddressFor(s)}  lastMsg={age}{(s.monStale ? " [STALE]" : "")}\n");
             }
             Debug.Log(sb.ToString());
+        }
+
+        // Append ready-to-drive example Dispersal sources: 3 kinetic arms + 1 audio emitter.
+        // OSC drivers are registered at OSCMapping.Start() from this list, so add these in
+        // EDIT mode then enter Play. Each is named, so it gets these addresses automatically:
+        //   /inject/<name>                 <0..1>                          intensity at current uv
+        //   /inject/<name>/pos             <u> <v>                         move the emitter (arms)
+        //   /inject/<name>/shape           <radius> <falloff>              resize only
+        //   /inject/<name>/stamp           <u> <v> <radius> <falloff> <v>  full hit (audio)
+        // Names: arm1, arm2, arm3, audio.  All target the Dispersal channel (scatter).
+        [Button("Add Example Dispersal Sources")]
+        public void AddExampleDispersalSources()
+        {
+            if (sources == null) sources = new List<Source>();
+
+            // Three kinetic arms: movable emitters. Drive /inject/armN/pos with the arm's
+            // mapped position and /inject/armN with its activity (0..1). MaxToward holds a
+            // stable level under the arm; the channel's fast decay trails it as the arm moves.
+            AddDispersalArm("arm1", new Vector2(0.25f, 0.5f));
+            AddDispersalArm("arm2", new Vector2(0.50f, 0.5f));
+            AddDispersalArm("arm3", new Vector2(0.75f, 0.5f));
+
+            // Audio: full-stamp control so the audio engine can throw sized hits anywhere via
+            //   /inject/audio/stamp <u> <v> <radius> <falloff> <value>.
+            sources.Add(new Source
+            {
+                name = "audio", channel = BiomeChannel.Dispersal, mode = BlendMode.MaxToward,
+                fieldUV = new Vector2(0.5f, 0.5f), radius = 0.12f, falloff = 1.5f, gain = 1f,
+                inputMin = 0f, inputMax = 1f, smoothing = 0f, value = 0f, valueTimeout = 0.2f,
+            });
+
+            Debug.Log("[BiomeInjector] Added example Dispersal sources: arm1, arm2, arm3, audio. " +
+                      "OSC: /inject/<name> <v> · /pos <u> <v> · /shape <r> <f> · /stamp <u> <v> <r> <f> <v>. " +
+                      "Re-enter Play so OSCMapping registers them.");
+#if UNITY_EDITOR
+            if (!Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
+
+        private void AddDispersalArm(string name, Vector2 uv)
+        {
+            sources.Add(new Source
+            {
+                name = name, channel = BiomeChannel.Dispersal, mode = BlendMode.MaxToward,
+                fieldUV = uv, radius = 0.08f, falloff = 1.5f, gain = 1f,
+                inputMin = 0f, inputMax = 1f, smoothing = 0f, value = 0f, valueTimeout = 0.5f,
+            });
         }
 
         void OnDestroy()
