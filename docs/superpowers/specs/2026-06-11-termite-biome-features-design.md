@@ -133,8 +133,16 @@ flee down-gradient + speed burst. (Humidity: explicitly out of scope.)
    targeting `CH_DISPERSAL`. Stamp radius expands with the decay envelope
    (tracks the shockwave ring). Reuses the stamp pipeline — no new kernel.
 2. **Global OSC override.** A `BiomeInjector.Source` targeting `CH_DISPERSAL`
-   with a full-field flat stamp (large radius / falloff ≈ 0) so an OSC value
-   floods agitation everywhere at once.
+   floods agitation on command; its radius is parameterized like any other
+   source.
+
+**Parameterized intensity (resolved).** Dispersal is not a fixed slam. Exposed
+params: `dispersalRadius` (base stamp radius, px), `dispersalExpandGain` (how
+much radius grows over the decay envelope), and `dispersalAmount` (max scatter
+strength). The injected stamp amount scales with the firing intensity `f`:
+`amount = dispersalBaseline + (dispersalAmount - dispersalBaseline) * saturate(f)`,
+where `dispersalBaseline` is small. So a weak fire nudges; a strong fire blows
+agents outward. The OSC path uses its own source `amount` as the intensity input.
 
 **Agent effect — flee down-gradient + speed burst.**
 - **Boids & Physarum:** add `CH_DISPERSAL` reads to their `UmweltMapping`:
@@ -144,9 +152,11 @@ flee down-gradient + speed burst. (Humidity: explicitly out of scope.)
 - **Termites:** steering was removed in Feature 1, so they need a dedicated
   dispersal-flee term. When dispersal at the agent exceeds a threshold, sample
   dispersal at the 3 sensor positions and steer toward the lowest, scaled by
-  local intensity; otherwise keep the fixed heading. Speed burst from the same
-  channel. This is the ONLY input that bends a termite off its fixed heading →
-  calm streams that explode outward on firing, then re-straighten.
+  local intensity; otherwise keep the fixed heading. This is the ONLY input that
+  bends a termite off its fixed heading → calm streams that explode outward on
+  firing, then re-straighten.
+
+Speed burst (all three sims) **reuses `firingSpeedMul`** — no separate param.
 
 ---
 
@@ -179,14 +189,16 @@ Fails the "only if significant FPS" bar. Shelved.
 - Humidity channel (revisit later).
 - ARGBHalf trail packing (shelved).
 - Pheromone_2 autocatalysis (already removed by user; staying removed).
+- `externalInfluenceTex` keyword gate (deferred to its own pass).
 
 ## Implementation order
 1. Feature 1 (termite ballistic streams) + Feature 2 (trail tuning) — coupled.
 2. Feature 4 (dispersal channel + injection + Umwelt/termite flee).
 3. Feature 3 (shockwave ring + wire firing→dispersal stamps).
-4. Optional: `externalInfluenceTex` keyword gate.
 
-## Unresolved questions
-1. Dispersal speed-burst magnitude — same `firingSpeedMul` (2×) or a separate, larger value?
-2. Global OSC dispersal — single field-wide flat value, or a few placeable stamp sources?
-3. `externalInfluenceTex` keyword gate — include now or defer to its own pass?
+## Resolved decisions
+1. Speed burst reuses `firingSpeedMul` (no separate param).
+2. Dispersal radii parameterized (`dispersalRadius`, `dispersalExpandGain`);
+   scatter strength scales with firing intensity `f` from a small baseline
+   (weak fire nudges, strong fire scatters). OSC source uses its own amount.
+3. `externalInfluenceTex` keyword gate deferred to a later pass.
