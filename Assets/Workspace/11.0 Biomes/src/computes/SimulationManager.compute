@@ -41,6 +41,8 @@ float2 ringSpawnScale;   // match the sims' spawnScale so rings land on agent cl
 float  ringRadius;       // pixels
 float  ringThickness;    // pixels (gaussian sigma of the ring band)
 float  ringStrength;
+float  ringExpandGain;   // radius grows by this fraction as firing intensity fades
+float  ringCoreStrength; // bright center flash at onset (strong only while intensity high)
 float4 ringColor;
 
 float4 SampleSim(uint index, float2 uv) {
@@ -96,13 +98,18 @@ void NeuronRingKernel(uint3 id : SV_DISPATCHTHREADID) {
     for (int k = 0; k < ringCount; k++) {
         float f = ringFiring[k];
         if (f < ringThreshold) continue;
+        float fs = saturate(f);
         // Same transform the sims use to place agents: normalized * spawnScale, centered.
         float2 np = ringPositions[k] * ringSpawnScale + (1.0 - ringSpawnScale) * 0.5;
         float2 npix = np * rez;
         float d = distance(px, npix);
-        float r = ringRadius * (0.6 + 0.4 * saturate(f));      // radius pulses with intensity
-        float band = exp(-((d - r) * (d - r)) / (2.0 * t * t)); // gaussian ring
-        add += ringColor.rgb * band * saturate(f) * ringStrength;
+        // Expanding shockwave: radius grows as the firing intensity fades (1 - fs).
+        float r = ringRadius * (1.0 + ringExpandGain * (1.0 - fs));
+        float band = exp(-((d - r) * (d - r)) / (2.0 * t * t));  // gaussian ring
+        add += ringColor.rgb * band * fs * ringStrength;
+        // Bright core flash at onset (strong only while fs is high).
+        float core = exp(-(d * d) / (2.0 * t * t));
+        add += ringColor.rgb * core * fs * fs * ringCoreStrength;
     }
 
     float4 c = compositeOut[id.xy];
