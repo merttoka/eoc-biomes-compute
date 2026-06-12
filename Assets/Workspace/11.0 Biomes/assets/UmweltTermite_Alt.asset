@@ -29,7 +29,7 @@ MonoBehaviour:
     weight: -0.65
     effect: 0
   - channel: 10
-    weight: 0
+    weight: -0.5
     effect: 0
   - channel: 10
     weight: 1

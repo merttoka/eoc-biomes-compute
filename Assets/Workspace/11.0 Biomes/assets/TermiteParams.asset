@@ -14,18 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteParams
   typeCount: 1
   types:
-  - senseAngle: 45
-    senseDistance: 20
-    turnAngle: 15
-    moveSpeed: 0.5
+  - senseAngle: 65.26063
+    senseDistance: 23.710238
+    turnAngle: 21.348032
+    moveSpeed: 1.2251968
     firingSpeedMul: 2
-    depositAmount: 0.2
+    depositAmount: 0.96
     firingDepositAmount: 4
     depositProbability: 0.2
     firingDepositProbability: 0.4
-    diffuseRate: 0.97
-    hue: 0.6
-    saturation: 0.9
+    diffuseRate: 0.993
+    hue: 0.62
+    saturation: 0.8110236
   ranges:
   - name: moveSpeed
     min: 0.05
