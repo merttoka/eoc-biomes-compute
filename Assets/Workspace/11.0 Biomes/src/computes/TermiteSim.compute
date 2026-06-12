@@ -248,7 +248,7 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         TermiteTypeParams p = typeParams[t];
         float baseB = saturate(val);
         float white = saturate(val - 1.0);   // firing (>1) pushes toward white
-        float4 c = hsb2rgb(float3(p.hue, p.saturation * (1.0 - white), 0.8 * baseB), baseB);
+        float4 c = hsb2rgb(float3(p.hue, p.saturation * (1.0 - white), baseB), baseB);
         c.rgb = lerp(c.rgb, float3(1, 1, 1), white);
         color += c / typeCount;
     }
