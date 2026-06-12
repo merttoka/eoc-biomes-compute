@@ -60,7 +60,7 @@ MonoBehaviour:
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0.7
-    relaxRate: 0.05
+    relaxRate: 0.01
   - name: Flow_X
     diffuseRate: 0.92
     decayRate: 0.02
