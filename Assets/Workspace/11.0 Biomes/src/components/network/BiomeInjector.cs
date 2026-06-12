@@ -77,6 +77,23 @@ namespace Biomes
 
         public List<Source> sources = new();
 
+        [Header("Firing-driven dispersal")]
+        [Tooltip("Neuron firing source; each firing neuron injects a Dispersal pulse at its location.")]
+        public NeuronFiringSource firingSource;
+        public bool firingDispersalEnabled = true;
+        [BiomeChannelField] public int dispersalChannel = BiomeChannel.Dispersal;
+        [Tooltip("Match the sims' spawnScale so pulses land on agent clusters.")]
+        public Vector2 firingSpawnScale = new Vector2(0.8f, 0.9f);
+        [Range(0.001f, 0.5f)] public float dispersalRadius = 0.05f;
+        [Tooltip("Radius grows by this fraction as the firing intensity fades.")]
+        [Range(0f, 4f)] public float dispersalExpandGain = 1.5f;
+        [Range(0.25f, 6f)] public float dispersalFalloff = 1.5f;
+        [Tooltip("Min stamp amount for a barely-firing neuron.")]
+        [Range(0f, 1f)] public float dispersalBaseline = 0.05f;
+        [Tooltip("Max stamp amount for a full-intensity firing neuron.")]
+        [Range(0f, 1f)] public float dispersalAmount = 0.6f;
+        [Range(0f, 1f)] public float dispersalFireThreshold = 0.1f;
+
         [Header("Gizmo")]
         public bool drawGizmos = true;
         public Color gizmoColor = new Color(0.3f, 0.9f, 1f, 0.6f);
@@ -148,9 +165,8 @@ namespace Biomes
                 var s = sources[i];
                 if (s != null && s.enabled && s.radius > 0f) n++;
             }
-            if (n == 0) return;
-
-            if (_scratch == null || _scratch.Length < n) _scratch = new Stamp[n];
+            if (n == 0 && !(firingDispersalEnabled && firingSource != null)) return;
+            if (_scratch == null || _scratch.Length < Mathf.Max(n, 1)) _scratch = new Stamp[Mathf.Max(n, 8)];
 
             float now = Time.time;
             int k = 0;
@@ -179,6 +195,39 @@ namespace Biomes
                 };
             }
 
+            // Firing-driven dispersal pulses: one stamp per firing neuron, strength scaled
+            // by firing intensity, radius expanding as it fades (tracks the shockwave ring).
+            if (firingDispersalEnabled && firingSource != null)
+            {
+                var scaled = firingSource.ScaledValues;
+                var posCPU = firingSource.PositionsCPU;
+                int cap = (scaled != null && posCPU != null) ? Mathf.Min(scaled.Length, posCPU.Count) : 0;
+                for (int i = 0; i < cap; i++)
+                {
+                    float f = scaled[i];
+                    if (f < dispersalFireThreshold) continue;
+                    float fc = Mathf.Clamp01(f);
+                    Vector2 np = posCPU[i];
+                    // Match agent placement: normalized * spawnScale, centered.
+                    Vector2 uv = new Vector2(
+                        np.x * firingSpawnScale.x + (1f - firingSpawnScale.x) * 0.5f,
+                        np.y * firingSpawnScale.y + (1f - firingSpawnScale.y) * 0.5f);
+
+                    if (k >= _scratch.Length) GrowScratch(k + 1);
+                    _scratch[k++] = new Stamp
+                    {
+                        uv = uv,
+                        radius = dispersalRadius * (1f + dispersalExpandGain * (1f - fc)),
+                        falloff = dispersalFalloff,
+                        channel = Mathf.Clamp(dispersalChannel, 0, BiomeChannel.Count - 1),
+                        amount = dispersalBaseline + (dispersalAmount - dispersalBaseline) * fc,
+                        mode = (int)BlendMode.MaxToward,
+                        pad = 0f,
+                    };
+                }
+            }
+
+            if (k == 0) return;
             if (_buffer == null || _buffer.count < k)
             {
                 _buffer?.Release();
@@ -186,6 +235,15 @@ namespace Biomes
             }
             _buffer.SetData(_scratch, 0, 0, k);
             biome.InjectSources(_buffer, k);
+        }
+
+        // Grow the stamp scratch array, preserving existing entries.
+        private void GrowScratch(int needed)
+        {
+            int newLen = Mathf.Max(needed, _scratch != null ? _scratch.Length * 2 : 8);
+            var grown = new Stamp[newLen];
+            if (_scratch != null) System.Array.Copy(_scratch, grown, _scratch.Length);
+            _scratch = grown;
         }
 
         /// <summary>The OSC address a source listens on: its explicit override, or
