@@ -41,7 +41,7 @@ namespace Biomes
         public UmweltMapping umwelt;
 
         // Perception texture: biome fields filtered through Umwelt (built by Biome each frame)
-        // R=chemotaxis, G=speed multiplier, B=avoidance
+        // R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
         [NonSerialized] public RenderTexture perceptionTex;
 
         // External influence texture (assigned by SimulationManager from ExternalTextureReceiver)
@@ -175,7 +175,7 @@ namespace Biomes
             outTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
                 RenderTextureFormat.ARGBHalf, SimName + "_out");
 
-            // Perception texture (populated by Biome). RGB carry chemotaxis/speed/avoidance,
+            // Perception texture (populated by Biome). RGBA carry chemotaxis/speed/avoidance/speed-boost,
             // all in 0..1 — half precision is plenty and halves the per-frame read cost in
             // every sim's MoveAgents kernel (the hottest sampler in the project).
             // Built from the low-res biome field and read by UV everywhere, so it can be

@@ -26,6 +26,7 @@
 #define CH_PERMEABILITY 7
 #define CH_FLOW_X       8
 #define CH_FLOW_Y       9
+#define CH_DISPERSAL    10
 #define CH_COUNT        11
 
 // --- Textures ---
@@ -418,6 +419,7 @@ void RenderDebugKernel(uint3 id : SV_DISPATCHTHREADID) {
     else if (debugChannel == CH_PERMEABILITY) color = float4(val, val, val, 1);         // grayscale
     else if (debugChannel == CH_FLOW_X)      color = float4(val * 0.5 + 0.5, 0.2, 0.5 - val * 0.5, 1); // red-blue
     else if (debugChannel == CH_FLOW_Y)      color = float4(0.2, val * 0.5 + 0.5, 0.5 - val * 0.5, 1); // green-blue
+    else if (debugChannel == CH_DISPERSAL)   color = float4(1.0, 0.5, 0.1, 1) * val;  // orange (agitation)
     else color = float4(val, val, val, 1);
 
     debugOutTex[id.xy] = color;

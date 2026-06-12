@@ -17,7 +17,7 @@ Texture2DArray<float> trailRead;
 RWTexture2DArray<float> trailWrite;
 RWTexture2D<float4> outTex;
 
-// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance
+// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
 Texture2D<float4> perceptionTex;
 SamplerState sampler_perceptionTex;
 
