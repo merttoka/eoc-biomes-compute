@@ -1,0 +1,110 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ebcbb7c3a74a4ac984251fcad162e67, type: 3}
+  m_Name: Boid_20260610_150648
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidParams
+  typeCount: 4
+  types:
+  - separationRange: 62.96544
+    alignmentRange: 63.767315
+    attractionRange: 49.91167
+    maxSpeed: 3.4566927
+    maxForce: 2.4535434
+    depositAmount: 0.070866145
+    eatAmount: 0.05
+    foodSensorDistance: 10
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.95
+    hue: 0.67
+    saturation: 0.3906348
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
+  - separationRange: 16.841412
+    alignmentRange: 30.807276
+    attractionRange: 22.784512
+    maxSpeed: 0.60157484
+    maxForce: 1.4503937
+    depositAmount: 0.11811024
+    eatAmount: 0.01
+    foodSensorDistance: 15
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.985
+    hue: 0.4
+    saturation: 0.5
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
+  - separationRange: 1.4528672
+    alignmentRange: 11.760877
+    attractionRange: 6.3958497
+    maxSpeed: 2.1062992
+    maxForce: 2.05783
+    depositAmount: 0.10236221
+    eatAmount: 0.01
+    foodSensorDistance: 15
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.985
+    hue: 0.50783783
+    saturation: 0.54
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
+  - separationRange: 20.462666
+    alignmentRange: 40.863094
+    attractionRange: 61.08412
+    maxSpeed: 1.0259843
+    maxForce: 2.8779528
+    depositAmount: 0.11023622
+    eatAmount: 0.01
+    foodSensorDistance: 15
+    sensorAngleRad: 0.5235988
+    foodSeekingStrength: 0.5
+    diffuseRate: 0.985
+    hue: 0
+    saturation: 0.42
+    firingSpeedMul: 2
+    firingDepositAmount: 0.5
+  ranges:
+  - name: maxSpeed
+    min: 0.1
+    max: 5
+  - name: maxForce
+    min: 0.1
+    max: 5
+  - name: separateRange
+    min: 0
+    max: 64
+  - name: alignRange
+    min: 0
+    max: 64
+  - name: attractRange
+    min: 0
+    max: 64
+  - name: depositAmount
+    min: 0
+    max: 1
+  - name: eatAmount
+    min: 0
+    max: 1
+  - name: foodSeek
+    min: 0
+    max: 5
+  - name: hue
+    min: 0
+    max: 1
+  - name: saturation
+    min: 0
+    max: 1
+  - name: diffuseRate
+    min: 0.9
+    max: 1
