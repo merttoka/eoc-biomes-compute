@@ -50,6 +50,9 @@ uint rezX;
 uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
+int dispersalSpeedMode;
+float dispersalSpeedMult;
+float dispersalConstantSpeed;
 
 #include "includes/random.hlsl"
 #include "includes/boid_type_params.hlsl"
@@ -331,10 +334,17 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     b.velocity += acceleration;
 
-    // Apply permeability speed penalty from biome + neuron-firing burst
+    // Apply permeability speed penalty from biome + neuron-firing burst.
+    // perception.a = dispersal speed-boost magnitude (raises the speed cap so boids flee fast).
     float speedMult = perception.g;
+    float disp = perception.a;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveMaxSpeed = p.maxSpeed * speedMult * fireMul;
+    if (dispersalSpeedMode == 1) {
+        effectiveMaxSpeed = lerp(effectiveMaxSpeed, dispersalConstantSpeed, saturate(disp));
+    } else {
+        effectiveMaxSpeed *= (1.0 + disp * dispersalSpeedMult);
+    }
     b.velocity = Limit(b.velocity, effectiveMaxSpeed);
 
     b.position += b.velocity;
