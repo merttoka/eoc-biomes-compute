@@ -106,11 +106,16 @@ coupling direction each way is defined per-sim by its `UmweltMapping`.
 
 ### 3.3 The biome field — `Biome` + `BiomeFieldConfig`
 
-The biome is a double-buffered `Texture2DArray` of **10 scalar channels**
+The biome is a double-buffered `Texture2DArray` of **11 scalar channels**
 (`BiomeChannel`): `Nutrient, Pheromone0, Pheromone1, Pheromone2, Oxygen, Temperature,
-Waste, Permeability, FlowX, FlowY` (Pheromone0/1/2 are per-species scents for the
-three sims). Per-channel behavior (diffuse rate, decay, advected-by-flow, initial
-value) comes from `BiomeFieldConfig` and is uploaded as a structured buffer.
+Waste, Permeability, FlowX, FlowY, Dispersal` (Pheromone0/1/2 are per-species scents for
+the three sims; **Dispersal** is a transient, fast-decay agitation field that scatters all
+sims — see §3.5). Per-channel behavior (diffuse rate, decay, advected-by-flow, initial
+value, homeostatic relax) comes from `BiomeFieldConfig` and is uploaded as a structured
+buffer. The channel count is hardcoded in four sync'd places — `BiomeChannel.Count/Names`,
+`Biome.compute` `CH_COUNT`, `Biome.cs` debug-grid `ChannelNames`, and
+`ExternalTextureSender.ChannelNames`; **adding a channel means updating all four** plus the
+`BiomeFieldConfig` asset's channel list.
 `Biome.Step()` runs the field dynamics on the GPU as a **ping-pong chain** —
 temperature gradients generate flow → flow advects the advectable channels →
 cross-field interactions (waste→nutrient, temp→permeability) react → diffuse + decay
@@ -134,7 +139,17 @@ sim resolution; sim↔field coordinates are mapped by ratio.
   ranges, food-seeking).
 - **`TermiteSim`** — neuron-coupled pheromone-stigmergy swarm (ported from
   `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat". Builds permeability
-  mounds through the Biome/Umwelt. Spec: [[superpowers/specs/2026-06-07-termite-sim-design]].
+  mounds through the Biome/Umwelt. Runs at **131 agents (1:1 with neurons)** by default —
+  each termite is its own neuron group, seeded with a coherent heading and a **per-group
+  fixed turn-angle magnitude** (`turnAngleSpread`, via the `NeuronGroup()` helper) so each
+  stream curves with its own character instead of a single global turn angle. Specs:
+  [[superpowers/specs/2026-06-07-termite-sim-design]],
+  [[superpowers/specs/2026-06-11-termite-biome-features-design]].
+
+All three sims also carry a **dispersal speed response** (`SimulationBase`:
+`dispersalSpeedMode` constant/multiplier, shared via
+`computes/includes/dispersal_speed_response.hlsl`) that accelerates agents out of a
+Dispersal pulse — constant mode snaps to a fixed flee speed so even slow agents react fast.
 
 **Neuron firing is shared, not termite-private** (see [[adr/0006-osc-neuron-firing]]). All
 three sims seed `agent i → neuron i % 131` at the same CSV positions, and read one shared
@@ -155,7 +170,11 @@ Each sim references an `UmweltMapping` (ScriptableObject) defining its *Umwelt* 
 how it perceives and affects the field:
 
 - **reads** — `(channel, weight, effect)` entries; the biome builds a per-sim
-  perception texture as a weighted sample (chemotaxis / speed / avoidance).
+  perception texture (`ReadFieldKernel`) as a weighted sample. Effects map to the
+  perception channels: `Chemotaxis→R`, `SpeedPenalty→G`, `Avoidance→B`, and
+  `SpeedBoost→A` (the last added for Dispersal — all three sims read a negative-weight
+  Chemotaxis entry on `Dispersal` to flee a pulse, plus a positive `SpeedBoost` entry to
+  accelerate out of it).
 - **writes** — `(channel, amount)` deposits/consumptions at agent positions.
 - **metabolicHeat / oxygenConsumption** — implicit writes to Temperature / Oxygen.
 - **death** params (oxygen/permeability thresholds, corpse waste) — agent mortality;
@@ -201,7 +220,17 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
 - **Firing-ring overlay** — `NeuronRingKernel` (`SimulationManager.compute`) draws one
   count-independent ring per firing neuron on top of the composite. Needed because the
   composite is a pure additive sum → physarum's dense firing saturates the canvas and hides
-  termite/boid firing; the rings key off firing intensity directly, not agent counts.
+  termite/boid firing; the rings key off firing intensity directly, not agent counts. The
+  ring is an **expanding shockwave** — radius grows as the firing intensity decays
+  (`ringExpandGain`) with a bright onset core flash (`ringCoreStrength`).
+- **`BiomeInjector`** — paints **Gaussian stamps** into biome channels (thread-safe intake;
+  per-source raw→0..1 calibration + EMA smoothing; Additive/MaxToward/SetToward modes). Two
+  stamp producers: external **sources** (sensors/OSC → any channel), and **firing-driven
+  Dispersal** pulses (intensity-scaled, radius-expanding) at either fixed **neuron CSV
+  positions** or **live agent positions** of a chosen sim (`FiringDispersalSource`, e.g. the
+  termites — `i % neuronCount` selects the firing neuron). Runs after sim write-back, before
+  `Biome.Step()`, so stamps ride the full field evolution. Spec:
+  [[superpowers/specs/2026-06-11-termite-biome-features-design]].
 - **`ParameterRecorder`** — records per-step parameter *changes* as a JSON event
   track; replays them deterministically against `SimStepCount`.
 - **`ParameterInterpolator`** — eases live params from current state through an
