@@ -39,13 +39,15 @@ uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
 float turnAngleSpread;  // per-neuron-group turn-angle variation (0 = global, 1 = 0..2× base)
-int dispersalSpeedMode;       // dispersal speed response: 0 = multiplier, 1 = constant flee speed
-float dispersalSpeedMult;     // multiplier-mode gain (effectiveSpeed *= 1 + disp*mult)
-float dispersalConstantSpeed; // constant-mode target flee speed (snap toward it as disp→1)
 
 #include "includes/random.hlsl"
 #include "includes/termite_type_params.hlsl"
 #include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
+
+// Neuron-group index an agent belongs to: agents sharing a group share their heading
+// and turn-angle character. Falls back to per-agent when no neuron CSV is wired.
+uint NeuronGroup(uint i) { return (neuronCount > 0) ? (i % neuronCount) : i; }
 
 // ════════════════════════════════════════════════
 // RESET
@@ -75,10 +77,8 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     }
 
     // Per-neuron heading: agents sharing a neuron index get ONE fixed heading →
-    // coherent directional streams (one per neuron). Falls back to per-agent when
-    // no neuron CSV is wired.
-    uint headingSeed = (neuronCount > 0) ? (id.x % neuronCount) : id.x;
-    float ang0 = Hash1u(headingSeed * 747796405u + time) * 6.28318530718;
+    // coherent directional streams (one per neuron).
+    float ang0 = Hash1u(NeuronGroup(id.x) * 747796405u + time) * 6.28318530718;
     a.direction = float2(cos(ang0), sin(ang0));
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
@@ -98,11 +98,10 @@ float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
     float r = p.senseDistance;
     float ang = p.senseAngle;
 
-    // Per-neuron-group fixed turn angle: each i%neuronCount group keeps its own
-    // distinct turn magnitude (deterministic, constant for life) instead of one
-    // global turn angle — so each stream curves with its own character.
-    uint grp = (neuronCount > 0) ? (id.x % neuronCount) : id.x;
-    float tRand = Hash1u(grp * 2246822519u + 9871u);
+    // Per-neuron-group fixed turn angle: each group keeps its own distinct turn
+    // magnitude (deterministic, constant for life) instead of one global turn angle —
+    // so each stream curves with its own character.
+    float tRand = Hash1u(NeuronGroup(id.x) * 2246822519u + 9871u);
     float tang = p.turnAngle * lerp(1.0 - turnAngleSpread, 1.0 + turnAngleSpread, tRand);
 
     float2 leftSensor = RotateVectorBy(direction, -ang) * r;
@@ -176,14 +175,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
 
-    // Dispersal speed response. Mode 1 = constant: snap toward a fixed flee speed so
-    // agents react fast even when moveSpeed is tiny. Mode 0 = multiplier: scale the
-    // current speed up with local dispersal.
-    if (dispersalSpeedMode == 1) {
-        effectiveSpeed = lerp(effectiveSpeed, dispersalConstantSpeed, saturate(disp));
-    } else {
-        effectiveSpeed *= (1.0 + disp * dispersalSpeedMult);
-    }
+    ApplyDispersalSpeedResponse(effectiveSpeed, disp);
 
     a.direction = direction * effectiveSpeed;
     a.position += a.direction;

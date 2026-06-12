@@ -50,13 +50,11 @@ uint rezX;
 uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
-int dispersalSpeedMode;
-float dispersalSpeedMult;
-float dispersalConstantSpeed;
 
 #include "includes/random.hlsl"
 #include "includes/boid_type_params.hlsl"
 #include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
 
 // Neuron-position seeding (bound by SimulationBase.BuildNeuronPositions)
 StructuredBuffer<float2> neuronPositions;
@@ -340,11 +338,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float disp = perception.a;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveMaxSpeed = p.maxSpeed * speedMult * fireMul;
-    if (dispersalSpeedMode == 1) {
-        effectiveMaxSpeed = lerp(effectiveMaxSpeed, dispersalConstantSpeed, saturate(disp));
-    } else {
-        effectiveMaxSpeed *= (1.0 + disp * dispersalSpeedMult);
-    }
+    ApplyDispersalSpeedResponse(effectiveMaxSpeed, disp);
     b.velocity = Limit(b.velocity, effectiveMaxSpeed);
 
     b.position += b.velocity;

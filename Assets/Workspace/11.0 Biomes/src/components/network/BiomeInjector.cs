@@ -180,7 +180,7 @@ namespace Biomes
                 if (s != null && s.enabled && s.radius > 0f) n++;
             }
             if (n == 0 && !(firingDispersalEnabled && firingSource != null)) return;
-            if (_scratch == null || _scratch.Length < Mathf.Max(n, 1)) _scratch = new Stamp[Mathf.Max(n, 8)];
+            if (_scratch == null || _scratch.Length < n) _scratch = new Stamp[Mathf.Max(n, 8)];
 
             float now = Time.time;
             int k = 0;

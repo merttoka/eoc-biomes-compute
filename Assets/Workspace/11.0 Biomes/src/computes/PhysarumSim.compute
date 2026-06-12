@@ -35,13 +35,11 @@ uint rezX;
 uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
-int dispersalSpeedMode;       // 0 = multiplier, 1 = constant flee speed
-float dispersalSpeedMult;
-float dispersalConstantSpeed;
 
 #include "includes/random.hlsl"
 #include "includes/physarum_type_params.hlsl"
 #include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
 
 
 // ════════════════════════════════════════════════
@@ -163,12 +161,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
 
-    // Dispersal speed response (mode 1 = constant flee speed, mode 0 = multiplier).
-    if (dispersalSpeedMode == 1) {
-        effectiveSpeed = lerp(effectiveSpeed, dispersalConstantSpeed, saturate(disp));
-    } else {
-        effectiveSpeed *= (1.0 + disp * dispersalSpeedMult);
-    }
+    ApplyDispersalSpeedResponse(effectiveSpeed, disp);
 
     a.direction = direction * effectiveSpeed;
     a.position += a.direction;
