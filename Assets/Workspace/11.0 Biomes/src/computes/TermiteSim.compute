@@ -38,6 +38,7 @@ uint rezX;
 uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
+float turnAngleSpread;  // per-neuron-group turn-angle variation (0 = global, 1 = 0..2× base)
 
 #include "includes/random.hlsl"
 #include "includes/termite_type_params.hlsl"
@@ -89,6 +90,67 @@ float2 RotateVectorBy(float2 vec, float angle) {
     return float2(x, y);
 }
 
+float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
+    float2 direction = normalize(a.direction);
+    float r = p.senseDistance;
+    float ang = p.senseAngle;
+
+    // Per-neuron-group fixed turn angle: each i%neuronCount group keeps its own
+    // distinct turn magnitude (deterministic, constant for life) instead of one
+    // global turn angle — so each stream curves with its own character.
+    uint grp = (neuronCount > 0) ? (id.x % neuronCount) : id.x;
+    float tRand = Hash1u(grp * 2246822519u + 9871u);
+    float tang = p.turnAngle * lerp(1.0 - turnAngleSpread, 1.0 + turnAngleSpread, tRand);
+
+    float2 leftSensor = RotateVectorBy(direction, -ang) * r;
+    float2 middleSensor = direction * r;
+    float2 rightSensor = RotateVectorBy(direction, ang) * r;
+
+    float2 leftCoord = a.position + leftSensor;
+    float2 middleCoord = a.position + middleSensor;
+    float2 rightCoord = a.position + rightSensor;
+
+    float3 leftUV = float3(leftCoord.x / (float)rezX, leftCoord.y / (float)rezY, 0);
+    float3 middleUV = float3(middleCoord.x / (float)rezX, middleCoord.y / (float)rezY, 0);
+    float3 rightUV = float3(rightCoord.x / (float)rezX, rightCoord.y / (float)rezY, 0);
+
+    // Own-type trail (intra-species coordination → curvy stigmergic paths)
+    float myLeft = trailRead.SampleLevel(sampler_trailRead, float3(leftUV.xy, a.typeId), 0);
+    float totLeft = trailRead.SampleLevel(sampler_trailRead, float3(leftUV.xy, typeCount), 0);
+    float leftLevel = myLeft - (totLeft - myLeft);
+
+    float myMiddle = trailRead.SampleLevel(sampler_trailRead, float3(middleUV.xy, a.typeId), 0);
+    float totMiddle = trailRead.SampleLevel(sampler_trailRead, float3(middleUV.xy, typeCount), 0);
+    float middleLevel = myMiddle - (totMiddle - myMiddle);
+
+    float myRight = trailRead.SampleLevel(sampler_trailRead, float3(rightUV.xy, a.typeId), 0);
+    float totRight = trailRead.SampleLevel(sampler_trailRead, float3(rightUV.xy, typeCount), 0);
+    float rightLevel = myRight - (totRight - myRight);
+
+    // Biome perception R = chemotaxis (0.5 neutral). Dispersal flee enters here via a
+    // negative-weight read on the Dispersal channel in the Umwelt mapping (Phase F4).
+    float biomeLeft = perceptionTex.SampleLevel(sampler_perceptionTex, leftUV.xy, 0).r;
+    float biomeMiddle = perceptionTex.SampleLevel(sampler_perceptionTex, middleUV.xy, 0).r;
+    float biomeRight = perceptionTex.SampleLevel(sampler_perceptionTex, rightUV.xy, 0).r;
+    leftLevel   += (biomeLeft - 0.5) * 2.0;
+    middleLevel += (biomeMiddle - 0.5) * 2.0;
+    rightLevel  += (biomeRight - 0.5) * 2.0;
+
+    float2 d = direction;
+    if (middleLevel > leftLevel && middleLevel > rightLevel) {
+        d = middleSensor;
+    } else if (middleLevel < leftLevel && middleLevel < rightLevel) {
+        int sign = Hash1u(id.x * 2654435761u + time * 40503u) < 0.5 ? 1 : -1;
+        d = RotateVectorBy(d, sign * tang);
+    } else if (leftLevel < rightLevel) {
+        d = RotateVectorBy(d, tang);
+    } else if (leftLevel > rightLevel) {
+        d = RotateVectorBy(d, -tang);
+    } else {
+        d = middleSensor;
+    }
+    return normalize(d);
+}
 
 [numthreads(1024, 1, 1)]
 void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
@@ -97,23 +159,20 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     Agent a = agentsIn[id.x];
     TermiteTypeParams p = typeParams[a.typeId];
 
-    // Fixed assigned heading (immutable for life). Ballistic — no pheromone chemotaxis.
-    float2 h0 = normalize(a.direction);
-    float2 dir = h0;
+    float2 direction = SensorTurns(id, a, p);
 
-    // --- dispersal flee inserted here in Phase F4 ---
-
-    // Organic wiggle (~±0.05 rad), non-accumulating so the heading stays fixed.
+    // Organic wiggle (~±0.05 rad), matching the original sketch
     float w = (Hash1u(id.x * 668265263u + time * 2246822519u) - 0.5) * 0.1;
-    dir = RotateVectorBy(dir, w);
+    direction = RotateVectorBy(direction, w);
 
-    // Biome speed multiplier (permeability, perception G) + firing boost.
+    // Biome speed multiplier (permeability) + firing boost
     float2 uv = a.position / float2((float)rezX, (float)rezY);
     float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
 
-    a.position += dir * effectiveSpeed;
+    a.direction = direction * effectiveSpeed;
+    a.position += a.direction;
 
     // Toroidal wrapping
     float fRezX = (float)rezX;
@@ -123,8 +182,6 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (a.position.y < 0) a.position.y += fRezY;
     if (a.position.y >= fRezY) a.position.y -= fRezY;
 
-    // Keep the immutable heading (unit). Do NOT store dir*speed.
-    a.direction = h0;
     agentsOut[id.x] = a;
 }
 
