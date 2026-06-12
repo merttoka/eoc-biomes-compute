@@ -26,7 +26,7 @@
 #define CH_PERMEABILITY 7
 #define CH_FLOW_X       8
 #define CH_FLOW_Y       9
-#define CH_COUNT        10
+#define CH_COUNT        11
 
 // --- Textures ---
 SamplerState sampler_fieldRead;

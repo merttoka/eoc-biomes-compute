@@ -17,14 +17,15 @@ namespace Biomes
         public const int Permeability = 7;
         public const int FlowX      = 8;
         public const int FlowY      = 9;
-        public const int Count      = 10;
+        public const int Dispersal  = 10;  // transient agitation: scatters all sims
+        public const int Count      = 11;
 
         /// <summary>Display names, index-aligned with the constants above. Single source of
         /// truth for the inspector channel dropdown — keep in sync if channels change.</summary>
         public static readonly string[] Names =
         {
             "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
-            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y",
+            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal",
         };
     }
 
@@ -67,6 +68,7 @@ namespace Biomes
             new() { name = "Permeability",   diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0.7f, relaxRate = 0.05f },
             new() { name = "Flow_X",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Flow_Y",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Dispersal",      diffuseRate = 0.9f,   decayRate = 0.12f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
         };
 
         // Cross-field interaction rates
