@@ -17,7 +17,7 @@ Texture2DArray<float> trailRead;
 RWTexture2DArray<float> trailWrite;
 RWTexture2D<float4> outTex;
 
-// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance
+// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
 Texture2D<float4> perceptionTex;
 SamplerState sampler_perceptionTex;
 
@@ -54,6 +54,7 @@ float persistence;   // per-frame retention of outTex (set from SimulationBase.r
 #include "includes/random.hlsl"
 #include "includes/boid_type_params.hlsl"
 #include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
 
 // Neuron-position seeding (bound by SimulationBase.BuildNeuronPositions)
 StructuredBuffer<float2> neuronPositions;
@@ -331,10 +332,13 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     b.velocity += acceleration;
 
-    // Apply permeability speed penalty from biome + neuron-firing burst
+    // Apply permeability speed penalty from biome + neuron-firing burst.
+    // perception.a = dispersal speed-boost magnitude (raises the speed cap so boids flee fast).
     float speedMult = perception.g;
+    float disp = perception.a;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveMaxSpeed = p.maxSpeed * speedMult * fireMul;
+    ApplyDispersalSpeedResponse(effectiveMaxSpeed, disp);
     b.velocity = Limit(b.velocity, effectiveMaxSpeed);
 
     b.position += b.velocity;

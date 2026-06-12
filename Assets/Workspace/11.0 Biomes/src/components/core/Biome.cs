@@ -105,7 +105,7 @@ namespace Biomes
 
         private static readonly string[] ChannelNames = {
             "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
-            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y"
+            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal"
         };
 
         [Button]

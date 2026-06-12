@@ -14,50 +14,50 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumParams
   typeCount: 4
   types:
-  - senseAngle: 293.3611
-    senseDistance: 107.29162
-    turnAngle: 170.37178
-    moveSpeed: 8.41
+  - senseAngle: 51
+    senseDistance: 11.118111
+    turnAngle: 99.285034
+    moveSpeed: 0.4929134
     depositAmount: 0.24
     eatAmount: 0.94
-    diffuseRate: 0.6
+    diffuseRate: 0.9
     hue: 0.12
     saturation: 0.5
-    firingSpeedMul: 5
-    firingDepositAmount: 1
-  - senseAngle: 257.92447
-    senseDistance: 49.515236
-    turnAngle: 70.2429
-    moveSpeed: 3.52
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 96.45118
+    senseDistance: 66.20866
+    turnAngle: 107.78661
+    moveSpeed: 2.0645669
     depositAmount: 0.93
     eatAmount: 0.96
-    diffuseRate: 0.6
+    diffuseRate: 0.9
     hue: 0.29
     saturation: 0.5
-    firingSpeedMul: 5
-    firingDepositAmount: 1
-  - senseAngle: 233.09532
-    senseDistance: 107.44918
-    turnAngle: 50.654305
-    moveSpeed: 7.2
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 42
+    senseDistance: 4.822047
+    turnAngle: 82.28189
+    moveSpeed: 2.8503938
     depositAmount: 0.3
     eatAmount: 0.35
-    diffuseRate: 0.6
+    diffuseRate: 0.9
     hue: 0.55
     saturation: 0.5
-    firingSpeedMul: 5
-    firingDepositAmount: 1
-  - senseAngle: 15.529959
-    senseDistance: 78.802765
-    turnAngle: 56.564983
-    moveSpeed: 1.6
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 36.94016
+    senseDistance: 61.486614
+    turnAngle: 87.94961
+    moveSpeed: 0.1
     depositAmount: 0.4
     eatAmount: 0.44
-    diffuseRate: 0.87
+    diffuseRate: 0.9031496
     hue: 0.57
-    saturation: 0.5
-    firingSpeedMul: 5
-    firingDepositAmount: 1
+    saturation: 0.75
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
   ranges:
   - name: moveSpeed
     min: 0.1

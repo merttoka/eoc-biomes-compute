@@ -52,6 +52,27 @@ Defaults: `--host 127.0.0.1`, `--port 9000` (= `OSCMapping.m_Port`), `--addr /in
 
 ---
 
+## `osc_dispersal_example.py` — drive Dispersal injection over OSC
+
+Example senders for the `BiomeInjector` Dispersal channel. In Unity, click **"Add Example
+Dispersal Sources"** on the BiomeInjector (creates `arm1`/`arm2`/`arm3` + `audio`), then Play.
+
+```bash
+# animated demo: 3 kinetic arms sweep + pulse, audio throws a hit every ~2s
+tools/.venv/bin/python tools/osc_dispersal_example.py
+
+# single sized audio hit and exit
+tools/.venv/bin/python tools/osc_dispersal_example.py --once --ip 10.0.0.5 --port 9000
+```
+
+Per-source OSC addresses (`<name>` = arm1/arm2/arm3/audio):
+`/inject/<name> <0..1>` (intensity) · `/inject/<name>/pos <u> <v>` (move) ·
+`/inject/<name>/shape <radius> <falloff>` (resize) ·
+`/inject/<name>/stamp <u> <v> <radius> <falloff> <value>` (full hit). `u,v` are normalized
+biome coords (0..1). Adapt the arm-pose / audio-onset logic to your real installation data.
+
+---
+
 ## `firing_csv_to_f16.py` — preprocess the firing blob
 
 One-time offline conversion of the source neuron recording into the compact binary blob

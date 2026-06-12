@@ -50,6 +50,8 @@ namespace Biomes
         [SerializeField, Range(1f, 80f)] private float m_RingRadius = 14f;
         [SerializeField, Range(0.5f, 40f)] private float m_RingThickness = 4f;
         [SerializeField, Range(0f, 5f)] private float m_RingStrength = 1.5f;
+        [SerializeField, Range(0f, 6f)] private float m_RingExpandGain = 2f;
+        [SerializeField, Range(0f, 4f)] private float m_RingCoreStrength = 1.5f;
         [SerializeField, Range(0f, 1f)] private float m_RingThreshold = 0.1f;
         [Tooltip("Match the sims' spawnScale so rings land on agent clusters")]
         [SerializeField] private Vector2 m_RingSpawnScale = new Vector2(0.8f, 0.9f);
@@ -98,6 +100,8 @@ namespace Biomes
         private static readonly int s_RingRadiusID = Shader.PropertyToID("ringRadius");
         private static readonly int s_RingThicknessID = Shader.PropertyToID("ringThickness");
         private static readonly int s_RingStrengthID = Shader.PropertyToID("ringStrength");
+        private static readonly int s_RingExpandGainID = Shader.PropertyToID("ringExpandGain");
+        private static readonly int s_RingCoreStrengthID = Shader.PropertyToID("ringCoreStrength");
         private static readonly int s_RingColorID = Shader.PropertyToID("ringColor");
 
         void Awake()
@@ -380,6 +384,8 @@ namespace Biomes
                     compositeCS.SetFloat(s_RingRadiusID, m_RingRadius);
                     compositeCS.SetFloat(s_RingThicknessID, m_RingThickness);
                     compositeCS.SetFloat(s_RingStrengthID, m_RingStrength);
+                    compositeCS.SetFloat(s_RingExpandGainID, m_RingExpandGain);
+                    compositeCS.SetFloat(s_RingCoreStrengthID, m_RingCoreStrength);
                     compositeCS.SetVector(s_RingColorID, m_RingColor);
                     compositeCS.GetKernelThreadGroupSizes(neuronRingKernel, out uint rwx, out uint rwy, out uint _);
                     compositeCS.Dispatch(neuronRingKernel,

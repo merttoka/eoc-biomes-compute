@@ -77,6 +77,31 @@ namespace Biomes
 
         public List<Source> sources = new();
 
+        [Header("Firing-driven dispersal")]
+        [Tooltip("Neuron firing source; each firing neuron injects a Dispersal pulse at its location.")]
+        public NeuronFiringSource firingSource;
+        public bool firingDispersalEnabled = true;
+        [BiomeChannelField] public int dispersalChannel = BiomeChannel.Dispersal;
+        [Tooltip("Match the sims' spawnScale so pulses land on agent clusters.")]
+        public Vector2 firingSpawnScale = new Vector2(0.8f, 0.9f);
+        [Range(0.001f, 0.5f)] public float dispersalRadius = 0.05f;
+        [Tooltip("Radius grows by this fraction as the firing intensity fades.")]
+        [Range(0f, 4f)] public float dispersalExpandGain = 1.5f;
+        [Range(0.25f, 6f)] public float dispersalFalloff = 1.5f;
+        [Tooltip("Min stamp amount for a barely-firing neuron.")]
+        [Range(0f, 1f)] public float dispersalBaseline = 0.05f;
+        [Tooltip("Max stamp amount for a full-intensity firing neuron.")]
+        [Range(0f, 1f)] public float dispersalAmount = 0.6f;
+        [Range(0f, 1f)] public float dispersalFireThreshold = 0.1f;
+
+        public enum FiringDispersalSource { NeuronPositions, AgentPositions }
+        [Tooltip("NeuronPositions = fixed CSV neuron coords (no readback). AgentPositions = live agent positions of the sim below (pulses erupt from where the swarm actually is) — PERF: this does a SYNCHRONOUS GPU readback every frame (CPU stall). Fine at ~131 agents; keep firingAgentStampCap low for larger sims.")]
+        public FiringDispersalSource firingDispersalSource = FiringDispersalSource.NeuronPositions;
+        [Tooltip("Sim whose live agent positions drive AgentPositions mode (e.g. the TermiteSim). Agent i uses firing neuron (i % neuronCount).")]
+        public SimulationBase firingAgentSim;
+        [Tooltip("Max agents read back / stamped per frame in AgentPositions mode (caps cost at high agent counts).")]
+        [Range(1, 4096)] public int firingAgentStampCap = 256;
+
         [Header("Gizmo")]
         public bool drawGizmos = true;
         public Color gizmoColor = new Color(0.3f, 0.9f, 1f, 0.6f);
@@ -94,6 +119,12 @@ namespace Biomes
             public float pad;
         }
         private const int StampStride = sizeof(float) * 8; // 32
+
+        // Matches the GPU Agent struct (float2 position, float2 direction, uint typeId = 20 bytes)
+        // for reading back live sim agent positions in AgentPositions mode.
+        [StructLayout(LayoutKind.Sequential)]
+        private struct AgentLayout { public Vector2 position; public Vector2 direction; public uint typeId; }
+        private AgentLayout[] _agentScratch;
 
         private ComputeBuffer _buffer;
         private Stamp[] _scratch;
@@ -136,6 +167,41 @@ namespace Biomes
             }
         }
 
+        /// <summary>Drive a named source's FULL stamp from one message: position (u,v),
+        /// radius, falloff, and value — e.g. an audio engine placing a sized Dispersal hit
+        /// anywhere. Thread-safe (plain-field writes, same pattern as SetValue/SetPosition);
+        /// radius/falloff clamped to their inspector ranges.</summary>
+        public void SetStamp(string sourceName, float u, float v, float radius, float falloff, float value)
+        {
+            var list = sources;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var s = list[i];
+                if (s == null || s.name != sourceName) continue;
+                s.fieldUV = new Vector2(Mathf.Clamp01(u), Mathf.Clamp01(v));
+                s.radius  = Mathf.Clamp(radius, 0.001f, 0.5f);
+                s.falloff = Mathf.Clamp(falloff, 0.25f, 6f);
+                s.value   = value;
+                s.valueDirty = true;
+            }
+        }
+
+        /// <summary>Resize a named source's stamp (radius, falloff) without changing its value
+        /// or position. Thread-safe; clamped to the inspector ranges.</summary>
+        public void SetShape(string sourceName, float radius, float falloff)
+        {
+            var list = sources;
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var s = list[i];
+                if (s == null || s.name != sourceName) continue;
+                s.radius  = Mathf.Clamp(radius, 0.001f, 0.5f);
+                s.falloff = Mathf.Clamp(falloff, 0.25f, 6f);
+            }
+        }
+
         /// <summary>Pack the active sources and dispatch injection into the biome. Call once
         /// per step, AFTER sim write-back and BEFORE biome.Step().</summary>
         public void Inject(Biome biome)
@@ -148,9 +214,8 @@ namespace Biomes
                 var s = sources[i];
                 if (s != null && s.enabled && s.radius > 0f) n++;
             }
-            if (n == 0) return;
-
-            if (_scratch == null || _scratch.Length < n) _scratch = new Stamp[n];
+            if (n == 0 && !(firingDispersalEnabled && firingSource != null)) return;
+            if (_scratch == null || _scratch.Length < n) _scratch = new Stamp[Mathf.Max(n, 8)];
 
             float now = Time.time;
             int k = 0;
@@ -179,6 +244,22 @@ namespace Biomes
                 };
             }
 
+            // Firing-driven dispersal pulses: one stamp per firing neuron (or per live agent),
+            // strength scaled by firing intensity, radius expanding as it fades.
+            if (firingDispersalEnabled && firingSource != null)
+            {
+                var scaled = firingSource.ScaledValues;
+                int neuronCount = scaled != null ? scaled.Length : 0;
+                if (neuronCount > 0)
+                {
+                    if (firingDispersalSource == FiringDispersalSource.AgentPositions && firingAgentSim != null)
+                        k = AppendAgentPositionStamps(scaled, neuronCount, k);
+                    else
+                        k = AppendNeuronPositionStamps(scaled, neuronCount, k);
+                }
+            }
+
+            if (k == 0) return;
             if (_buffer == null || _buffer.count < k)
             {
                 _buffer?.Release();
@@ -186,6 +267,79 @@ namespace Biomes
             }
             _buffer.SetData(_scratch, 0, 0, k);
             biome.InjectSources(_buffer, k);
+        }
+
+        // Grow the stamp scratch array, preserving existing entries.
+        private void GrowScratch(int needed)
+        {
+            int newLen = Mathf.Max(needed, _scratch != null ? _scratch.Length * 2 : 8);
+            var grown = new Stamp[newLen];
+            if (_scratch != null) System.Array.Copy(_scratch, grown, _scratch.Length);
+            _scratch = grown;
+        }
+
+        // Stamp dispersal at fixed neuron CSV positions (normalized * spawnScale, centered).
+        private int AppendNeuronPositionStamps(float[] scaled, int neuronCount, int k)
+        {
+            var posCPU = firingSource.PositionsCPU;
+            int cap = posCPU != null ? Mathf.Min(neuronCount, posCPU.Count) : 0;
+            for (int i = 0; i < cap; i++)
+            {
+                float f = scaled[i];
+                if (f < dispersalFireThreshold) continue;
+                Vector2 np = posCPU[i];
+                Vector2 uv = new Vector2(
+                    np.x * firingSpawnScale.x + (1f - firingSpawnScale.x) * 0.5f,
+                    np.y * firingSpawnScale.y + (1f - firingSpawnScale.y) * 0.5f);
+                k = AddDispersalStamp(uv, Mathf.Clamp01(f), k);
+            }
+            return k;
+        }
+
+        // Stamp dispersal at the live agent positions of firingAgentSim. Agent i uses firing
+        // neuron (i % neuronCount); duplicate copies (i / neuronCount) fire progressively
+        // weaker (identity when agentCount == neuronCount). Synchronous readback — cheap at
+        // ~131 agents, capped by firingAgentStampCap.
+        private int AppendAgentPositionStamps(float[] scaled, int neuronCount, int k)
+        {
+            var buf = firingAgentSim.GetAgentPositionBuffer();
+            int agentCount = firingAgentSim.GetAgentCount();
+            if (buf == null || agentCount <= 0) return k;
+
+            int readCount = Mathf.Min(agentCount, Mathf.Min(buf.count, firingAgentStampCap));
+            if (_agentScratch == null || _agentScratch.Length < readCount)
+                _agentScratch = new AgentLayout[Mathf.Max(readCount, _agentScratch != null ? _agentScratch.Length * 2 : 8)];
+            buf.GetData(_agentScratch, 0, 0, readCount);
+
+            float rezX = Mathf.Max(1, firingAgentSim.rezX);
+            float rezY = Mathf.Max(1, firingAgentSim.rezY);
+            for (int i = 0; i < readCount; i++)
+            {
+                int copy = i / neuronCount;                       // 0 for the first neuronCount agents, then 1, 2, ...
+                float f = scaled[i % neuronCount] / (copy + 1);   // duplicate copies fire progressively weaker (discrete per copy)
+                if (f < dispersalFireThreshold) continue;
+                Vector2 p = _agentScratch[i].position;
+                Vector2 uv = new Vector2(Mathf.Clamp01(p.x / rezX), Mathf.Clamp01(p.y / rezY));
+                k = AddDispersalStamp(uv, Mathf.Clamp01(f), k);
+            }
+            return k;
+        }
+
+        // Append one dispersal stamp at uv with intensity fc (0..1), growing scratch as needed.
+        private int AddDispersalStamp(Vector2 uv, float fc, int k)
+        {
+            if (k >= _scratch.Length) GrowScratch(k + 1);
+            _scratch[k++] = new Stamp
+            {
+                uv = uv,
+                radius = dispersalRadius * (1f + dispersalExpandGain * (1f - fc)),
+                falloff = dispersalFalloff,
+                channel = Mathf.Clamp(dispersalChannel, 0, BiomeChannel.Count - 1),
+                amount = dispersalBaseline + (dispersalAmount - dispersalBaseline) * fc,
+                mode = (int)BlendMode.MaxToward,
+                pad = 0f,
+            };
+            return k;
         }
 
         /// <summary>The OSC address a source listens on: its explicit override, or
@@ -217,6 +371,53 @@ namespace Biomes
                   .Append($"  osc={OscAddressFor(s)}  lastMsg={age}{(s.monStale ? " [STALE]" : "")}\n");
             }
             Debug.Log(sb.ToString());
+        }
+
+        // Append ready-to-drive example Dispersal sources: 3 kinetic arms + 1 audio emitter.
+        // OSC drivers are registered at OSCMapping.Start() from this list, so add these in
+        // EDIT mode then enter Play. Each is named, so it gets these addresses automatically:
+        //   /inject/<name>                 <0..1>                          intensity at current uv
+        //   /inject/<name>/pos             <u> <v>                         move the emitter (arms)
+        //   /inject/<name>/shape           <radius> <falloff>              resize only
+        //   /inject/<name>/stamp           <u> <v> <radius> <falloff> <v>  full hit (audio)
+        // Names: arm1, arm2, arm3, audio.  All target the Dispersal channel (scatter).
+        [Button("Add Example Dispersal Sources")]
+        public void AddExampleDispersalSources()
+        {
+            if (sources == null) sources = new List<Source>();
+
+            // Three kinetic arms: movable emitters. Drive /inject/armN/pos with the arm's
+            // mapped position and /inject/armN with its activity (0..1). MaxToward holds a
+            // stable level under the arm; the channel's fast decay trails it as the arm moves.
+            AddDispersalArm("arm1", new Vector2(0.25f, 0.5f));
+            AddDispersalArm("arm2", new Vector2(0.50f, 0.5f));
+            AddDispersalArm("arm3", new Vector2(0.75f, 0.5f));
+
+            // Audio: full-stamp control so the audio engine can throw sized hits anywhere via
+            //   /inject/audio/stamp <u> <v> <radius> <falloff> <value>.
+            sources.Add(new Source
+            {
+                name = "audio", channel = BiomeChannel.Dispersal, mode = BlendMode.MaxToward,
+                fieldUV = new Vector2(0.5f, 0.5f), radius = 0.12f, falloff = 1.5f, gain = 1f,
+                inputMin = 0f, inputMax = 1f, smoothing = 0f, value = 0f, valueTimeout = 0.2f,
+            });
+
+            Debug.Log("[BiomeInjector] Added example Dispersal sources: arm1, arm2, arm3, audio. " +
+                      "OSC: /inject/<name> <v> · /pos <u> <v> · /shape <r> <f> · /stamp <u> <v> <r> <f> <v>. " +
+                      "Re-enter Play so OSCMapping registers them.");
+#if UNITY_EDITOR
+            if (!Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
+
+        private void AddDispersalArm(string name, Vector2 uv)
+        {
+            sources.Add(new Source
+            {
+                name = name, channel = BiomeChannel.Dispersal, mode = BlendMode.MaxToward,
+                fieldUV = uv, radius = 0.08f, falloff = 1.5f, gain = 1f,
+                inputMin = 0f, inputMax = 1f, smoothing = 0f, value = 0f, valueTimeout = 0.5f,
+            });
         }
 
         void OnDestroy()

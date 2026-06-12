@@ -16,6 +16,8 @@ namespace Biomes
               "hue", "saturation", "diffuseRate" };
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
+        // Dispersal speed response (dispersalSpeedMode/Mult/ConstantSpeed) lives on SimulationBase.
+
         [Header("Agents")]
         [Range(32, 150000)] public int agentsCount = 500;
         private ComputeBuffer readAgentsBuffer;
@@ -222,6 +224,7 @@ namespace Biomes
 
         private void GPUMoveAgentsKernel()
         {
+            BindDispersalSpeedParams();
             cs.SetInt(s_AgentsCountID, agentsCount);
             cs.SetBuffer(moveAgentsKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsOutID, writeAgentsBuffer);

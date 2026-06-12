@@ -22,8 +22,9 @@ namespace Biomes
     public enum UmweltEffect
     {
         Chemotaxis,     // affects movement direction (sensor turns / food seeking)
-        SpeedPenalty,   // scales movement speed (permeability → speed multiplier)
-        Avoidance,      // hard repulsion (flee when above threshold)
+        SpeedPenalty,   // scales movement speed down (permeability → speed multiplier, perception.g)
+        Avoidance,      // hard repulsion (flee when above threshold, perception.b)
+        SpeedBoost,     // accelerates agents (dispersal → speed burst, perception.a)
     }
 
     [CreateAssetMenu(fileName = "UmweltMapping", menuName = "Biomes/UmweltMapping")]

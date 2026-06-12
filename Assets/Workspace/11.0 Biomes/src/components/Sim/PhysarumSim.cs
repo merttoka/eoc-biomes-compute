@@ -17,6 +17,8 @@ namespace Biomes
               "hue", "saturation" };
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
+        // Dispersal speed response (dispersalSpeedMode/Mult/ConstantSpeed) lives on SimulationBase.
+
         [Header("Agents")]
         [Range(1024, 40000000)] public int agentsCount = 100000;
         private ComputeBuffer readAgentsBuffer;
@@ -121,6 +123,7 @@ namespace Biomes
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
 
             // Move
+            BindDispersalSpeedParams();
             cs.SetInt(s_AgentsCountID, agentsCount);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);
             cs.SetBuffer(moveAgentsKernel, s_AgentsInID, readAgentsBuffer);

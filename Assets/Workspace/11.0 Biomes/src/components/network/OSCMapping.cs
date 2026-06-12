@@ -95,15 +95,18 @@ namespace Biomes
         }
 
         // Register OSC drivers for each BiomeInjector source (by source name):
-        //   /inject/<name>       <value 0..1>   → SetValue (e.g. plant CO2/light, robot proximity)
-        //   /inject/<name>/pos   <u> <v>        → SetPosition (e.g. robot pose → location)
+        //   /inject/<name>         <value 0..1>                      → SetValue   (intensity; e.g. CO2/light, arm activity)
+        //   /inject/<name>/pos     <u> <v>                           → SetPosition(move emitter; e.g. kinetic-arm pose)
+        //   /inject/<name>/shape   <radius> <falloff>                → SetShape   (resize only)
+        //   /inject/<name>/stamp   <u> <v> <radius> <falloff> <val>  → SetStamp   (full hit; e.g. audio → Dispersal)
+        // Use the BiomeInjector's "Add Example Dispersal Sources" button to create arm1/arm2/arm3 + audio.
         private void RegisterInjectorSources()
         {
             if (m_BiomeInjector == null || m_BiomeInjector.sources == null) return;
             foreach (var src in m_BiomeInjector.sources)
             {
                 if (src == null || string.IsNullOrEmpty(src.name)) continue;
-                string srcName = src.name;                       // SetValue/SetPosition key
+                string srcName = src.name;                       // SetValue/SetPosition/SetStamp key
                 string baseAddr = BiomeInjector.OscAddressFor(src); // explicit override or /inject/<name>
                 if (string.IsNullOrEmpty(baseAddr)) continue;
 
@@ -120,8 +123,27 @@ namespace Biomes
                         m_BiomeInjector.SetPosition(srcName, data.GetElementAsFloat(0), data.GetElementAsFloat(1));
                     }
                 );
+
+                m_OscServer.MessageDispatcher.AddCallback(
+                    $"{baseAddr}/shape",
+                    (string addr, OscDataHandle data) => {
+                        m_BiomeInjector.SetShape(srcName,
+                            data.GetElementAsFloat(0), data.GetElementAsFloat(1));
+                    }
+                );
+
+                // Full stamp in one message: u v radius falloff value (e.g. audio → sized Dispersal hit).
+                m_OscServer.MessageDispatcher.AddCallback(
+                    $"{baseAddr}/stamp",
+                    (string addr, OscDataHandle data) => {
+                        m_BiomeInjector.SetStamp(srcName,
+                            data.GetElementAsFloat(0), data.GetElementAsFloat(1),
+                            data.GetElementAsFloat(2), data.GetElementAsFloat(3),
+                            data.GetElementAsFloat(4));
+                    }
+                );
             }
-            Debug.Log($"[OSC] Registered {m_BiomeInjector.sources.Count} injector source(s) under /inject/<name>");
+            Debug.Log($"[OSC] Registered {m_BiomeInjector.sources.Count} injector source(s) under /inject/<name> (value · /pos · /shape · /stamp)");
         }
 
         void OnDestroy()

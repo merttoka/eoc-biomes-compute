@@ -38,10 +38,16 @@ uint rezX;
 uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
+float turnAngleSpread;  // per-neuron-group turn-angle variation (0 = global, 1 = 0..2× base)
 
 #include "includes/random.hlsl"
 #include "includes/termite_type_params.hlsl"
 #include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
+
+// Neuron-group index an agent belongs to: agents sharing a group share their heading
+// and turn-angle character. Falls back to per-agent when no neuron CSV is wired.
+uint NeuronGroup(uint i) { return (neuronCount > 0) ? (i % neuronCount) : i; }
 
 // ════════════════════════════════════════════════
 // RESET
@@ -70,7 +76,9 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
 
-    float ang0 = Hash1u(id.x * 747796405u + time) * 6.28318530718;
+    // Per-neuron heading: agents sharing a neuron index get ONE fixed heading →
+    // coherent directional streams (one per neuron).
+    float ang0 = Hash1u(NeuronGroup(id.x) * 747796405u + time) * 6.28318530718;
     a.direction = float2(cos(ang0), sin(ang0));
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
@@ -89,7 +97,12 @@ float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
     float2 direction = normalize(a.direction);
     float r = p.senseDistance;
     float ang = p.senseAngle;
-    float tang = p.turnAngle;
+
+    // Per-neuron-group fixed turn angle: each group keeps its own distinct turn
+    // magnitude (deterministic, constant for life) instead of one global turn angle —
+    // so each stream curves with its own character.
+    float tRand = Hash1u(NeuronGroup(id.x) * 2246822519u + 9871u);
+    float tang = p.turnAngle * lerp(1.0 - turnAngleSpread, 1.0 + turnAngleSpread, tRand);
 
     float2 leftSensor = RotateVectorBy(direction, -ang) * r;
     float2 middleSensor = direction * r;
@@ -103,7 +116,7 @@ float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
     float3 middleUV = float3(middleCoord.x / (float)rezX, middleCoord.y / (float)rezY, 0);
     float3 rightUV = float3(rightCoord.x / (float)rezX, rightCoord.y / (float)rezY, 0);
 
-    // Own-type trail (intra-species coordination)
+    // Own-type trail (intra-species coordination → curvy stigmergic paths)
     float myLeft = trailRead.SampleLevel(sampler_trailRead, float3(leftUV.xy, a.typeId), 0);
     float totLeft = trailRead.SampleLevel(sampler_trailRead, float3(leftUV.xy, typeCount), 0);
     float leftLevel = myLeft - (totLeft - myLeft);
@@ -116,8 +129,8 @@ float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
     float totRight = trailRead.SampleLevel(sampler_trailRead, float3(rightUV.xy, typeCount), 0);
     float rightLevel = myRight - (totRight - myRight);
 
-    // Biome perception R = chemotaxis (0.5 neutral). Mound avoidance enters here
-    // via a negative-weight read on CH_PERMEABILITY in the UmweltMapping.
+    // Biome perception R = chemotaxis (0.5 neutral). Dispersal flee enters here via a
+    // negative-weight read on the Dispersal channel in the Umwelt mapping (Phase F4).
     float biomeLeft = perceptionTex.SampleLevel(sampler_perceptionTex, leftUV.xy, 0).r;
     float biomeMiddle = perceptionTex.SampleLevel(sampler_perceptionTex, middleUV.xy, 0).r;
     float biomeRight = perceptionTex.SampleLevel(sampler_perceptionTex, rightUV.xy, 0).r;
@@ -154,11 +167,15 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float w = (Hash1u(id.x * 668265263u + time * 2246822519u) - 0.5) * 0.1;
     direction = RotateVectorBy(direction, w);
 
-    // Biome speed multiplier (permeability) + firing boost
+    // Biome perception: G = speed mult (permeability), A = dispersal speed-boost magnitude.
     float2 uv = a.position / float2((float)rezX, (float)rezY);
-    float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
+    float4 perc = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0);
+    float speedMult = perc.g;
+    float disp = perc.a;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
+
+    ApplyDispersalSpeedResponse(effectiveSpeed, disp);
 
     a.direction = direction * effectiveSpeed;
     a.position += a.direction;
@@ -237,7 +254,7 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         TermiteTypeParams p = typeParams[t];
         float baseB = saturate(val);
         float white = saturate(val - 1.0);   // firing (>1) pushes toward white
-        float4 c = hsb2rgb(float3(p.hue, p.saturation * (1.0 - white), 0.8 * baseB), baseB);
+        float4 c = hsb2rgb(float3(p.hue, p.saturation * (1.0 - white), baseB), baseB);
         c.rgb = lerp(c.rgb, float3(1, 1, 1), white);
         color += c / typeCount;
     }

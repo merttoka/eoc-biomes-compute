@@ -13,7 +13,7 @@ Texture2DArray<float> trailRead;
 RWTexture2DArray<float> trailWrite;
 RWTexture2D<float4> outTex;
 
-// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance
+// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
 Texture2D<float4> perceptionTex;
 SamplerState sampler_perceptionTex;
 
@@ -39,6 +39,7 @@ float persistence;   // per-frame retention of outTex (set from SimulationBase.r
 #include "includes/random.hlsl"
 #include "includes/physarum_type_params.hlsl"
 #include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
 
 
 // ════════════════════════════════════════════════
@@ -152,11 +153,15 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     float2 direction = SensorTurns(id, a, p);
 
-    // Apply permeability speed penalty from biome
+    // Apply permeability speed penalty from biome; A = dispersal speed-boost magnitude.
     float2 uv = a.position / float2((float)rezX, (float)rezY);
-    float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
+    float4 perc = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0);
+    float speedMult = perc.g;
+    float disp = perc.a;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
+
+    ApplyDispersalSpeedResponse(effectiveSpeed, disp);
 
     a.direction = direction * effectiveSpeed;
     a.position += a.direction;

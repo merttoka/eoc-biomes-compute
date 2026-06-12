@@ -17,7 +17,11 @@ namespace Biomes
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
         [Header("Agents")]
-        [Range(1024, 4000000)] public int agentsCount = 131 * 100; // 13100
+        [Range(131, 4000000)] public int agentsCount = 131; // 1:1 with neurons (reference uses 131)
+        [Tooltip("Per-neuron-group turn-angle variation. 0 = single global turn angle; 1 = groups span 0..2× the base turnAngle. At 131 agents each termite is its own group.")]
+        [Range(0f, 1f)] public float turnAngleSpread = 0.8f;
+        // Dispersal speed response (dispersalSpeedMode/Mult/ConstantSpeed) lives on SimulationBase.
+
         private ComputeBuffer readAgentsBuffer;
         private ComputeBuffer writeAgentsBuffer;
 
@@ -119,6 +123,8 @@ namespace Biomes
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
+            cs.SetFloat("turnAngleSpread", turnAngleSpread);
+            BindDispersalSpeedParams();
 
             cs.SetInt(s_AgentsCountID, agentsCount);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);

@@ -31,6 +31,12 @@ MonoBehaviour:
   - channel: 4
     weight: -0.5
     effect: 1
+  - channel: 10
+    weight: -2
+    effect: 0
+  - channel: 10
+    weight: 1
+    effect: 3
   writes:
   - channel: 1
     amount: 0.012

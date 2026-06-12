@@ -32,8 +32,8 @@ MonoBehaviour:
     initialValue: 0
     relaxRate: 0
   - name: Pheromone_2
-    diffuseRate: 0.98
-    decayRate: 0.002
+    diffuseRate: 0.9999
+    decayRate: 0.001
     advectedByFlow: 1
     initialValue: 0
     relaxRate: 0
@@ -60,7 +60,7 @@ MonoBehaviour:
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0.7
-    relaxRate: 0.05
+    relaxRate: 0.001
   - name: Flow_X
     diffuseRate: 0.92
     decayRate: 0.02
@@ -70,6 +70,12 @@ MonoBehaviour:
   - name: Flow_Y
     diffuseRate: 0.92
     decayRate: 0.02
+    advectedByFlow: 0
+    initialValue: 0
+    relaxRate: 0
+  - name: Dispersal
+    diffuseRate: 0.9
+    decayRate: 0.12
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0

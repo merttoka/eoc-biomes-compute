@@ -63,13 +63,16 @@ def main():
 
     p.add_argument("--stream", nargs="*", type=int, metavar="START END",
                    help="stream every frame START..END at --fps (default 0..max); sustained firing")
-    p.add_argument("--fps", type=float, default=60.0, help="frames/sec for --stream (default 60)")
+    p.add_argument("--fps", type=float, default=None,
+                   help="frames/sec for --stream (default 60; ignored by --sweep/--random, use --hold)")
     p.add_argument("--loop", action="store_true", help="loop --stream/--sweep forever (Ctrl+C to stop)")
 
     p.add_argument("--random", action="store_true", help="send random frames")
     p.add_argument("--count", type=int, default=10, help="number of frames for --random (default 10)")
 
     args = p.parse_args()
+    if args.fps is not None and args.stream is None:
+        print("WARNING: --fps only applies to --stream; --sweep/--random pace with --hold", file=sys.stderr)
     client = SimpleUDPClient(args.host, args.port)
     hi = args.max_frame
 
@@ -85,14 +88,30 @@ def main():
         if args.stream is not None:
             start = args.stream[0] if len(args.stream) >= 1 else 0
             end = args.stream[1] if len(args.stream) >= 2 else hi
-            dt = 1.0 / args.fps if args.fps > 0 else 0.0
+            fps = args.fps if args.fps is not None else 60.0
+            dt = 1.0 / fps if fps > 0 else 0.0
             step = 1 if end >= start else -1
-            print("stream %d..%d @ %.0ffps%s" % (start, end, args.fps, "  (loop)" if args.loop else ""))
+            print("stream %d..%d @ %.0ffps%s" % (start, end, fps, "  (loop)" if args.loop else ""))
+            # Absolute-deadline pacing: sleep until next_t, not sleep(dt) after each
+            # send — otherwise send/print overhead accumulates and the actual rate
+            # undershoots the requested fps (~18% low at 60fps).
+            next_t = time.monotonic()
+            rate_t0, rate_n = next_t, 0
             while True:
                 for f in range(start, end + step, step):
                     send(f)
+                    rate_n += 1
+                    now = time.monotonic()
+                    if now - rate_t0 >= 2.0:
+                        print("  [rate: %.1f msg/s]" % (rate_n / (now - rate_t0)))
+                        rate_t0, rate_n = now, 0
                     if dt:
-                        time.sleep(dt)
+                        next_t += dt
+                        delay = next_t - now
+                        if delay > 0:
+                            time.sleep(delay)
+                        else:
+                            next_t = now  # fell behind (fps > achievable); resync
                 if not args.loop:
                     break
 

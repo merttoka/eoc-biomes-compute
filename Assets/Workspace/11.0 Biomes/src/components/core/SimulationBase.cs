@@ -19,6 +19,16 @@ namespace Biomes
         [Tooltip("Per-frame retention of the rendered output (was hardcoded 0.9). Raising toward 0.95-0.98 makes trails linger and fill the canvas — the main lever to keep the dense look with fewer agents.")]
         [Range(0.5f, 0.995f)] public float renderPersistence = 0.9f;
 
+        // Dispersal speed response — shared by all sims (consumes perception.a = SpeedBoost).
+        public enum DispersalSpeedMode { Multiplier = 0, Constant = 1 }
+        [Header("Dispersal speed response")]
+        [Tooltip("Constant = snap toward a fixed flee speed (fast reaction even at low base speed). Multiplier = scale current speed up with local dispersal.")]
+        public DispersalSpeedMode dispersalSpeedMode = DispersalSpeedMode.Constant;
+        [Tooltip("Multiplier mode gain: speed *= 1 + dispersal*mult.")]
+        [Range(0f, 20f)] public float dispersalSpeedMult = 4f;
+        [Tooltip("Constant mode target flee speed (agents snap toward this as dispersal→1).")]
+        [Range(0f, 50f)] public float dispersalConstantSpeed = 6f;
+
         // Scale of the perception texture relative to sim resolution (set by
         // SimulationManager before Reset). Perception is built from the low-res biome
         // field and sampled by UV, so it can be much smaller than the sim canvas.
@@ -31,7 +41,7 @@ namespace Biomes
         public UmweltMapping umwelt;
 
         // Perception texture: biome fields filtered through Umwelt (built by Biome each frame)
-        // R=chemotaxis, G=speed multiplier, B=avoidance
+        // R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
         [NonSerialized] public RenderTexture perceptionTex;
 
         // External influence texture (assigned by SimulationManager from ExternalTextureReceiver)
@@ -165,7 +175,7 @@ namespace Biomes
             outTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
                 RenderTextureFormat.ARGBHalf, SimName + "_out");
 
-            // Perception texture (populated by Biome). RGB carry chemotaxis/speed/avoidance,
+            // Perception texture (populated by Biome). RGBA carry chemotaxis/speed/avoidance/speed-boost,
             // all in 0..1 — half precision is plenty and halves the per-frame read cost in
             // every sim's MoveAgents kernel (the hottest sampler in the project).
             // Built from the low-res biome field and read by UV everywhere, so it can be
@@ -259,6 +269,14 @@ namespace Biomes
                 cs.SetBuffer(k, s_NeuronFiringID, buf);
             cs.SetInt(s_NeuronFiringCountID, count);
             cs.SetFloat(s_FiringThresholdID, firingThreshold);
+        }
+
+        // Bind the shared dispersal speed-response params (consumed via includes/dispersal_speed_response.hlsl).
+        protected void BindDispersalSpeedParams()
+        {
+            cs.SetInt("dispersalSpeedMode", (int)dispersalSpeedMode);
+            cs.SetFloat("dispersalSpeedMult", dispersalSpeedMult);
+            cs.SetFloat("dispersalConstantSpeed", dispersalConstantSpeed);
         }
 
         // Parse labelsPositionsCsv, upload neuron positions, bind to the given reset
