@@ -39,6 +39,9 @@ uint rezY;
 uint time;
 float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
 float turnAngleSpread;  // per-neuron-group turn-angle variation (0 = global, 1 = 0..2× base)
+int dispersalSpeedMode;       // dispersal speed response: 0 = multiplier, 1 = constant flee speed
+float dispersalSpeedMult;     // multiplier-mode gain (effectiveSpeed *= 1 + disp*mult)
+float dispersalConstantSpeed; // constant-mode target flee speed (snap toward it as disp→1)
 
 #include "includes/random.hlsl"
 #include "includes/termite_type_params.hlsl"
@@ -165,11 +168,22 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float w = (Hash1u(id.x * 668265263u + time * 2246822519u) - 0.5) * 0.1;
     direction = RotateVectorBy(direction, w);
 
-    // Biome speed multiplier (permeability) + firing boost
+    // Biome perception: G = speed mult (permeability), A = dispersal speed-boost magnitude.
     float2 uv = a.position / float2((float)rezX, (float)rezY);
-    float speedMult = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).g;
+    float4 perc = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0);
+    float speedMult = perc.g;
+    float disp = perc.a;
     float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveSpeed = p.moveSpeed * speedMult * fireMul;
+
+    // Dispersal speed response. Mode 1 = constant: snap toward a fixed flee speed so
+    // agents react fast even when moveSpeed is tiny. Mode 0 = multiplier: scale the
+    // current speed up with local dispersal.
+    if (dispersalSpeedMode == 1) {
+        effectiveSpeed = lerp(effectiveSpeed, dispersalConstantSpeed, saturate(disp));
+    } else {
+        effectiveSpeed *= (1.0 + disp * dispersalSpeedMult);
+    }
 
     a.direction = direction * effectiveSpeed;
     a.position += a.direction;

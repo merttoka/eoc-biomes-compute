@@ -20,6 +20,16 @@ namespace Biomes
         [Range(131, 4000000)] public int agentsCount = 131; // 1:1 with neurons (reference uses 131)
         [Tooltip("Per-neuron-group turn-angle variation. 0 = single global turn angle; 1 = groups span 0..2× the base turnAngle. At 131 agents each termite is its own group.")]
         [Range(0f, 1f)] public float turnAngleSpread = 0.8f;
+
+        public enum DispersalSpeedMode { Multiplier = 0, Constant = 1 }
+        [Header("Dispersal speed response")]
+        [Tooltip("Constant = snap toward a fixed flee speed (fast reaction even at low moveSpeed). Multiplier = scale current speed up with local dispersal.")]
+        public DispersalSpeedMode dispersalSpeedMode = DispersalSpeedMode.Constant;
+        [Tooltip("Multiplier mode gain: effectiveSpeed *= 1 + dispersal*mult.")]
+        [Range(0f, 20f)] public float dispersalSpeedMult = 4f;
+        [Tooltip("Constant mode target flee speed (agents snap toward this as dispersal→1).")]
+        [Range(0f, 50f)] public float dispersalConstantSpeed = 6f;
+
         private ComputeBuffer readAgentsBuffer;
         private ComputeBuffer writeAgentsBuffer;
 
@@ -122,6 +132,9 @@ namespace Biomes
             BindPerceptionTex(moveAgentsKernel);
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
             cs.SetFloat("turnAngleSpread", turnAngleSpread);
+            cs.SetInt("dispersalSpeedMode", (int)dispersalSpeedMode);
+            cs.SetFloat("dispersalSpeedMult", dispersalSpeedMult);
+            cs.SetFloat("dispersalConstantSpeed", dispersalConstantSpeed);
 
             cs.SetInt(s_AgentsCountID, agentsCount);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);

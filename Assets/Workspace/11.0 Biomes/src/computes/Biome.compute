@@ -364,23 +364,26 @@ void ReadFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
     float2 uv = float2((id.x + 0.5) / (float)perceptionRezX, (id.y + 0.5) / (float)perceptionRezY);
 
     // Accumulate weighted biome channels into perception
-    // R = chemotaxis signal, G = speed multiplier, B = avoidance signal
+    // R = chemotaxis signal, G = speed multiplier, B = avoidance signal, A = speed boost
     float chemotaxis = 0;
     float speedMod = 1.0;
     float avoidance = 0;
+    float boost = 0;
 
     for (int i = 0; i < readEntryCount; i++) {
         ReadEntry entry = readEntries[i];
         float val = fieldRead.SampleLevel(sampler_fieldRead, float3(uv, entry.channel), 0);
         float weighted = val * entry.weight;
 
-        // effect: 0=chemotaxis, 1=speedPenalty, 2=avoidance
+        // effect: 0=chemotaxis, 1=speedPenalty, 2=avoidance, 3=speedBoost
         if (entry.effect == 0) {
             chemotaxis += weighted;
         } else if (entry.effect == 1) {
             speedMod *= lerp(1.0, val, abs(entry.weight));
         } else if (entry.effect == 2) {
             avoidance += max(0, weighted);
+        } else if (entry.effect == 3) {
+            boost += max(0, weighted);
         }
     }
 
@@ -388,7 +391,7 @@ void ReadFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
         saturate(chemotaxis * 0.5 + 0.5), // remap [-1,1] → [0,1]
         saturate(speedMod),
         saturate(avoidance),
-        1.0
+        saturate(boost)                   // A = dispersal/speed-boost magnitude
     );
 }
 
