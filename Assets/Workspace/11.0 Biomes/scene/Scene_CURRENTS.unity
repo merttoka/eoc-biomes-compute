@@ -187,13 +187,13 @@ MonoBehaviour:
     source: 0
     index: 0
     protocol: 1
-    streamName: EoC_testSend_syphon_out
+    streamName: EoC_compositeOut
     resolutionScale: 1
   - enabled: 0
     source: 2
-    index: 6
+    index: 4
     protocol: 1
-    streamName: EoC_testSend_syphon_b7
+    streamName: EoC_biomeChannel
     resolutionScale: 1
   - enabled: 0
     source: 1
@@ -315,9 +315,9 @@ MonoBehaviour:
   - name: diffuseRate
     enabled: 1
   - name: hue
-    enabled: 1
+    enabled: 0
   - name: saturation
-    enabled: 1
+    enabled: 0
   phase: 0
   currentWaypoint: 0
   progress: 0
@@ -335,8 +335,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
   cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
   outputMat: {fileID: 2100000, guid: 6f99dd3881dd147bfaaee20c63f77994, type: 2}
-  compositeWeight: 1
-  renderPersistence: 0.9
+  compositeWeight: 0.85
+  renderPersistence: 0.8
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 40
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 2f40aa7ce2c9e4a61b8d41b0c6400f1c, type: 2}
@@ -344,7 +347,7 @@ MonoBehaviour:
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.4, y: 0.75}
-  agentsCount: 300000
+  agentsCount: 500000
   paramsSO: {fileID: 11400000, guid: fe68c7efcfa924185a7d9d30a19e1a82, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
@@ -1190,8 +1193,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
   cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
   outputMat: {fileID: 2100000, guid: 08c791a04d6e64e13a17db419673ca8c, type: 2}
-  compositeWeight: 1
+  compositeWeight: 1.5
   renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
   rezX: 1024
   rezY: 1024
   umwelt: {fileID: 11400000, guid: 4f22983a9c17c48b08d81bd1d3b98cf2, type: 2}
@@ -1199,7 +1205,8 @@ MonoBehaviour:
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.4, y: 0.75}
-  agentsCount: 13100
+  agentsCount: 131
+  turnAngleSpread: 0.8
   paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
   agentParams: {fileID: 0}
 --- !u!114 &1010527584
@@ -1219,6 +1226,7 @@ MonoBehaviour:
   waypoints:
   - {fileID: 11400000, guid: 2f6ff9d830c774f1f95e41e572095125, type: 2}
   - {fileID: 11400000, guid: a472875e686e540bfba1e22da80a58a3, type: 2}
+  - {fileID: 11400000, guid: 80196241036e9469abfa194ff678dbed, type: 2}
   durationSteps: 20000
   holdSteps: 5000
   easing:
@@ -1245,7 +1253,23 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  paramToggles: []
+  paramToggles:
+  - name: moveSpeed
+    enabled: 1
+  - name: senseAngle
+    enabled: 1
+  - name: turnAngle
+    enabled: 1
+  - name: senseDistance
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: diffuseRate
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
   phase: 0
   currentWaypoint: 0
   progress: 0
@@ -1538,8 +1562,9 @@ MonoBehaviour:
   simManager: {fileID: 2000144461}
   simIndex: 1
   waypoints:
-  - {fileID: 11400000, guid: d5821dd980ff8457ca07450ad3cbe575, type: 2}
+  - {fileID: 11400000, guid: d7d82363f64a44251919e38bed36e9fc, type: 2}
   - {fileID: 11400000, guid: ef091b619c5a441a398fcdb0b51139d3, type: 2}
+  - {fileID: 11400000, guid: d5821dd980ff8457ca07450ad3cbe575, type: 2}
   durationSteps: 20000
   holdSteps: 5000
   easing:
@@ -1566,7 +1591,29 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  paramToggles: []
+  paramToggles:
+  - name: maxSpeed
+    enabled: 1
+  - name: maxForce
+    enabled: 1
+  - name: separateRange
+    enabled: 1
+  - name: alignRange
+    enabled: 1
+  - name: attractRange
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: eatAmount
+    enabled: 1
+  - name: foodSeek
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
+  - name: diffuseRate
+    enabled: 1
   phase: 0
   currentWaypoint: 0
   progress: 0
@@ -1586,6 +1633,9 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: e53f1624b50e246e89445d57729ac6b2, type: 2}
   compositeWeight: 1
   renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 40
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 6ccf98ec293264e40ab41b39bf475a92, type: 2}
@@ -1874,20 +1924,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BiomeInjector
   sources:
-  - name: TODO-SENSOR
+  - name: disperse
     enabled: 0
     oscAddress: 
     fieldUV: {x: 0.63, y: 0.48}
-    radius: 0.5
-    falloff: 5.32
-    channel: 4
-    gain: 1
-    mode: 1
+    radius: 0.2
+    falloff: 1.17
+    channel: 10
+    gain: 1.57
+    mode: 2
     inputMin: 0
     inputMax: 1
-    smoothing: 0
+    smoothing: 0.145
     value: 0.775
     valueTimeout: 4
+  firingSource: {fileID: 2000144462}
+  firingDispersalEnabled: 1
+  dispersalChannel: 10
+  firingSpawnScale: {x: 0.4, y: 0.75}
+  dispersalRadius: 0.025
+  dispersalExpandGain: 1.5
+  dispersalFalloff: 0.4
+  dispersalBaseline: 0.05
+  dispersalAmount: 1
+  dispersalFireThreshold: 0.1
+  firingDispersalSource: 1
+  firingAgentSim: {fileID: 1010527583}
+  firingAgentStampCap: 256
   drawGizmos: 0
   gizmoColor: {r: 0.3, g: 0.9, b: 1, a: 0.6}
 --- !u!114 &1919109757
@@ -1904,11 +1967,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
   biomeRezX: 640
   biomeRezY: 180
-  stepEvery: 2
+  stepEvery: 1
   fieldConfig: {fileID: 11400000, guid: 20db2ef560aa47c6a26f76d4efaed801, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   fusedWriteCS: {fileID: 7200000, guid: 9ce42c0778aa14270950ac44dbcad2b1, type: 3}
-  showDebugGrid: 1
+  showDebugGrid: 0
   debugQuadSize: 0.65
   debugGridSpacing: 0.2
   debugGridOrigin: {x: -2.7, y: -2.3, z: 0}
@@ -1950,12 +2013,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.OSCMapping
   m_Port: 9000
-  m_SimulationManager: {fileID: 0}
+  m_SimulationManager: {fileID: 2000144461}
   m_Simulations:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  m_BiomeInjector: {fileID: 0}
+  - {fileID: 276895388}
+  - {fileID: 1825205988}
+  - {fileID: 1010527583}
+  m_BiomeInjector: {fileID: 1919109756}
   m_NeuronFiringSource: {fileID: 2000144462}
 --- !u!4 &1938610678
 Transform:
@@ -2043,7 +2106,7 @@ MonoBehaviour:
   rezX: 3840
   rezY: 1080
   simResolutionScale: 1
-  perceptionResScale: 0.25
+  perceptionResScale: 0.75
   stepsPerFrame: 1
   stepMod: 1
   limitFPS: 0
@@ -2051,7 +2114,7 @@ MonoBehaviour:
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1
-  metabolismEvery: 1
+  metabolismEvery: 2
   simulations:
   - {fileID: 276895388}
   - {fileID: 1825205988}
@@ -2065,6 +2128,8 @@ MonoBehaviour:
   m_RingRadius: 14
   m_RingThickness: 4
   m_RingStrength: 1.5
+  m_RingExpandGain: 2
+  m_RingCoreStrength: 1.5
   m_RingThreshold: 0.1
   m_RingSpawnScale: {x: 0.4, y: 0.75}
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
