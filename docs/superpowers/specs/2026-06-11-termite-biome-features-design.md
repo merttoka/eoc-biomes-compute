@@ -8,56 +8,49 @@ Status: Approved forks, pending spec review
 
 Four coupled features for the 11.0 Biomes simulation, plus answers to three
 standing questions (injection flow, `externalInfluenceTex` wiring, trail
-packing). The features compose: removing termite steering (1) makes trails a
-pure visual record that needs help to read (2); neuron firing becomes a physical
-scatter event (3) driven by a new dispersal biome channel (4).
+packing). The features compose: per-group termite identity (1) plus trail tuning
+(2) make distinct curvy streams legible; neuron firing becomes a physical scatter
+event (3) driven by a new dispersal biome channel (4).
 
-A deliberate departure from the reference (`PDE_Nefeli_Termites`) is recorded
-explicitly: the reference *does* re-steer termites every frame via 3-sensor
-chemotaxis (`Agent_Class.pde:24-35`). We remove that. Termites become ballistic
-streams. This kills emergent trail-following stigmergy for termites — the trail
-no longer feeds back into behavior. This is intended.
+**Revision (2026-06-11, post-F1-verify):** the original F1 removed chemotaxis to
+make termites fly straight. The user wants the opposite — termites keep their
+curvy/wavy chemotaxis behavior (true to `PDE_Nefeli_Termites`), but each neuron
+group (`i % neuronCount`) carries its OWN fixed random *turn-angle magnitude*
+instead of one global turn angle. So this is now *closer* to the reference, not a
+departure: the only change is per-group turn angles (via `turnAngleSpread`) plus
+a per-neuron heading seed. Termite count drops to 131 (1:1 with neurons, matching
+the reference's `numTermites`) — also the main termite perf lever, since the
+3-sensor sampling is the dominant termite GPU cost.
 
 ---
 
-## Feature 1 — Termite fixed-heading ballistic streams
+## Feature 1 — Per-group termite turn angles (curvy streams) — IMPLEMENTED
 
-**Goal.** Each termite flies a fixed random heading set at init and kept for
-life; no pheromone chemotaxis. Agents sharing a neuron index (`i % neuronCount`)
-share the SAME heading → 131 coherent directional streams. Keep the reference's
-±0.05 rad organic wiggle. Keep the firing speed boost and dotted white firing
-trail (faithful to reference).
+**Goal (revised).** Termites keep their reference chemotaxis (3-sensor sensing →
+curvy/wavy stigmergic paths). Each neuron group (`i % neuronCount`) gets its own
+*fixed random turn-angle magnitude*, set deterministically and constant for life,
+replacing the single global turn angle. At 131 agents each termite is its own
+group. Keep the ±0.05 rad wiggle, firing speed boost, and dotted white firing
+trail. Per-neuron heading seed so each group starts coherent.
 
-**Current state.** `TermiteSim.compute`:
-- `ResetAgentsKernel:73` seeds heading per-agent: `Hash1u(id.x * 747796405u + time)`.
-- `MoveAgentsKernel:151` calls `SensorTurns` (3-sensor chemotaxis + biome
-  perception R) every frame, then wiggle (`:154`), then biome speed + firing.
+**Changes (shipped in commit `96a8bef`).**
+1. **Per-neuron heading seed.** `ResetAgentsKernel`: `headingSeed = (neuronCount>0)
+   ? id.x % neuronCount : id.x`, hash that for the initial heading.
+2. **Keep `SensorTurns`** (3-sensor chemotaxis + perception R) — restored, not
+   removed. Inside it the turn magnitude is now per-group:
+   ```
+   grp  = (neuronCount>0) ? id.x % neuronCount : id.x
+   tRand = Hash1u(grp * 2246822519u + 9871u)            // deterministic per group
+   tang = p.turnAngle * lerp(1-turnAngleSpread, 1+turnAngleSpread, tRand)
+   ```
+   `turnAngleSpread` is a new global uniform (C# field on `TermiteSim`, default
+   0.8). 0 = all groups use the global turn angle; 1 = groups span 0..2× base.
+3. **Keep wiggle, biome speed, firing speed** exactly as the reference.
+4. **`agentsCount` default → 131** (1:1 with neurons). Set it in the scene's
+   `TermiteSim` inspector (serialized there overrides the code default).
 
-**Changes.**
-1. **Per-neuron heading seed.** In `ResetAgentsKernel`, seed the hash from the
-   neuron index, not the agent index: `Hash1u((id.x % neuronCount) * 747796405u + time)`
-   (fall back to `id.x` when `neuronCount == 0`). All agents on a neuron get one
-   heading.
-2. **Remove chemotaxis steering.** In `MoveAgentsKernel`, replace the
-   `SensorTurns` call with the agent's stored heading. The pheromone trail
-   sensing in `SensorTurns:106-126` becomes dead code for termites and is
-   stripped (the function is retained only if reused by the dispersal-flee term
-   below; otherwise deleted).
-3. **Keep wiggle** (`:154-155`) unchanged.
-4. **Keep** biome speed multiplier (`:159`) and firing speed (`:160`) — these are
-   not steering and stay.
-
-**New termite move rule (per frame):**
-```
-heading   = normalize(a.direction)              // fixed, from init
-heading   = RotateVectorBy(heading, wiggle)     // ±0.05 rad
-[dispersal-flee override — see Feature 4]
-speed     = moveSpeed * biomeSpeedMult * firingMul
-a.position += heading * speed
-```
-
-Heading magnitude is preserved frame-to-frame (re-normalize before applying
-speed, since `a.direction` currently stores `heading * speed`).
+Heading evolves frame-to-frame via the steering (curvy), as in the reference —
+`a.direction` stores `direction * effectiveSpeed`, re-normalized next frame.
 
 ---
 
@@ -69,14 +62,15 @@ the permeability mounds.
 **Current state.** The trail render path already exists: `WriteTrailsKernel`
 deposits, `DiffuseTextureKernel` fades, `RenderKernel:230-248` colors it into
 `outTex`, and `SimulationManager.compute` blends it additively. It's faint
-because render brightness caps at `0.8 * baseB` (`:240`) and, once steering is
-removed, 80k straight agents spread thin while `diffuseRate 0.97` erases streaks
-faster than they accumulate.
+because render brightness caps at `0.8 * baseB` (`:240`), and with only 131
+agents the deposited trail is sparse, so `diffuseRate ~0.97` erases the curvy
+streaks faster than they build.
 
 **Changes (tuning, no new kernel).**
-1. `diffuseRate` → ~0.99 (slow fade, minimal blur) so the 131 streams stay
-   line-like and persistent.
-2. Raise `depositAmount` / `depositProbability` so lines accumulate visibly.
+1. `diffuseRate` → ~0.99 (slow fade, minimal blur) so the 131 curvy streams
+   persist and read as continuous paths.
+2. Raise `depositAmount` / `depositProbability` so the sparse 131-agent trail
+   accumulates visibly.
 3. Render brightness `0.8 * baseB` → full `baseB` (`RenderKernel:240`).
 4. Verify the termite sim's entry in `simWeights` is non-zero in the current
    scene; give termites a distinct hue from Boids/Physarum.
@@ -144,19 +138,20 @@ strength). The injected stamp amount scales with the firing intensity `f`:
 where `dispersalBaseline` is small. So a weak fire nudges; a strong fire blows
 agents outward. The OSC path uses its own source `amount` as the intensity input.
 
-**Agent effect — flee down-gradient + speed burst.**
-- **Boids & Physarum:** add `CH_DISPERSAL` reads to their `UmweltMapping`:
-  negative-weight Chemotaxis (steer away from high dispersal = flee
-  down-gradient) + positive-weight Speed (burst). No shader change — this is the
-  existing perception mechanism (`perceptionTex.r` chemotaxis, `.g` speed).
-- **Termites:** steering was removed in Feature 1, so they need a dedicated
-  dispersal-flee term. When dispersal at the agent exceeds a threshold, sample
-  dispersal at the 3 sensor positions and steer toward the lowest, scaled by
-  local intensity; otherwise keep the fixed heading. This is the ONLY input that
-  bends a termite off its fixed heading → calm streams that explode outward on
-  firing, then re-straighten.
+**Agent effect — flee down-gradient (simplified by the F1 revision).**
+All three sims now flee via the SAME mechanism, because termites kept their
+`SensorTurns` (3-sensor perception read). Add a `CH_DISPERSAL` negative-weight
+Chemotaxis read to each sim's `UmweltMapping`. The `ReadFieldKernel` folds it into
+`perceptionTex.r` (low where dispersal is high), and every sim's existing sensor
+steering then turns away from the pulse = flee down-gradient. **No per-sim shader
+change, no dedicated termite flee term, no `dispersalResponse` uniform** — the
+original plan's Task 6 is dropped, and termite Umwelt is *appended to*, not
+stripped (keeps its nutrient/pheromone chemotaxis for curvy behavior).
 
-Speed burst (all three sims) **reuses `firingSpeedMul`** — no separate param.
+Speed burst **reuses `firingSpeedMul`** — firing agents already move faster; a
+firing-driven pulse therefore scatters AND speeds the agents on the firing
+neuron. (`SpeedPenalty` can only attenuate, so a dispersal-magnitude boost for
+non-firing agents would need a new effect type — deferred.)
 
 ---
 

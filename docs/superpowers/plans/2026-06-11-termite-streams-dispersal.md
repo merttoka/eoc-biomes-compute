@@ -34,7 +34,15 @@
 
 ---
 
-## Phase F1 — Termite fixed-heading ballistic streams
+## Phase F1 — Termite per-group turn angles (curvy streams)
+
+> **REVISED & SHIPPED (commit `96a8bef`).** Tasks 1-2 below describe the original
+> *ballistic / straight-line* approach, which was implemented then reverted after
+> Unity verification. The shipped behavior instead: keep `SensorTurns` chemotaxis
+> (curvy/wavy), give each `i % neuronCount` group its own fixed random turn-angle
+> magnitude via a new `turnAngleSpread` uniform (default 0.8), keep the per-neuron
+> heading seed, and drop `agentsCount` to 131 (1:1 with neurons — the main perf
+> lever). Tasks 1-2 are retained for history; the live code reflects the revision.
 
 ### Task 1: Per-neuron heading seed
 
@@ -298,19 +306,19 @@ Make all three sims flee dispersal via the existing `ReadFieldKernel` (negative-
 
 Channel/effect encoding (from `UmweltMapping.cs`): `effect` 0=Chemotaxis, 1=SpeedPenalty, 2=Avoidance. Dispersal channel index = 10.
 
-- [ ] **Step 1: Termite — reduce reads to dispersal + permeability-speed**
+- [ ] **Step 1: Termite — APPEND a dispersal-flee read (revised)**
 
-Edit `UmweltTermite.asset` `reads` (currently 5 entries) to exactly:
+> **Revised by the F1 change:** termites kept their `SensorTurns` chemotaxis (for
+> curvy behavior), so do NOT strip their reads. Keep all existing reads and just
+> append the dispersal read — same as Boids/Physarum.
+
+In `UmweltTermite.asset` `reads`, append:
 ```yaml
-  reads:
   - channel: 10
     weight: -1
     effect: 0
-  - channel: 7
-    weight: 0.5
-    effect: 1
 ```
-Leave `writes` unchanged (permeability carve, pheromone2, waste, nutrient). This removes nutrient/pheromone chemotaxis so termites only bend for dispersal, and keeps the permeability speed slowdown.
+Leave the other reads and all `writes` unchanged.
 
 - [ ] **Step 2: Boid — add a dispersal-flee read**
 
@@ -332,89 +340,27 @@ In `UmweltPhysarum.asset` `reads`, append:
 
 - [ ] **Step 4: Play — baseline unchanged**
 
-With no dispersal injected yet, perception R sits at neutral 0.5 where dispersal=0, so behavior is unchanged except termites no longer chase nutrient (pure streams). Confirm Boids/Physarum still behave normally and termites still stream.
+With no dispersal injected yet, perception R sits at neutral 0.5 where dispersal=0, so all three sims behave exactly as before. Confirm nothing regressed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add "Assets/Workspace/11.0 Biomes/assets/UmweltTermite.asset" "Assets/Workspace/11.0 Biomes/assets/UmweltBoid.asset" "Assets/Workspace/11.0 Biomes/assets/UmweltPhysarum.asset"
-git commit -m "feat(umwelt): all sims flee Dispersal; termites reduced to ballistic + flee"
+git commit -m "feat(umwelt): all three sims flee Dispersal via negative-chemotaxis read"
 ```
 
 ---
 
-### Task 6: Termite perception-gradient flee + dispersalResponse
+### Task 6: ~~Termite perception-gradient flee~~ — DROPPED by the F1 revision
 
-Termites have no normal steering, so they need an explicit flee that scales with dispersal magnitude and re-forms after the pulse. Uses perception R only (no new perception channel): R is high where dispersal is low, so steering toward the R-gradient flees the pulse. Blend is non-accumulating (recomputed from `h0`), so streams re-form once the field decays.
-
-**Files:**
-- Modify: `src/computes/TermiteSim.compute` (`MoveAgentsKernel` + add helper + uniform)
-- Modify: `src/components/Sim/TermiteSim.cs` (`dispersalResponse` field + bind)
-
-- [ ] **Step 1: Declare the uniform and a sampler helper**
-
-In `TermiteSim.compute`, after the `persistence` uniform (line 40) add:
-```hlsl
-float dispersalResponse;   // how hard Dispersal bends termites off their fixed heading (~3)
-```
-After `RotateVectorBy` (line 86) add:
-```hlsl
-// perception.r: 0.5 neutral, <0.5 where Dispersal is high (negative-weight Umwelt read).
-float SamplePerceptionR(float2 posPx) {
-    float2 uv = posPx / float2((float)rezX, (float)rezY);
-    return perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0).r;
-}
-```
-
-- [ ] **Step 2: Insert the flee term into `MoveAgentsKernel`**
-
-Replace the placeholder comment line `// --- dispersal flee inserted here in Phase F4 ---` with:
-```hlsl
-    // Dispersal flee: bend from h0 toward the perception-R gradient (away from the
-    // pulse), scaled by local intensity. Non-accumulating, so streams re-form when
-    // the field decays.
-    float r0 = SamplePerceptionR(a.position);
-    float fleeStrength = saturate((0.5 - r0) * 2.0 * dispersalResponse);
-    if (fleeStrength > 0.001) {
-        float rr = p.senseDistance;
-        float rRight = SamplePerceptionR(a.position + float2( rr, 0));
-        float rLeft  = SamplePerceptionR(a.position + float2(-rr, 0));
-        float rUp    = SamplePerceptionR(a.position + float2(0,  rr));
-        float rDown  = SamplePerceptionR(a.position + float2(0, -rr));
-        float2 grad = float2(rRight - rLeft, rUp - rDown); // toward higher R = away from dispersal
-        if (dot(grad, grad) > 1e-10) {
-            float2 fleeDir = normalize(grad);
-            dir = normalize(lerp(h0, fleeDir, fleeStrength));
-        }
-    }
-```
-
-- [ ] **Step 3: Add the C# field and bind it**
-
-In `TermiteSim.cs`, add a serialized field near other tuning fields (e.g. after the class's other `[SerializeField]`/public floats; if unsure, just above `UploadTypeParams` at line 85):
-```csharp
-        [Tooltip("How hard the Dispersal channel bends termites off their fixed heading.")]
-        [Range(0f, 8f)] public float dispersalResponse = 3f;
-```
-In `GPUStep` (after `BindPerceptionTex(moveAgentsKernel);`, line 120) add:
-```csharp
-            cs.SetFloat("dispersalResponse", dispersalResponse);
-```
-
-- [ ] **Step 4: Verify compile**
-
-`TermiteSim.compute` no shader errors; Console no C# errors.
-
-- [ ] **Step 5: Manual smoke test of the flee**
-
-Temporarily test without firing: in the scene's `BiomeInjector`, add a manual `Source` with `channel = Dispersal (10)`, `mode = Additive`, `gain = 0.05`, `value = 1`, `radius = 0.1` at `fieldUV (0.5,0.5)`. Enter Play: termite streams passing through the center should bow outward around it, then resume straight once past. Remove this temp source after confirming (or disable it).
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add "Assets/Workspace/11.0 Biomes/src/computes/TermiteSim.compute" "Assets/Workspace/11.0 Biomes/src/components/Sim/TermiteSim.cs"
-git commit -m "feat(termite): perception-gradient dispersal flee with re-forming streams"
-```
+> **Obsolete.** Termites kept their `SensorTurns` (which already samples
+> `perceptionTex.r` at its 3 sensors), so the dispersal-flee read added to
+> `UmweltTermite` in Task 5 makes them flee through the SAME path as Boids and
+> Physarum. No dedicated gradient-flee term, no `dispersalResponse` uniform, no
+> shader change. Skip this task entirely.
+>
+> Smoke test (still worth doing, after Task 7): inject a manual Dispersal `Source`
+> at center; the curvy streams should bend away from it and re-form once it decays.
 
 ---
 
