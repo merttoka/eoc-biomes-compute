@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using UnityEngine;
 using OscJack;
@@ -8,6 +10,13 @@ namespace Biomes
     {
         private OscServer m_OscServer;
         public int m_Port = 9000;
+
+        // OscJack parses on a background socket thread and invokes callbacks there directly
+        // (no main-thread marshalling). Reset()/ResetSimsOnly() call Unity GPU + GameObject
+        // APIs, which throw if run off the main thread (and the OscServer loop would then
+        // break, killing OSC). Queue those actions and drain them in Update() on the main
+        // thread. Param/injector/index callbacks only touch CPU state, so they stay inline.
+        private readonly ConcurrentQueue<Action> m_MainThreadActions = new();
 
         [SerializeField] public SimulationManager m_SimulationManager;
         [SerializeField] public List<SimulationBase> m_Simulations = new List<SimulationBase>();
@@ -28,17 +37,17 @@ namespace Biomes
                 }
             );
 
-            // Reset commands
+            // Reset commands — marshalled to the main thread (they touch GPU + GameObjects).
             m_OscServer.MessageDispatcher.AddCallback(
                 "/sim_reset",
                 (string address, OscDataHandle data) => {
-                    m_SimulationManager.Reset();
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.Reset());
                 }
             );
             m_OscServer.MessageDispatcher.AddCallback(
                 "/sim_resetSimsOnly",
                 (string address, OscDataHandle data) => {
-                    m_SimulationManager.ResetSimsOnly();
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetSimsOnly());
                 }
             );
 
@@ -144,6 +153,16 @@ namespace Biomes
                 );
             }
             Debug.Log($"[OSC] Registered {m_BiomeInjector.sources.Count} injector source(s) under /inject/<name> (value · /pos · /shape · /stamp)");
+        }
+
+        void Update()
+        {
+            // Drain OSC actions that must run on the main thread (sim resets).
+            while (m_MainThreadActions.TryDequeue(out var action))
+            {
+                try { action(); }
+                catch (Exception e) { Debug.LogException(e); }
+            }
         }
 
         void OnDestroy()

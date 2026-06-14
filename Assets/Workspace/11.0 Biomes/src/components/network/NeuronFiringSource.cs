@@ -29,6 +29,7 @@ namespace Biomes
         private ushort[] _firingHalf;   // flat float16 bits: frame*_neuronCount + neuron
         private int _neuronCount;
         private int _frameCount;
+        private string _loadedBlobFile;   // which firingBlobFile the buffers were built for
 
         // OSC-driven (written on the receive thread)
         private volatile int _targetFrame;
@@ -69,14 +70,26 @@ namespace Biomes
 
         public void Initialize()
         {
-            LoadBlob();
-            int n = Mathf.Max(1, _neuronCount);
-            _row = new float[n];
-            _scaled = new float[n];
-            ReleaseBuffers();
-            _buffer = new ComputeBuffer(n, sizeof(float));
-            _buffer.SetData(new float[n]);
-            LoadPositions();
+            // Load the blob from disk + (re)allocate the GPU buffers only on first init or
+            // when the source file changes. A normal reset skips the disk read and buffer
+            // realloc, just clearing the firing envelope below — so it adds no I/O hitch to
+            // the reset frame and keeps the buffer instance stable.
+            if (_buffer == null || _loadedBlobFile != firingBlobFile)
+            {
+                LoadBlob();
+                int n = Mathf.Max(1, _neuronCount);
+                _row = new float[n];
+                _scaled = new float[n];
+                ReleaseBuffers();
+                _buffer = new ComputeBuffer(n, sizeof(float));
+                LoadPositions();
+                _loadedBlobFile = firingBlobFile;
+            }
+
+            // Clear the firing envelope (every reset): zero the buffer and reset decay state.
+            if (_row != null) System.Array.Clear(_row, 0, _row.Length);
+            if (_scaled != null) System.Array.Clear(_scaled, 0, _scaled.Length);
+            _buffer.SetData(_scaled ?? new float[_buffer.count]);
             _currentFrame = -1;
             _intensity = 0f;
             _lastTime = Time.unscaledTime;

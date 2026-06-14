@@ -79,6 +79,13 @@ namespace Biomes
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
 
+        // Clear-in-place: the composite output is allocated once and reused across resets so
+        // its RenderTexture instance never changes — otherwise the ExternalTextureSender
+        // would re-assign SyphonServer.SourceTexture and force a native server teardown
+        // (server drops + re-announces in the Syphon directory) on every reset. Reallocate
+        // only when the output resolution changes.
+        private int _allocRezX = -1, _allocRezY = -1;
+
         private int _simStepCount;
         public int SimStepCount => _simStepCount;
 
@@ -113,35 +120,30 @@ namespace Biomes
             }
         }
 
+        private bool ManagerNeedsAllocation() =>
+            gpu == null || rezX != _allocRezX || rezY != _allocRezY;
+
         [Button]
         public void Reset()
         {
-            Release();
-            gpu = new GPUResourceManager();
+            // Clear-in-place: only (re)allocate the composite/dummy/weights when the output
+            // resolution changes. On a normal reset the composite RenderTexture instance is
+            // preserved (no Syphon teardown) and we just re-run the cascade + re-render.
+            if (ManagerNeedsAllocation())
+                Allocate();
+
             _simStepCount = 0;
 
-            if (compositeOutputQuad != null)
-            {
-                float aspect = (float)rezX / rezY;
-                var s = compositeOutputQuad.localScale;
-                compositeOutputQuad.localScale = new Vector3(s.y * aspect, s.y, s.z);
-            }
-
-            _dummyBlackTex = gpu.CreateTexture2D(1, 1, FilterMode.Point, name: "composite_dummy");
-            var activeRT = RenderTexture.active;
-            RenderTexture.active = _dummyBlackTex;
-            GL.Clear(false, true, Color.clear);
-            RenderTexture.active = activeRT;
-
-            // Initialize external input
+            // Initialize external input (idempotent — keeps its GPU pool across resets)
             if (externalInput != null)
                 externalInput.Initialize();
 
-            // Initialize neuron firing source
+            // Initialize neuron firing source (idempotent — blob/buffers persist; only
+            // the firing envelope is reset)
             if (neuronFiring != null)
                 neuronFiring.Initialize();
 
-            // Reset biome (persists unless explicitly cleared)
+            // Reset biome (persists unless explicitly cleared; itself clear-in-place)
             if (biome != null)
                 biome.Reset();
 
@@ -158,6 +160,29 @@ namespace Biomes
                 sim.Reset();
             }
 
+            Render();
+        }
+
+        // Allocate (or reallocate) the manager-owned GPU resources for the current output
+        // resolution. Called by Reset() only when the resolution changes.
+        private void Allocate()
+        {
+            Release();
+            gpu = new GPUResourceManager();
+
+            if (compositeOutputQuad != null)
+            {
+                float aspect = (float)rezX / rezY;
+                var s = compositeOutputQuad.localScale;
+                compositeOutputQuad.localScale = new Vector3(s.y * aspect, s.y, s.z);
+            }
+
+            _dummyBlackTex = gpu.CreateTexture2D(1, 1, FilterMode.Point, name: "composite_dummy");
+            var activeRT = RenderTexture.active;
+            RenderTexture.active = _dummyBlackTex;
+            GL.Clear(false, true, Color.clear);
+            RenderTexture.active = activeRT;
+
             compositeOutTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
                 RenderTextureFormat.ARGBHalf, name: "composite_out");
             simWeightsBuffer = gpu.CreateBuffer(8, sizeof(float));
@@ -168,7 +193,7 @@ namespace Biomes
                     ? compositeCS.FindKernel("NeuronRingKernel") : -1;
             }
 
-            Render();
+            _allocRezX = rezX; _allocRezY = rezY;
         }
 
         void Update()
@@ -415,6 +440,7 @@ namespace Biomes
             gpu = null;
             ringPosCompactBuffer = null;
             ringFireCompactBuffer = null;
+            _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 
         void OnDestroy() => Release();

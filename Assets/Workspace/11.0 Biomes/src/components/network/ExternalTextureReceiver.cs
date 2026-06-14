@@ -49,8 +49,10 @@ namespace Biomes
 
         public void Initialize()
         {
-            Release();
-            gpu = new GPUResourceManager();
+            // Idempotent: keep the GPU pool (and the lazily-created, size-keyed output
+            // texture + backend) across sim resets instead of tearing it down every time.
+            // EnsureOutputTexture/EnsureBackend already rebuild on size/stream changes.
+            if (gpu == null) gpu = new GPUResourceManager();
         }
 
         // Standalone preview driver. Normally SimulationManager.Step() calls

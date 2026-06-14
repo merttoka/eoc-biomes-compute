@@ -87,6 +87,17 @@ the only driver: `Reset()` (re)initializes everything; `Update()` calls `Step()`
 `stepsPerFrame` times every `stepMod` frames. `SimStepCount` is the canonical sim
 clock (monotonic, increments per `Step()`), used by time-based tooling.
 
+`Reset()` is **clear-in-place** ([[adr/0008-clear-in-place-reset]]): each owner
+(`SimulationManager`, `Biome`, every `SimulationBase`, `NeuronFiringSource`,
+`ExternalTextureReceiver`) splits into a guarded `Allocate()` + the GPU clear/respawn
+dispatches. `Allocate()` runs only when an **allocation signature** changes — output
+resolution, perception scale, agent count, or type count; otherwise resources persist
+and only the clear/respawn runs. This keeps `compositeOutTex`/sim `outTex` instances
+stable across a reset, so an active Syphon stream is not torn down (§3.8). A genuine
+resolution/structural change still reallocates (one Syphon re-init — a Play-stopped
+operation). `ResetSimsOnly()` resets sims (clear-in-place) while preserving the biome
+and composite.
+
 ### 3.2 The per-step pipeline
 
 `SimulationManager.Step()` runs a fixed sequence each simulation step:
@@ -210,7 +221,11 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   `SetParameter`/`SetParameterDelta`. `SaveParams` action writes timestamped `.asset`
   snapshots (the memory daemon's input).
 - **`OSCMapping`** — OSC control of the same parameter API (TD / external drivers), plus
-  `/index <int>` → `NeuronFiringSource.SetFrame` (the firing playhead).
+  `/index <int>` → `NeuronFiringSource.SetFrame` (the firing playhead). Reset commands
+  (`/sim_reset`, `/sim_resetSimsOnly`) are queued and drained on the main thread in `Update()`
+  — OscJack invokes callbacks on its socket thread, and reset touches GPU/GameObject APIs that
+  must run on the main thread ([[adr/0008-clear-in-place-reset]]). Param/injector/`/index`
+  callbacks stay inline (CPU-only).
 - **`NeuronFiringSource`** — the **firing playhead** ([[adr/0006-osc-neuron-firing]]).
   Owns the firing blob + neuron positions; an external patch sends `/index <int>` to scrub
   which frame is shown (file = values, OSC = playhead — no auto-advance). Holds the last
@@ -256,11 +271,15 @@ packages compile on every platform; availability is gated at runtime
   biome channel layers) out; per-stream protocol + resolution scale, default
   `EoC/<name>` stream names. Biome layers extracted via `Biome.RenderChannelTo` only
   while enabled. `SetSource` is idempotent (set-on-change) — required because
-  `SyphonServer`'s source-setter tears down its publish coroutine. Spec:
+  `SyphonServer`'s source-setter tears down its publish coroutine. Clear-in-place reset
+  keeps the source texture instance stable, so this set-on-change never re-fires on a
+  normal reset ([[adr/0008-clear-in-place-reset]]). Spec:
   [[superpowers/specs/2026-06-07-external-texture-share-design]].
 - **`GPUResourceManager`** — owns ComputeBuffer/RenderTexture lifetimes; everything
-  allocates through it and `ReleaseAll()` cleans up. Each `Biome` and `SimulationBase`
-  holds its own instance, released on `Reset`/disable/destroy.
+  allocates through it and `ReleaseAll()` cleans up. Each `SimulationManager`, `Biome`,
+  and `SimulationBase` holds its own instance. Instances **persist across resets**
+  (clear-in-place — [[adr/0008-clear-in-place-reset]]); `ReleaseAll()` runs only on a
+  resolution/structural realloc, disable, or destroy.
 
 ---
 
@@ -288,6 +307,8 @@ Summarized here; authoritative detail in [[migration]] §2.
 - [[adr/0004-td-as-orchestration-hub]] — TouchDesigner orchestrates; daemon is a
   separate OSC-speaking process.
 - [[adr/0005-includes-copied-verbatim]] — `Includes/` copied, not vendored.
+- [[adr/0008-clear-in-place-reset]] — reset clears GPU resources in place (stable
+  `outTex` → no Syphon teardown).
 
 ---
 
