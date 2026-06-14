@@ -1643,7 +1643,7 @@ MonoBehaviour:
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.4, y: 0.75}
-  agentsCount: 10000
+  agentsCount: 15000
   paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &1915234168
@@ -1971,7 +1971,7 @@ MonoBehaviour:
   fieldConfig: {fileID: 11400000, guid: 20db2ef560aa47c6a26f76d4efaed801, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   fusedWriteCS: {fileID: 7200000, guid: 9ce42c0778aa14270950ac44dbcad2b1, type: 3}
-  showDebugGrid: 0
+  showDebugGrid: 1
   debugQuadSize: 0.65
   debugGridSpacing: 0.2
   debugGridOrigin: {x: -2.7, y: -2.3, z: 0}
