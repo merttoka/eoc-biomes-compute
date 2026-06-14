@@ -57,6 +57,13 @@ namespace Biomes
 
         private GPUResourceManager gpu;
 
+        // Clear-in-place: field arrays, channel buffers and the 11-quad debug grid are
+        // allocated once and reused across resets. A normal Reset() only re-uploads channel
+        // settings and re-clears the fields; it reallocates (and rebuilds the debug grid)
+        // ONLY when the biome resolution changes. This keeps the heavy realloc + 11×
+        // GameObject.CreatePrimitive out of every reset frame.
+        private int _allocRezX = -1, _allocRezY = -1;
+
         // Kernel handles
         private int resetFieldsKernel;
         private int initPermeabilityKernel;
@@ -108,8 +115,30 @@ namespace Biomes
             "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal"
         };
 
+        private bool BiomeNeedsAllocation() =>
+            gpu == null || biomeRezX != _allocRezX || biomeRezY != _allocRezY;
+
         [Button]
         public void Reset()
+        {
+            // Clear-in-place: reallocate the field arrays + debug grid only when the biome
+            // resolution changes. A normal reset re-uploads channel settings and re-clears
+            // the fields, keeping the same texture instances.
+            if (BiomeNeedsAllocation())
+                Allocate();
+
+            UploadChannelSettings();   // re-pack + SetData so live fieldConfig edits apply
+            GPUReset();                // clear both field arrays + init permeability
+
+            // Debug grid: build once and honor a runtime showDebugGrid toggle without
+            // recreating 11 GameObjects/materials on every reset.
+            if (showDebugGrid && debugTextures == null)
+                CreateDebugGrid();
+            else if (!showDebugGrid && debugTextures != null)
+                DestroyDebugGrid();
+        }
+
+        private void Allocate()
         {
             Release();
             gpu = new GPUResourceManager();
@@ -122,11 +151,9 @@ namespace Biomes
                 name: "biome_debugOut");
 
             FindKernels();
-            UploadChannelSettings();
-            GPUReset();
+            AllocateChannelBuffers();
 
-            if (showDebugGrid)
-                CreateDebugGrid();
+            _allocRezX = biomeRezX; _allocRezY = biomeRezY;
         }
 
         private void FindKernels()
@@ -143,12 +170,21 @@ namespace Biomes
             readFieldKernel = cs.FindKernel("ReadFieldKernel");
         }
 
-        public void UploadChannelSettings()
+        // Allocate the per-channel settings buffers once (sizes are fixed by BiomeChannel.Count).
+        // Split out of UploadChannelSettings so a clear-in-place reset re-uploads data into the
+        // SAME buffers instead of creating a new pair each time (the old behavior leaked a pair
+        // per Reset/ClearAll, freed only at the next full Release).
+        private void AllocateChannelBuffers()
         {
-            // Pack per-channel settings: diffuseRate, decayRate, advectedByFlow, initialValue
             int stride = sizeof(float) * 4;
             channelSettingsBuffer = gpu.CreateBuffer(BiomeChannel.Count, stride);
             channelRelaxBuffer = gpu.CreateBuffer(BiomeChannel.Count, sizeof(float));
+        }
+
+        public void UploadChannelSettings()
+        {
+            if (channelSettingsBuffer == null || channelRelaxBuffer == null) return;
+            // Pack per-channel settings: diffuseRate, decayRate, advectedByFlow, initialValue
             var data = new float[BiomeChannel.Count * 4];
             var relax = new float[BiomeChannel.Count];
             for (int i = 0; i < BiomeChannel.Count && i < fieldConfig.channels.Count; i++)
@@ -613,10 +649,13 @@ namespace Biomes
             DestroyDebugGrid();
             gpu?.ReleaseAll();   // frees channelSettingsBuffer + perceptionEntryBuffer (both tracked)
             gpu = null;
+            channelSettingsBuffer = null;   // tracked + freed above; null so they're rebuilt on realloc
+            channelRelaxBuffer = null;
             perceptionEntryBuffer = null;
             _perceptionEntryData = null;
             _writeEntryBuffer?.Release();   // not gpu-tracked (own buffer)
             _writeEntryBuffer = null;
+            _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 
         private void DestroyDebugGrid()

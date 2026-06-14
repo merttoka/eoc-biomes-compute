@@ -69,6 +69,20 @@ namespace Biomes
 
         protected GPUResourceManager gpu;
 
+        // Clear-in-place: allocation signature. Reset() reuses the existing GPU resources
+        // and only re-clears/respawns; it reallocates — which changes the outTex instance
+        // and so forces a Syphon server teardown downstream — ONLY when one of these
+        // changes (resolution, perception scale, type count, or agent count).
+        int _allocRezX = -1, _allocRezY = -1, _allocTypeCount = -1, _allocAgentCount = -1;
+        float _allocPerceptionScale = float.NaN;
+
+        // Neuron seed positions depend only on rez/CSV (alloc-keyed), so they are parsed +
+        // uploaded once per allocation and merely rebound on each clear-in-place reset.
+        // Previously BuildNeuronPositions re-parsed the CSV and leaked a fresh buffer every
+        // reset (tracked, freed only at the next full Release).
+        bool _neuronPositionsBuilt;
+        int _neuronPositionsCount;
+
         // Common kernel handles
         protected int resetTexKernel;
         protected int resetAgentsKernel;
@@ -160,8 +174,30 @@ namespace Biomes
         protected const int TimeWrap = 65536;
         protected int WrappedFrame => Time.frameCount % TimeWrap;
 
+        // True when the live resolution/scale/counts differ from what GPU resources were
+        // last allocated for (or nothing is allocated yet). Drives clear-in-place: a normal
+        // reset keeps the same instances; only a genuine size change reallocates.
+        protected bool NeedsAllocation() =>
+            gpu == null
+            || rezX != _allocRezX || rezY != _allocRezY
+            || TypeCount != _allocTypeCount
+            || GetAgentCount() != _allocAgentCount
+            || !Mathf.Approximately(perceptionResScale, _allocPerceptionScale);
+
         [Button]
         public virtual void Reset()
+        {
+            if (NeedsAllocation())
+                Allocate();
+            GPUReset();                                 // clear trails + outTex, respawn agents
+            cs.SetFloat(s_PersistenceID, renderPersistence);
+            Render();
+        }
+
+        // Allocate (or reallocate) all GPU resources for the current resolution. Called by
+        // Reset() only when the allocation signature changes; otherwise resources persist
+        // across resets so the streamed/displayed outTex keeps the same instance.
+        protected virtual void Allocate()
         {
             Release();
             gpu = new GPUResourceManager();
@@ -194,9 +230,10 @@ namespace Biomes
 
             InitSimKernels();
             InitBuffers();
-            GPUReset();
-            cs.SetFloat(s_PersistenceID, renderPersistence);
-            Render();
+
+            _allocRezX = rezX; _allocRezY = rezY;
+            _allocTypeCount = TypeCount; _allocAgentCount = GetAgentCount();
+            _allocPerceptionScale = perceptionResScale;
         }
 
         public virtual void Step()
@@ -290,28 +327,34 @@ namespace Biomes
                 dummyNeuronBuffer.SetData(new Vector2[1] { Vector2.zero });
             }
 
-            int neuronCount = 0;
-            if (labelsPositionsCsv != null && !string.IsNullOrEmpty(labelsPositionsCsv.text))
+            // Parse + upload once per allocation (positions are rez/CSV-dependent and those
+            // are alloc-keyed). On a clear-in-place reset the buffer already exists, so we
+            // skip the CSV parse and just rebind below. Release() clears _neuronPositionsBuilt.
+            if (!_neuronPositionsBuilt)
             {
-                var positions = ParseCsvFloat2(labelsPositionsCsv.text);
-                if (csvCoordinatesAreNormalized || LooksNormalized01(positions))
-                    for (int i = 0; i < positions.Count; i++)
-                        positions[i] = new Vector2(positions[i].x * rezX, positions[i].y * rezY);
-
-                neuronCount = positions.Count;
-                if (neuronCount > 0)
+                _neuronPositionsCount = 0;
+                if (labelsPositionsCsv != null && !string.IsNullOrEmpty(labelsPositionsCsv.text))
                 {
-                    neuronPositionsBuffer = gpu.CreateBuffer(neuronCount, sizeof(float) * 2);
-                    neuronPositionsBuffer.SetData(positions);
-                    cs.SetBuffer(resetKernel, s_NeuronPositionsID, neuronPositionsBuffer);
-                }
-                else cs.SetBuffer(resetKernel, s_NeuronPositionsID, dummyNeuronBuffer);
-            }
-            else cs.SetBuffer(resetKernel, s_NeuronPositionsID, dummyNeuronBuffer);
+                    var positions = ParseCsvFloat2(labelsPositionsCsv.text);
+                    if (csvCoordinatesAreNormalized || LooksNormalized01(positions))
+                        for (int i = 0; i < positions.Count; i++)
+                            positions[i] = new Vector2(positions[i].x * rezX, positions[i].y * rezY);
 
-            cs.SetInt(s_NeuronCountID, neuronCount);
+                    _neuronPositionsCount = positions.Count;
+                    if (_neuronPositionsCount > 0)
+                    {
+                        neuronPositionsBuffer = gpu.CreateBuffer(_neuronPositionsCount, sizeof(float) * 2);
+                        neuronPositionsBuffer.SetData(positions);
+                    }
+                }
+                _neuronPositionsBuilt = true;
+            }
+
+            cs.SetBuffer(resetKernel, s_NeuronPositionsID,
+                _neuronPositionsCount > 0 ? neuronPositionsBuffer : dummyNeuronBuffer);
+            cs.SetInt(s_NeuronCountID, _neuronPositionsCount);
             cs.SetVector(s_NeuronScaleID, new Vector4(spawnScale.x, spawnScale.y, 0, 0));
-            return neuronCount;
+            return _neuronPositionsCount;
         }
 
         public static List<Vector2> ParseCsvFloat2(string csv)
@@ -358,6 +401,11 @@ namespace Biomes
             dummyNeuronFiringBuffer = null;
             neuronPositionsBuffer = null;
             dummyNeuronBuffer = null;
+            _neuronPositionsBuilt = false;
+            // Force the next Reset() to reallocate (gpu == null already does, but keep the
+            // signature honest so a stale memo can never skip a needed allocation).
+            _allocRezX = _allocRezY = _allocTypeCount = _allocAgentCount = -1;
+            _allocPerceptionScale = float.NaN;
         }
 
         void OnDisable() => Release();
