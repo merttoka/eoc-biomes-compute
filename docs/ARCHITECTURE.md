@@ -48,9 +48,12 @@ from accumulated memory — a slow dialogue across time and venues.
 ```
 Assets/Workspace/
   10.0 Metaesthetica/   earlier Unity scenes + sims
-  11.0 Biomes/          active biome runtime (this doc's focus)
+  11.0 Biomes/          shared biome engine — src/, docs/, TestScene.unity (this doc's focus)
+  11.1 CURRENTS Scene/  CURRENTS show — Scene_CURRENTS.unity + curated assets/materials/snapshots
+  11.2 SIGGRAPH Scene/  SIGGRAPH show — Scene_SIGGRAPH.unity + leaner curated assets/materials
   Includes/             shared compute helpers / shaders (copied verbatim — ADR-0005)
-Assets/StreamingAssets/ runtime-loaded blobs (e.g. biomes11/termite_firing.f16, LFS)
+Assets/Settings/        Unity 6 Build Profiles (macOS standalone)
+Assets/StreamingAssets/ runtime-loaded blobs (e.g. biomes11/organoid_firing.f16, LFS)
 Packages/               UPM deps (klak.spout / klak.ndi / klak.syphon)
 tools/                  offline preprocessors (firing_csv_to_f16.py)
 memory/
@@ -59,6 +62,13 @@ memory/
   docs/                 OSC contract, schema notes
 docs/                   this file, migration.md (living plan), adr/, sessions/, specs/, plans/
 ```
+
+**Per-show scene workspaces** ([[adr/0009-per-show-scene-workspaces]]): `11.0 Biomes/` owns
+the shared engine (`src/`, `docs/`) only; each exhibition gets its own folder (`11.1 CURRENTS`,
+`11.2 SIGGRAPH`) holding just that show's scene + a curated `assets/`+`materials/` set, so
+per-show tuning is isolated while the engine stays single-source. `11.0 Biomes/TestScene.unity`
+is the engine smoke-test scene. The active build scene (EditorBuildSettings) is
+`11.1 CURRENTS Scene/Scene_CURRENTS.unity`.
 
 ### `11.0 Biomes/src/` structure
 
@@ -167,8 +177,9 @@ three sims seed `agent i → neuron i % 131` at the same CSV positions, and read
 firing vector each step: `agent → neuron → firing[neuron] ≥ firingThreshold` →
 `firingSpeedMul` (faster) + `firingDepositAmount` (brighter trail), via
 `computes/includes/neuron_firing.hlsl`. The firing *values* come from a `float16` blob
-(`StreamingAssets/biomes11/termite_firing.f16`, 131 neurons × 180000 frames, preprocessed
-by `tools/firing_csv_to_f16.py`); the playhead is **external** — see §3.7. Because CSV row
+(`StreamingAssets/biomes11/organoid_firing.f16` — the organoid spike series, 131 neurons ×
+180000 frames, preprocessed by `tools/firing_csv_to_f16.py`); the playhead is **external** —
+see §3.7. Because CSV row
 *k* = blob neuron *k* = each sim's seed position, a firing neuron excites the agents
 physically on it in every biome.
 
@@ -309,6 +320,8 @@ Summarized here; authoritative detail in [[migration]] §2.
 - [[adr/0005-includes-copied-verbatim]] — `Includes/` copied, not vendored.
 - [[adr/0008-clear-in-place-reset]] — reset clears GPU resources in place (stable
   `outTex` → no Syphon teardown).
+- [[adr/0009-per-show-scene-workspaces]] — one workspace folder per show; shared engine
+  stays in `11.0 Biomes/`.
 
 ---
 

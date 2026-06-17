@@ -144,5 +144,5 @@ brew install git-filter-repo
 6. Daemon process lifecycle: launchd/systemd per installation, or TD spawns it?
 7. Performance vs autonomous mode: same daemon, config flag — confirm?
 8. Old repo cleanup later: leave workspaces as-is indefinitely, or revisit in N months?
-9. Snapshot folder canonical path inside `Assets/Workspace/11.0 Biomes/` — needed to default the daemon `--snapshot-dir`.
+9. Snapshot folder path — snapshots now live **per show** under each scene folder's `assets/Snapshots/` (e.g. `Assets/Workspace/11.1 CURRENTS Scene/assets/Snapshots/`, [[adr/0009-per-show-scene-workspaces]]); the daemon `--snapshot-dir` is therefore per-show, no single canonical default. Open: pass it per run, or have the daemon glob `11.*/assets/Snapshots`?
 10. TD MCP not present in current Claude Code session — server name + tool list needed if Claude should drive TD authoring.

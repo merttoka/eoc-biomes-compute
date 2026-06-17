@@ -10,9 +10,12 @@ Successor to the biomes/Metaesthetica work in [`edge-of-chaos-unity-compute`](ht
 eoc-biomes-compute/
 ├── Assets/
 │   ├── Workspace/
-│   │   ├── 10.0 Metaesthetica/   Unity scenes + sims
-│   │   ├── 11.0 Biomes/          active biomes work (neuron firing, MFT, snapshots)
+│   │   ├── 10.0 Metaesthetica/   earlier Unity scenes + sims
+│   │   ├── 11.0 Biomes/          shared biome engine (src/, docs/, TestScene)
+│   │   ├── 11.1 CURRENTS Scene/  CURRENTS show — scene + curated assets/snapshots
+│   │   ├── 11.2 SIGGRAPH Scene/  SIGGRAPH show — scene + leaner assets
 │   │   └── Includes/             shared compute helpers / shaders
+│   ├── Settings/                 Unity 6 Build Profiles (macOS)
 │   └── {EasyButtons, HDRPDefaultResources, TextMesh Pro, ...}  Unity infra
 ├── Packages/                     UPM (klak.spout)
 ├── ProjectSettings/
@@ -29,14 +32,14 @@ eoc-biomes-compute/
 
 ## Getting started
 
-**Unity:** open the project in Unity Hub (HDRP). First import regenerates `Library/`. Test scenes in `11.0 Biomes/` and `10.0 Metaesthetica/`.
+**Unity:** open the project in Unity Hub (HDRP). First import regenerates `Library/`. One folder per show: `11.1 CURRENTS Scene/Scene_CURRENTS.unity` (the active build scene) and `11.2 SIGGRAPH Scene/Scene_SIGGRAPH.unity`; quick validation in `11.0 Biomes/TestScene.unity`. The shared sim engine (`src/`, `docs/`) lives in `11.0 Biomes/`; per-show scenes carry only their curated assets/materials.
 
 **Memory daemon:**
 ```bash
 cd memory/daemon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
-memory-daemon --snapshot-dir "../../Assets/Workspace/11.0 Biomes/Snapshots" -v
+memory-daemon --snapshot-dir "../../Assets/Workspace/11.1 CURRENTS Scene/assets/Snapshots" -v
 ```
 OSC listens on `:9100`. `/memory/ping` and `/memory/count` are the v0 endpoints.
 
