@@ -444,7 +444,7 @@ MonoBehaviour:
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.8, y: 0.9}
   enableFiring: 1
-  firingBlobFile: biomes11/termite_firing.f16
+  firingBlobFile: biomes11/organoid_firing.f16
   firingThreshold: 0.1
   loopFiring: 1
 --- !u!4 &102842654

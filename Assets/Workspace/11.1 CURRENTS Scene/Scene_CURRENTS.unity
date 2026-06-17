@@ -189,24 +189,6 @@ MonoBehaviour:
     protocol: 1
     streamName: EoC_compositeOut
     resolutionScale: 1
-  - enabled: 0
-    source: 2
-    index: 4
-    protocol: 1
-    streamName: EoC_biomeChannel
-    resolutionScale: 1
-  - enabled: 0
-    source: 1
-    index: 0
-    protocol: 0
-    streamName: EoC_testSend_ndi_s0
-    resolutionScale: 1
-  - enabled: 0
-    source: 1
-    index: 1
-    protocol: 1
-    streamName: EoC_testSend_syphon_s1
-    resolutionScale: 0.5
 --- !u!4 &39187334
 Transform:
   m_ObjectHideFlags: 0
@@ -1924,14 +1906,42 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BiomeInjector
   sources:
-  - name: disperse
-    enabled: 0
+  - name: arm1
+    enabled: 1
     oscAddress: 
-    fieldUV: {x: 0.63, y: 0.48}
-    radius: 0.2
+    fieldUV: {x: 0.7, y: 0.8}
+    radius: 0.15
     falloff: 1.17
     channel: 10
-    gain: 1.57
+    gain: 1.5
+    mode: 2
+    inputMin: 0
+    inputMax: 1
+    smoothing: 0.145
+    value: 0.775
+    valueTimeout: 4
+  - name: arm2
+    enabled: 1
+    oscAddress: 
+    fieldUV: {x: 0.15, y: 0.65}
+    radius: 0.1
+    falloff: 1.17
+    channel: 10
+    gain: 2
+    mode: 2
+    inputMin: 0
+    inputMax: 1
+    smoothing: 0.145
+    value: 0.775
+    valueTimeout: 4
+  - name: arm3
+    enabled: 1
+    oscAddress: 
+    fieldUV: {x: 0.08, y: 0.63}
+    radius: 0.1
+    falloff: 1.17
+    channel: 10
+    gain: 2
     mode: 2
     inputMin: 0
     inputMax: 1
@@ -2012,7 +2022,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96f391c4cdc7a4f6c992b982b7b783c8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.OSCMapping
-  m_Port: 9000
+  m_Port: 1234
   m_SimulationManager: {fileID: 2000144461}
   m_Simulations:
   - {fileID: 276895388}
@@ -2148,7 +2158,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40bb26352978a47488ae7d645d3d6303, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
-  firingBlobFile: biomes11/termite_firing.f16
+  firingBlobFile: biomes11/organoid_firing.f16
   firingDecaySeconds: 0.5
   debugLog: 1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
