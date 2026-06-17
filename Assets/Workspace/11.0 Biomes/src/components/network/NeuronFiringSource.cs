@@ -14,7 +14,7 @@ namespace Biomes
     public class NeuronFiringSource : MonoBehaviour
     {
         [Tooltip("Path under Assets/StreamingAssets, produced by tools/firing_csv_to_f16.py")]
-        public string firingBlobFile = "biomes11/termite_firing.f16";
+        public string firingBlobFile = "biomes11/organoid_firing.f16";
 
         [Tooltip("Seconds for firing intensity to fade to zero when no /index arrives")]
         public float firingDecaySeconds = 0.5f;
