@@ -135,10 +135,10 @@ scatters all sims — see §3.5; **Humidity** is a high-diffusion, flow-advected
 field that relaxes to an ambient baseline and is evaporated by Temperature). Per-channel
 behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
 from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
-hardcoded in three sync'd places — `BiomeChannel.Count/Names`, `Biome.compute` `CH_COUNT`,
-and `ExternalTextureSender.ChannelNames` (the debug grid reads `BiomeChannel.Count`);
-**adding a channel means updating all three** plus each `BiomeFieldConfig` asset's channel
-list.
+hardcoded in two sync'd places — `BiomeChannel.Count/Names` (the C# source of truth; both
+`ExternalTextureSender` and the debug grid reference `BiomeChannel.Names` directly) and
+`Biome.compute` `CH_COUNT`; **adding a channel means updating both** plus each
+`BiomeFieldConfig` asset's channel list.
 `Biome.Step()` runs the field dynamics on the GPU as a **ping-pong chain** —
 temperature gradients generate flow → flow advects the advectable channels →
 cross-field interactions (waste→nutrient, temp→permeability, temp→humidity evaporation)

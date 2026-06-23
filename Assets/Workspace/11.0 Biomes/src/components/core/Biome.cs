@@ -111,10 +111,9 @@ namespace Biomes
         public int RezX => biomeRezX;
         public int RezY => biomeRezY;
 
-        private static readonly string[] ChannelNames = {
-            "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
-            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal"
-        };
+        // Channel display names for debug quads / PNG export — single source of truth is
+        // BiomeChannel.Names, so adding a channel never desyncs this list (it auto-grows).
+        private static string[] ChannelNames => BiomeChannel.Names;
 
         private bool BiomeNeedsAllocation() =>
             gpu == null || biomeRezX != _allocRezX || biomeRezY != _allocRezY;
@@ -185,7 +184,16 @@ namespace Biomes
         public void UploadChannelSettings()
         {
             if (channelSettingsBuffer == null || channelRelaxBuffer == null) return;
-            // Pack per-channel settings: diffuseRate, decayRate, advectedByFlow, initialValue
+            // Pack per-channel settings: diffuseRate, decayRate, advectedByFlow, initialValue.
+            // A config with fewer rows than BiomeChannel.Count leaves the tail channels
+            // zero-filled (no diffuse/advect/relax, initialValue 0) — i.e. a silently dead
+            // channel. Warn so a stale asset (e.g. an old/ config from before a channel was
+            // added) is obvious instead of looking like a physics bug.
+            if (fieldConfig.channels.Count < BiomeChannel.Count)
+                Debug.LogWarning($"[Biome] {fieldConfig.name} has {fieldConfig.channels.Count} " +
+                    $"channel rows but the field has {BiomeChannel.Count}; channels " +
+                    $"{fieldConfig.channels.Count}..{BiomeChannel.Count - 1} will be inert " +
+                    $"(zero diffuse/relax/initial). Add the missing rows to the asset.", this);
             var data = new float[BiomeChannel.Count * 4];
             var relax = new float[BiomeChannel.Count];
             for (int i = 0; i < BiomeChannel.Count && i < fieldConfig.channels.Count; i++)

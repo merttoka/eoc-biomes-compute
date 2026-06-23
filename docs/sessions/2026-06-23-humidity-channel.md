@@ -44,8 +44,12 @@ took the field 10→11); Humidity takes it 11→12. Intended use: 11.2 SIGGRAPH 
   build cue are `UmweltMapping` reads/writes the artist wires in the show scene (Tier-0 asset
   edits), matching how the design framed it — the layer ships the field; the scene wires the
   agents.
-- Channel-count hardcode sites are now **three** (the old ARCHITECTURE "four" counted the
-  debug-grid `ChannelNames`, but `Biome.cs`'s debug path actually reads `BiomeChannel.Count`).
+- Channel-name sync collapsed to **one** source of truth during the post-impl `/simplify`
+  pass: `Biome.cs` and `ExternalTextureSender.cs` each carried a hand-synced `ChannelNames`
+  copy; the `Biome.cs` one had silently desynced (still 11 entries → latent
+  `IndexOutOfRangeException` in the debug grid / PNG export at `Count = 12`). Both now alias
+  `BiomeChannel.Names`, so adding a channel can't desync them again. Remaining hardcoded
+  count sites: `BiomeChannel.Count/Names` + `Biome.compute` `CH_COUNT` + the asset lists.
 
 ## Open / next session
 1. Wire the SIGGRAPH `UmweltMapping`s: Physarum/Termite Humidity `+Chemotaxis` (seek moisture)
