@@ -73,7 +73,7 @@ Close the open trophic loops by adding `reads`/`writes` entries:
 > ⚠️ Flow accumulates (`existingFX + …`) with weak decay (0.02). A too-strong/too-wide sun can saturate Flow to ±1 → re-introduces a global drift / advection smear. Co-tune `temperatureToFlowStrength` ↔ flow decay; keep sun gain modest.
 
 ### Tier 2 — Medium (structural biology; do after Tier 1 reads as alive)
-- **Humidity channel (PDF's #1 missing layer; 10→11 channels).** High-diffusion, agent-consumed; Temperature negatively couples it (evaporation). Makes Physarum *and* termites compete for a renewable, depletable resource, and gives termites their true build cue: **evaporation flux = |∇Humidity|**. The one channel worth spending.
+- **Humidity channel (PDF's #1 missing layer).** ✅ **Shipped** as `BiomeChannel.Humidity` (index 11, `Count → 12`): high-diffusion (0.97), flow-advected, relaxes toward an ambient 0.5 baseline (renewable), and Temperature evaporates it via `temperatureToEvaporation·max(0, temp−0.5)` in `InteractFieldsKernel` (`Biome.compute`). Makes Physarum *and* termites compete for a renewable, depletable resource, and gives termites their true build cue: **evaporation flux = |∇Humidity|** (sampled agent-side via `UmweltMapping` reads — wire per-scene). The one channel worth spending.
 - **Permeability-as-Topography (no new channel).** Reinterpret Permeability as a height map; compute its **Laplacian (curvature)** in `InteractFieldsKernel` (neighbors already sampled): convex → build, concave → dig. Curvature-driven stigmergy replaces the (biologically obsolete) "cement pheromone" and makes **mounds/galleries self-organize and persist**. Needs a slow relaxation toward baseline so build/dig don't pin to 0/1.
 - **Mortality → succession (the PDF's headline aesthetic).** Hypoxia/CO₂ (= `1−Oxygen`, free, no channel) kills high-metabolism Boids → Waste spike → residual heat → Q10 hyper-fertility → next wave recolonizes. Physarum **doesn't die** — it halts into a static spore until O₂/Nutrient return (true hysteresis = breathing).
 
@@ -149,7 +149,7 @@ source of truth + an editor gizmo to place it), with a value source of
 | 2 | **Q10 + decay sinks** (stop the mush) | 1 | low | no | no |
 | 3 | **B-channel predator/prey + waste scavenging** (asset edits) | 0 | low | no | no |
 | 4 | **Diurnal sun** (as a stamp) | 1 | low–med | no | no |
-| 5 | **Humidity** channel + evaporation/build-cue | 2 | med | no | **yes (→11)** |
+| 5 | **Humidity** channel + evaporation/build-cue ✅ **shipped** (→12) | 2 | med | no | **yes (→12)** |
 | 6 | **Permeability-as-Topography** (Laplacian stigmergy) | 2 | med | flags→typeId bits | no |
 | 7 | **Mortality → succession** (+ Physarum dormancy latch) | 2 | med | flags→typeId bits | no |
 

@@ -127,19 +127,22 @@ coupling direction each way is defined per-sim by its `UmweltMapping`.
 
 ### 3.3 The biome field — `Biome` + `BiomeFieldConfig`
 
-The biome is a double-buffered `Texture2DArray` of **11 scalar channels**
+The biome is a double-buffered `Texture2DArray` of **12 scalar channels**
 (`BiomeChannel`): `Nutrient, Pheromone0, Pheromone1, Pheromone2, Oxygen, Temperature,
-Waste, Permeability, FlowX, FlowY, Dispersal` (Pheromone0/1/2 are per-species scents for
-the three sims; **Dispersal** is a transient, fast-decay agitation field that scatters all
-sims — see §3.5). Per-channel behavior (diffuse rate, decay, advected-by-flow, initial
-value, homeostatic relax) comes from `BiomeFieldConfig` and is uploaded as a structured
-buffer. The channel count is hardcoded in four sync'd places — `BiomeChannel.Count/Names`,
-`Biome.compute` `CH_COUNT`, `Biome.cs` debug-grid `ChannelNames`, and
-`ExternalTextureSender.ChannelNames`; **adding a channel means updating all four** plus the
-`BiomeFieldConfig` asset's channel list.
+Waste, Permeability, FlowX, FlowY, Dispersal, Humidity` (Pheromone0/1/2 are per-species
+scents for the three sims; **Dispersal** is a transient, fast-decay agitation field that
+scatters all sims — see §3.5; **Humidity** is a high-diffusion, flow-advected moisture
+field that relaxes to an ambient baseline and is evaporated by Temperature). Per-channel
+behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
+from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
+hardcoded in three sync'd places — `BiomeChannel.Count/Names`, `Biome.compute` `CH_COUNT`,
+and `ExternalTextureSender.ChannelNames` (the debug grid reads `BiomeChannel.Count`);
+**adding a channel means updating all three** plus each `BiomeFieldConfig` asset's channel
+list.
 `Biome.Step()` runs the field dynamics on the GPU as a **ping-pong chain** —
 temperature gradients generate flow → flow advects the advectable channels →
-cross-field interactions (waste→nutrient, temp→permeability) react → diffuse + decay
+cross-field interactions (waste→nutrient, temp→permeability, temp→humidity evaporation)
+react → diffuse + decay
 — each pass reading the previous pass's buffer and swapping. The partial passes
 (flow/advect/interact) call `CopyAllChannels` first so the channels they don't write
 survive the swap; **any new partial pass must do the same.** Field samples use

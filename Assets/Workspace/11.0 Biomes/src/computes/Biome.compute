@@ -27,7 +27,8 @@
 #define CH_FLOW_X       8
 #define CH_FLOW_Y       9
 #define CH_DISPERSAL    10
-#define CH_COUNT        11
+#define CH_HUMIDITY     11
+#define CH_COUNT        12
 
 // --- Textures ---
 SamplerState sampler_fieldRead;
@@ -51,6 +52,7 @@ float wasteToNutrientRate;
 float decompTempSpan;       // Q10 exponent span for decomposition (0 ≈ flat, ~4 = strong fronts)
 float tempToFlowStrength;
 float tempToPermeability;
+float tempToEvaporation;    // Temperature above 0.5 baseline sinks Humidity (evaporation)
 float noiseScale;
 float noiseThreshold;
 
@@ -219,6 +221,7 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float waste    = fieldRead[uint3(id.xy, CH_WASTE)];
     float temp     = fieldRead[uint3(id.xy, CH_TEMPERATURE)];
     float perm     = fieldRead[uint3(id.xy, CH_PERMEABILITY)];
+    float humidity = fieldRead[uint3(id.xy, CH_HUMIDITY)];
 
     // 1. Waste decomposition → nutrient. Q10: near-frozen when cold, explosive when hot
     //    (rate = base·2.74^((temp-0.5)·span)), so fertility tracks the hot zones and travels
@@ -246,9 +249,16 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         perm = clamp(perm + (temp - 0.5) * tempToPermeability, 0, 1);
     }
 
+    // 3. Temperature → Humidity evaporation. Heat above the 0.5 baseline drives moisture off,
+    //    so a hot zone leaves a drying wake behind it; Humidity's relaxRate then refills the
+    //    cooled ground (renewable, depletable). The steep edge between dry hot zones and humid
+    //    cool ground is the |∇Humidity| termite build cue (sampled agent-side via perception).
+    humidity -= tempToEvaporation * max(0.0, temp - 0.5);
+
     fieldWrite[uint3(id.xy, CH_NUTRIENT)] = clamp(nutrient, 0, 1);
     fieldWrite[uint3(id.xy, CH_WASTE)] = clamp(waste, 0, 1);
     fieldWrite[uint3(id.xy, CH_PERMEABILITY)] = perm;
+    fieldWrite[uint3(id.xy, CH_HUMIDITY)] = clamp(humidity, 0, 1);
 }
 
 
@@ -420,6 +430,7 @@ void RenderDebugKernel(uint3 id : SV_DISPATCHTHREADID) {
     else if (debugChannel == CH_FLOW_X)      color = float4(val * 0.5 + 0.5, 0.2, 0.5 - val * 0.5, 1); // red-blue
     else if (debugChannel == CH_FLOW_Y)      color = float4(0.2, val * 0.5 + 0.5, 0.5 - val * 0.5, 1); // green-blue
     else if (debugChannel == CH_DISPERSAL)   color = float4(1.0, 0.5, 0.1, 1) * val;  // orange (agitation)
+    else if (debugChannel == CH_HUMIDITY)    color = float4(0.1, 0.6, 0.9, 1) * val;  // teal (moisture)
     else color = float4(val, val, val, 1);
 
     debugOutTex[id.xy] = color;

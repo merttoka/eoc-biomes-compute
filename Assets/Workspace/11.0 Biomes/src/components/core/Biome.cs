@@ -103,6 +103,7 @@ namespace Biomes
         private static readonly int s_WasteToNutrientRateID = Shader.PropertyToID("wasteToNutrientRate");
         private static readonly int s_TempToFlowStrengthID = Shader.PropertyToID("tempToFlowStrength");
         private static readonly int s_TempToPermID = Shader.PropertyToID("tempToPermeability");
+        private static readonly int s_TempToEvaporationID = Shader.PropertyToID("tempToEvaporation");
         private static readonly int s_NoiseScaleID = Shader.PropertyToID("noiseScale");
         private static readonly int s_NoiseThresholdID = Shader.PropertyToID("noiseThreshold");
 
@@ -255,6 +256,7 @@ namespace Biomes
             cs.SetFloat(s_WasteToNutrientRateID, fieldConfig.wasteToNutrientRate);
             cs.SetFloat(s_DecompTempSpanID, fieldConfig.decompositionTempSpan);
             cs.SetFloat(s_TempToPermID, fieldConfig.temperatureToPermeability);
+            cs.SetFloat(s_TempToEvaporationID, fieldConfig.temperatureToEvaporation);
             cs.SetFloat(s_NoiseScaleID, fieldConfig.noiseScale);
             cs.SetFloat(s_NoiseThresholdID, fieldConfig.noiseThreshold);
             cs.SetBuffer(interactFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
