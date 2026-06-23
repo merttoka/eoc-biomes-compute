@@ -11,6 +11,8 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[../Assets/Workspace/11.0 Biomes/docs/INTERACTION_DESIGN_II]] — follow-on interaction design: outside-signal routing (audio/organoid/sensors), generalizing field→agent beyond the 4 perception slots, lifecycle (death→succession). Builds on INTEGRATION_DESIGN after Humidity shipped
+- [[../Assets/Workspace/11.0 Biomes/docs/INTEGRATION_DESIGN]] — layer/sim coupling exploration: stamp injector (shipped), Q10/decay, Humidity (shipped), perm-topography, mortality
 - [[superpowers/specs/2026-06-08-osc-neuron-firing-design]] — OSC-driven shared neuron firing ([[superpowers/plans/2026-06-08-osc-neuron-firing|plan]])
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
