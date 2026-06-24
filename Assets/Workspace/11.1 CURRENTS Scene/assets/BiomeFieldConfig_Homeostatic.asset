@@ -79,9 +79,16 @@ MonoBehaviour:
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+  - name: Humidity
+    diffuseRate: 0.97
+    decayRate: 0.001
+    advectedByFlow: 1
+    initialValue: 0.5
+    relaxRate: 0.01
   wasteToNutrientRate: 0.02
   decompositionTempSpan: 2
   temperatureToFlowStrength: 0.6
   temperatureToPermeability: 0.2
+  temperatureToEvaporation: 0.05
   noiseScale: 3
   noiseThreshold: 0.212

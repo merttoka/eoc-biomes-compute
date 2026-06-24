@@ -11,10 +11,13 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[../Assets/Workspace/11.0 Biomes/docs/INTERACTION_DESIGN_II]] — follow-on interaction design: outside-signal routing (audio/organoid/sensors), generalizing field→agent beyond the 4 perception slots, lifecycle (death→succession). Builds on INTEGRATION_DESIGN after Humidity shipped
+- [[../Assets/Workspace/11.0 Biomes/docs/INTEGRATION_DESIGN]] — layer/sim coupling exploration: stamp injector (shipped), Q10/decay, Humidity (shipped), perm-topography, mortality
 - [[superpowers/specs/2026-06-08-osc-neuron-firing-design]] — OSC-driven shared neuron firing ([[superpowers/plans/2026-06-08-osc-neuron-firing|plan]])
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-06-23-humidity-channel]] — Humidity biome channel (11→12): high-diffusion, flow-advected, relaxes to ambient baseline, Temperature evaporates it (`|∇Humidity|` = termite build cue); both Homeostatic assets + docs updated
 - [[sessions/2026-06-17-per-show-scene-split]] — split 11.0 Biomes into per-show folders (11.1 CURRENTS, 11.2 SIGGRAPH); engine stays in 11.0; organoid blob rename; Unity 6 build profile + HDRP
 - [[sessions/2026-06-13-reset-clear-in-place]] — clear-in-place reset (stable GPU resources) kills Syphon reset teardown/flash; OSC reset main-thread marshal
 - [[sessions/2026-06-10-branch-validation-equilibrium-fix]] — branch validation, 15-agent review (9 findings), homeostatic equilibrium fix, boid 0–64 rescale, scene adopts homeostatic config

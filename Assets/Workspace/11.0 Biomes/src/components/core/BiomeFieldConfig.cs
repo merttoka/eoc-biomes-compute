@@ -18,14 +18,15 @@ namespace Biomes
         public const int FlowX      = 8;
         public const int FlowY      = 9;
         public const int Dispersal  = 10;  // transient agitation: scatters all sims
-        public const int Count      = 11;
+        public const int Humidity   = 11;  // renewable moisture: agent-consumed, evaporated by Temperature
+        public const int Count      = 12;
 
         /// <summary>Display names, index-aligned with the constants above. Single source of
         /// truth for the inspector channel dropdown — keep in sync if channels change.</summary>
         public static readonly string[] Names =
         {
             "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
-            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal",
+            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal", "Humidity",
         };
     }
 
@@ -69,6 +70,7 @@ namespace Biomes
             new() { name = "Flow_X",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Flow_Y",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Dispersal",      diffuseRate = 0.9f,   decayRate = 0.12f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Humidity",       diffuseRate = 0.97f,  decayRate = 0.001f, advectedByFlow = true,  initialValue = 0.5f, relaxRate = 0.01f },
         };
 
         // Cross-field interaction rates
@@ -79,6 +81,10 @@ namespace Biomes
         [Range(0f, 8f)]   public float decompositionTempSpan = 4f;
         [Range(0f, 1f)]   public float temperatureToFlowStrength = 0.5f;   // convection
         [Range(0f, 1f)]   public float temperatureToPermeability = 0.3f;   // phase transitions (now a bounded offset, see Biome.compute)
+        [Tooltip("Evaporation: Humidity sinks where Temperature is above its 0.5 baseline " +
+                 "(humidity -= rate·max(0, temp-0.5) each step). Dries the field behind the hot zones; " +
+                 "the |∇Humidity| edge this leaves is the termite build cue. 0 = no thermal evaporation.")]
+        [Range(0f, 0.2f)] public float temperatureToEvaporation = 0.05f;   // Temperature dries Humidity
 
         [Header("Initial Matter Map")]
         [Range(0f, 10f)] public float noiseScale = 3f;

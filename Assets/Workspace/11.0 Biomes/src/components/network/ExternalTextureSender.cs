@@ -39,9 +39,9 @@ namespace Biomes
         }
         private readonly List<Live> _live = new();
 
-        private static readonly string[] ChannelNames = {
-            "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
-            "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal" };
+        // Stream names per biome channel — single source of truth is BiomeChannel.Names
+        // (was a hand-synced copy that silently drifted; reference it so it can't desync).
+        private static string[] ChannelNames => BiomeChannel.Names;
 
         [Button("Rebuild Streams")]
         public void Rebuild()
