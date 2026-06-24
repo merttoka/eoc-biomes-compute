@@ -2110,8 +2110,8 @@ MonoBehaviour:
   perceptionResScale: 0.75
   stepsPerFrame: 1
   stepMod: 1
-  limitFPS: 0
-  targetFPS: 60
+  limitFPS: 1
+  targetFPS: 330
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1

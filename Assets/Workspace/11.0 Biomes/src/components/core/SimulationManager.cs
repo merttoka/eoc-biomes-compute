@@ -17,7 +17,7 @@ namespace Biomes
         [Range(0, 10)] public int stepsPerFrame = 1;
         [Range(1, 50)] public int stepMod = 1;
         public bool limitFPS = true;
-        [Range(24, 165)] public int targetFPS = 60;
+        [Range(24, 330)] public int targetFPS = 60;
 
         [Header("Biome")]
         public Biome biome;
