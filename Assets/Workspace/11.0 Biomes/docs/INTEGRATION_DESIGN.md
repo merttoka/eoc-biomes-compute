@@ -1,11 +1,14 @@
 # Biome Layer & Sim Integration — Design Exploration
 
-> Speculative design (not yet implemented). Synthesizes a 4-lens design panel
-> (pragmatist / biology-maximalist / installation-architect / dynamical-art),
-> each adversarially critiqued, grounded in the research PDF
-> (`Simulating Biological Systems Parameters.pdf`) and the actual codebase.
-> Three parts: (1) how the layers couple **today**, (2) making them interact
-> **richer**, (3) an **external-input** injection architecture for the gallery.
+> Living design doc — **partly shipped** (see Part 4 ledger for per-item status).
+> Synthesizes a 4-lens design panel (pragmatist / biology-maximalist /
+> installation-architect / dynamical-art), each adversarially critiqued, grounded
+> in the research PDF (`Simulating Biological Systems Parameters.pdf`) and the
+> actual codebase. Three parts: (1) how the layers couple **today**, (2) making
+> them interact **richer**, (3) an **external-input** injection architecture for
+> the gallery. Shipped so far: the stamp **injector**, **Q10 + decay sinks +
+> relax-to-baseline**, the **permeability runaway fix**, and the **Humidity
+> channel** (consumer read still to wire). Last verified against code: 2026-06-23.
 
 ---
 
@@ -67,7 +70,7 @@ Close the open trophic loops by adding `reads`/`writes` entries:
 > ⚠️ Critic caveats: (a) `perception.b` is a **single summed scalar** — don't pile CO₂-avoidance *and* Waste-avoidance into it on Boids or they conflate. (b) `speedMod` is **multiplicative**; stacking SpeedPenalty reads drives speed→0 = frozen ecosystem. Keep speed couplings to one per sim.
 
 ### Tier 1 — Cheap shader, highest leverage (the "make it alive" engine)
-1. **Q10 ignition + decay sinks.** Replace the linear `decompRate = rate·(0.5+temp)` with `rate·pow(2.74,(temp−0.5)·span)` so decomposition is near-zero when cold and *explosive* when hot → travelling fertility fronts instead of a smooth ramp. Pair with small sinks (`Oxygen decay≈0.001`, `Waste decay≈0.0005`) so the field can breathe instead of saturating. **Mandatory:** clamp `decompRate`; and the front only *travels* if heat actually moves on (needs the sun below, or higher Temp decay) — otherwise you get a static max-fertility disk.
+1. **Q10 ignition + decay sinks.** ✅ **Shipped** (`Biome.compute:229`): the linear `decompRate = rate·(0.5+temp)` is now `rate·pow(2.74,(temp−0.5)·decompTempSpan)` so decomposition is near-zero when cold and *explosive* when hot → travelling fertility fronts instead of a smooth ramp. Sinks shipped as Waste `decay 0.001` + Nutrient `decay 0.0005`; Oxygen breathes via relaxation (→0.8) rather than decay. `decompRate` is clamped. ⚠️ Still: the front only *travels* if heat moves on — needs the **diurnal sun (row 6, pending)** or higher Temp decay, else you get a static max-fertility disk.
 2. **Diurnal "sun" forcing.** Per the PDF, light is *not* a layer — inject a slow sweeping warm gradient into Temperature each step (phase from `SimStepCount`). This is the master off-equilibrium pump: it moves the hot zone → re-aims flow, re-fires Q10, drives evaporation, and gives the piece a global rhythm an audience reads in seconds. **Build it as a Temperature stamp in the pre-Step injector (Part 3), NOT a new pass** — keeps `Biome.Step` untouched.
 
 > ⚠️ Flow accumulates (`existingFX + …`) with weak decay (0.02). A too-strong/too-wide sun can saturate Flow to ±1 → re-introduces a global drift / advection smear. Co-tune `temperatureToFlowStrength` ↔ flow decay; keep sun gain modest.
@@ -143,22 +146,30 @@ source of truth + an editor gizmo to place it), with a value source of
 
 ## Part 4 — Recommended build sequence
 
-| # | Move | Tier | Risk | Touches struct? | New channel? |
-|---|------|------|------|-----------------|--------------|
-| 1 | **Spatial stamp injector** (plant-O₂, robot-Temp, sun) ✅ **shipped** | C | low | no | no |
-| 2 | **Q10 + decay sinks** (stop the mush) | 1 | low | no | no |
-| 3 | **B-channel predator/prey + waste scavenging** (asset edits) | 0 | low | no | no |
-| 4 | **Diurnal sun** (as a stamp) | 1 | low–med | no | no |
-| 5 | **Humidity** channel + evaporation/build-cue ✅ **shipped** (→12) | 2 | med | no | **yes (→12)** |
-| 6 | **Permeability-as-Topography** (Laplacian stigmergy) | 2 | med | flags→typeId bits | no |
-| 7 | **Mortality → succession** (+ Physarum dormancy latch) | 2 | med | flags→typeId bits | no |
+Status legend: ✅ shipped · 🟡 partial (scaffolded, not fully wired) · ⬜ pending.
 
-Ship 1–4 first (no struct, no channel, all reversible on knobs) — that alone
-turns the field from relax-to-equilibrium soup into a breathing, externally-driven
-system. 5–7 are the deep biology; do them once the core reads as alive.
+| # | Move | Tier | Risk | Struct? | New channel? | Status |
+|---|------|------|------|---------|--------------|--------|
+| 1 | **Spatial stamp injector** (plant-O₂, robot-Temp) — `BiomeInjector` + `InjectStampKernel` + OSC `/inject/<name>` | ext | low | no | no | ✅ shipped |
+| 2 | **Q10 + decay sinks** (stop the mush) — `pow(2.74,(temp−0.5)·decompTempSpan)`; Waste decay 0.001, Nutrient 0.0005 | 1 | low | no | no | ✅ shipped |
+| 3 | **Relax-to-baseline + permeability runaway fix** — per-channel `relaxRate` (O₂→0.8, Temp→0.5); perm relaxes toward recomputed noise terrain | 1 | low | no | no | ✅ shipped |
+| 4 | **Humidity** channel — high-diffusion (0.97), flow-advected, relax→0.5, Temp evaporation | 2 | med | no | **yes (→12)** | 🟡 channel shipped; build-cue `\|∇Humidity\|` read **not yet wired** (per-scene `UmweltMapping`) |
+| 5 | **B-channel predator/prey + waste scavenging** (asset edits + 3 lines/sim) | 0 | low | no | no | ⬜ pending (only Boid reads `.b`; Physarum/Termite don't) |
+| 6 | **Diurnal sun** (as a procedural stamp, phase from `SimStepCount`) | 1 | low–med | no | no | ⬜ pending |
+| 7 | **Permeability-as-Topography** (Laplacian stigmergy) | 2 | med | flags→typeId bits | no | ⬜ pending |
+| 8 | **Mortality → succession** (+ Physarum dormancy latch) | 2 | med | flags→typeId bits | no | 🟡 lifecycle fields scaffolded (`UmweltMapping`, `enableDeath=false`); death/dormancy not wired |
 
-**Status:** #1 shipped (the injector). Next up: **#2 Q10 + decay sinks** — the cheapest
-move that converts the relax-to-mush field into travelling fertility fronts.
+Rows 1–3 are shipped: the field is no longer relax-to-equilibrium soup — Q10 +
+decay sinks + relaxation give it travelling fertility fronts and a breathing
+baseline, and the injector makes it externally drivable. Humidity (4) exists as a
+field but doesn't yet *do* anything agent-side until its evaporation-flux read is
+wired per scene. 5–8 are the remaining richness/biology work.
+
+**Status:** rows 1–3 shipped + Humidity channel landed. Next up, cheapest-first:
+**wire the Humidity build-cue read** (close row 4), then **#5 B-channel
+predator/prey + waste scavenging** (asset-only, makes antagonisms real) and **#6
+diurnal sun** (the master off-equilibrium pump). 7–8 are the deep biology once the
+core reads as alive.
 
 ---
 
@@ -173,8 +184,8 @@ The frame budget is spent on **physarum agent count** (Move / WriteTrails / writ
 **per-pixel sim passes at output res**. The biome PDE runs on a **320×180 grid, decimated to
 every 4th step** — ~0.06 M px × 4 passes / 4 = trivial. Therefore:
 - **Adding biome channels is ~free.** Each channel is +0.23 MB (320×180×2B×2 buffers) and
-  one more iteration of the per-texel channel loops on a tiny, decimated grid. The 10→11
-  Humidity growth costs nothing measurable. *Budget is not the reason to hold at 10.*
+  one more iteration of the per-texel channel loops on a tiny, decimated grid. The Humidity
+  growth (→12, index 11) cost nothing measurable. *Budget is not the reason to hold the count.*
 - **Richer Umwelts are ~free.** Perception build now runs at `perceptionResScale` (≈0.25);
   more `reads` = a slightly longer per-texel loop on a small texture. More `writes` = with
   fused write-back, a longer in-register per-agent loop, **same dispatch count**.
@@ -182,13 +193,13 @@ every 4th step** — ~0.06 M px × 4 passes / 4 = trivial. Therefore:
   GPU time. Spend the freed-up thinking on legibility, not optimization.
 
 ### 5b. Mush gets *worse* as agent count scales — fix it before 10 M, not after
-> ✅ **Shipped 2026-06-09** (`Biome.compute`, `Biome.cs`, `BiomeFieldConfig.cs` + new
-> `BiomeFieldConfig_Homeostatic.asset`): per-channel **relaxation toward baseline**
-> (Oxygen→0.8 replenish, Temperature→0.5 cap), **Q10 decomposition**
-> (`decompositionTempSpan`), and the **permeability runaway fix** (bounded relaxation toward
-> the recomputed noise terrain). All gated: `relaxRate=0` + the legacy integrator branch
-> reproduce the old behaviour for a clean A/B. Decay sinks added to Waste (0.001) + Nutrient
-> (0.0005).
+> ✅ **Shipped** (`Biome.compute`, `Biome.cs`, `BiomeFieldConfig.cs`): per-channel
+> **relaxation toward baseline** (Oxygen→0.8 replenish, Temperature→0.5 cap), **Q10
+> decomposition** (`decompositionTempSpan`, default 4), and the **permeability runaway fix**
+> (bounded relaxation toward the recomputed noise terrain). All gated: `relaxRate=0` + the
+> legacy integrator branch reproduce the old behaviour for a clean A/B (the homeostatic values
+> live in the **default** `BiomeFieldConfig` now, not a separate asset). Decay sinks added to
+> Waste (0.001) + Nutrient (0.0005).
 Today Nutrient/Oxygen/Waste have `decay=0` + constant per-agent deposits + `diffuse≈0.99`,
 so they ramp to a flat clamped 1.0 (Part 1e). **This is a fidelity bug that the scale-up
 amplifies:** 10 M physarum deposit ~30× more than the current 300 k, so the field saturates
@@ -204,12 +215,13 @@ high-count target, not a nice-to-have:**
 
 ### 5c. Channel-structure recommendations (ranked, all perf-cheap)
 1. **Decay sinks + Q10 + perm-integrator fix** (5b) — *do before scaling counts.*
-2. **Humidity channel (10→11).** Worth it; the PDF's #1. Code touch: bump
-   `BiomeChannel.Count`/`Names` (`BiomeFieldConfig.cs`), `CH_COUNT` + a `#define`
-   (`Biome.compute`), add a `FieldChannelSettings` row, extend `ExternalTextureSender`'s
-   `ChannelNames` (currently 9, already **stale** — missing Pheromone_2). High-diffusion,
-   agent-consumed, Temperature evaporates it; gives termites a real build cue
-   (`evaporation ≈ |∇Humidity|`). Perf: negligible.
+2. **Humidity channel (→12, index 11).** ✅ **Shipped.** `BiomeChannel.Count=12` + `Names`
+   (`BiomeFieldConfig.cs`), `CH_HUMIDITY 11` (`Biome.compute`), a `FieldChannelSettings` row
+   (diffuse 0.97, advected, relax→0.5, decay 0.001), and `ExternalTextureSender.ChannelNames`
+   now derives from `BiomeChannel.Names` (no longer hand-maintained/stale). High-diffusion,
+   Temperature evaporates it. **Still to wire:** the termite build cue
+   (`evaporation ≈ |∇Humidity|`) as a per-scene `UmweltMapping` read — the channel exists but
+   nothing consumes it yet. Perf: negligible.
 3. **Permeability-as-topography (Laplacian stigmergy), no new channel** — curvature in
    `InteractFieldsKernel` (neighbours already sampled) drives build/dig so mounds
    self-organize. Free; medium authoring risk (needs a slow relaxation clamp).
