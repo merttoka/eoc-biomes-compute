@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Rendering;
 using EasyButtons;
 
 namespace Biomes
@@ -95,12 +97,14 @@ namespace Biomes
         [Range(0f, 1f)] public float dispersalFireThreshold = 0.1f;
 
         public enum FiringDispersalSource { NeuronPositions, AgentPositions }
-        [Tooltip("NeuronPositions = fixed CSV neuron coords (no readback). AgentPositions = live agent positions of the sim below (pulses erupt from where the swarm actually is) — PERF: this does a SYNCHRONOUS GPU readback every frame (CPU stall). Fine at ~131 agents; keep firingAgentStampCap low for larger sims.")]
+        [Tooltip("NeuronPositions = fixed CSV neuron coords (no readback). AgentPositions = live agent positions of the sim below (pulses erupt from where the swarm actually is). With useAsyncReadback on (default) the readback is non-blocking; positions lag 1-2 frames (invisible for a fading pulse).")]
         public FiringDispersalSource firingDispersalSource = FiringDispersalSource.NeuronPositions;
         [Tooltip("Sim whose live agent positions drive AgentPositions mode (e.g. the TermiteSim). Agent i uses firing neuron (i % neuronCount).")]
         public SimulationBase firingAgentSim;
         [Tooltip("Max agents read back / stamped per frame in AgentPositions mode (caps cost at high agent counts).")]
         [Range(1, 4096)] public int firingAgentStampCap = 256;
+        [Tooltip("AgentPositions readback mode. ON (default) = AsyncGPUReadback: non-blocking, no CPU↔GPU stall, positions lag 1-2 frames. Big win on discrete GPUs (D3D12), neutral on unified memory (Metal). OFF = synchronous GetData (stalls the CPU every frame) — fallback only.")]
+        public bool useAsyncReadback = true;
 
         [Header("Gizmo")]
         public bool drawGizmos = true;
@@ -124,7 +128,15 @@ namespace Biomes
         // for reading back live sim agent positions in AgentPositions mode.
         [StructLayout(LayoutKind.Sequential)]
         private struct AgentLayout { public Vector2 position; public Vector2 direction; public uint typeId; }
-        private AgentLayout[] _agentScratch;
+        private AgentLayout[] _agentScratch;            // sync fallback path only
+
+        // Async readback (default): two NativeArrays ping-pong so we stamp from the last
+        // COMPLETED result (_rbResult) while the next non-blocking request fills the other
+        // buffer (_rbPending). No CPU↔GPU stall. Swapped in OnAgentReadback on completion.
+        private NativeArray<AgentLayout> _rbResult, _rbPending;
+        private int _rbResultCount, _rbPendingCount;
+        private bool _rbValid, _rbInFlight;
+        private AsyncGPUReadbackRequest _rbReq;
 
         private ComputeBuffer _buffer;
         private Stamp[] _scratch;
@@ -298,8 +310,8 @@ namespace Biomes
 
         // Stamp dispersal at the live agent positions of firingAgentSim. Agent i uses firing
         // neuron (i % neuronCount); duplicate copies (i / neuronCount) fire progressively
-        // weaker (identity when agentCount == neuronCount). Synchronous readback — cheap at
-        // ~131 agents, capped by firingAgentStampCap.
+        // weaker (identity when agentCount == neuronCount). Readback is async by default
+        // (no CPU stall, positions lag 1-2 frames); useAsyncReadback off = synchronous fallback.
         private int AppendAgentPositionStamps(float[] scaled, int neuronCount, int k)
         {
             var buf = firingAgentSim.GetAgentPositionBuffer();
@@ -307,22 +319,70 @@ namespace Biomes
             if (buf == null || agentCount <= 0) return k;
 
             int readCount = Mathf.Min(agentCount, Mathf.Min(buf.count, firingAgentStampCap));
-            if (_agentScratch == null || _agentScratch.Length < readCount)
-                _agentScratch = new AgentLayout[Mathf.Max(readCount, _agentScratch != null ? _agentScratch.Length * 2 : 8)];
-            buf.GetData(_agentScratch, 0, 0, readCount);
+            if (readCount <= 0) return k;
 
             float rezX = Mathf.Max(1, firingAgentSim.rezX);
             float rezY = Mathf.Max(1, firingAgentSim.rezY);
-            for (int i = 0; i < readCount; i++)
+
+            if (!useAsyncReadback)
             {
-                int copy = i / neuronCount;                       // 0 for the first neuronCount agents, then 1, 2, ...
-                float f = scaled[i % neuronCount] / (copy + 1);   // duplicate copies fire progressively weaker (discrete per copy)
+                // Synchronous fallback: flushes the GPU and stalls the CPU every frame. Cheap on
+                // unified memory (Metal), expensive on discrete GPUs — kept only as a safety net.
+                if (_agentScratch == null || _agentScratch.Length < readCount)
+                    _agentScratch = new AgentLayout[Mathf.Max(readCount, _agentScratch != null ? _agentScratch.Length * 2 : 8)];
+                buf.GetData(_agentScratch, 0, 0, readCount);
+                for (int i = 0; i < readCount; i++)
+                {
+                    int copy = i / neuronCount;                       // 0 for the first neuronCount agents, then 1, 2, ...
+                    float f = scaled[i % neuronCount] / (copy + 1);   // duplicate copies fire progressively weaker (discrete per copy)
+                    if (f < dispersalFireThreshold) continue;
+                    Vector2 p = _agentScratch[i].position;
+                    Vector2 uv = new Vector2(Mathf.Clamp01(p.x / rezX), Mathf.Clamp01(p.y / rezY));
+                    k = AddDispersalStamp(uv, Mathf.Clamp01(f), k);
+                }
+                return k;
+            }
+
+            // Async path: kick one non-blocking request (only when none is in flight, so the
+            // grow/realloc below can never touch a buffer the GPU is still writing).
+            if (!_rbInFlight)
+            {
+                if (!_rbPending.IsCreated || _rbPending.Length < readCount)
+                {
+                    if (_rbPending.IsCreated) _rbPending.Dispose();
+                    _rbPending = new NativeArray<AgentLayout>(
+                        Mathf.Max(readCount, _rbPending.IsCreated ? _rbPending.Length * 2 : 8),
+                        Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                }
+                _rbPendingCount = readCount;
+                _rbReq = AsyncGPUReadback.RequestIntoNativeArray(ref _rbPending, buf, readCount * buf.stride, 0, OnAgentReadback);
+                _rbInFlight = true;
+            }
+
+            if (!_rbValid) return k; // warmup: no completed result yet (first 1-2 frames)
+            int count = Mathf.Min(_rbResultCount, _rbResult.Length);
+            for (int i = 0; i < count; i++)
+            {
+                int copy = i / neuronCount;
+                float f = scaled[i % neuronCount] / (copy + 1);
                 if (f < dispersalFireThreshold) continue;
-                Vector2 p = _agentScratch[i].position;
+                Vector2 p = _rbResult[i].position;
                 Vector2 uv = new Vector2(Mathf.Clamp01(p.x / rezX), Mathf.Clamp01(p.y / rezY));
                 k = AddDispersalStamp(uv, Mathf.Clamp01(f), k);
             }
             return k;
+        }
+
+        // Completion of an async agent-position readback. The just-filled _rbPending becomes the
+        // readable result; the previous result buffer is recycled for the next request (ping-pong),
+        // so stamping never reads a buffer the GPU is mid-write on.
+        private void OnAgentReadback(AsyncGPUReadbackRequest req)
+        {
+            _rbInFlight = false;
+            if (req.hasError) return; // keep last good result
+            (_rbResult, _rbPending) = (_rbPending, _rbResult);
+            _rbResultCount = _rbPendingCount;
+            _rbValid = true;
         }
 
         // Append one dispersal stamp at uv with intensity fc (0..1), growing scratch as needed.
@@ -422,6 +482,10 @@ namespace Biomes
 
         void OnDestroy()
         {
+            // Force any in-flight readback to finish before freeing the buffers it writes into.
+            if (_rbInFlight) _rbReq.WaitForCompletion();
+            if (_rbPending.IsCreated) _rbPending.Dispose();
+            if (_rbResult.IsCreated) _rbResult.Dispose();
             _buffer?.Release();
             _buffer = null;
         }
