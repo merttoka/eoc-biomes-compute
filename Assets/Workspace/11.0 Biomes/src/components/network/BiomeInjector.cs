@@ -103,7 +103,7 @@ namespace Biomes
         public SimulationBase firingAgentSim;
         [Tooltip("Max agents read back / stamped per frame in AgentPositions mode (caps cost at high agent counts).")]
         [Range(1, 4096)] public int firingAgentStampCap = 256;
-        [Tooltip("AgentPositions readback mode. ON (default) = AsyncGPUReadback: non-blocking, no CPU↔GPU stall, positions lag 1-2 frames. Big win on discrete GPUs (D3D12), neutral on unified memory (Metal). OFF = synchronous GetData (stalls the CPU every frame) — fallback only.")]
+        [Tooltip("AgentPositions readback mode. ON (default) = AsyncGPUReadback: non-blocking, no CPU↔GPU stall, positions lag 1-2 frames. Large win on BOTH discrete GPUs (D3D12) and Apple Silicon (Metal) — the cost removed is the sync barrier, not just the copy. OFF = synchronous GetData (stalls the CPU every frame) — fallback only.")]
         public bool useAsyncReadback = true;
 
         [Header("Gizmo")]
@@ -326,8 +326,9 @@ namespace Biomes
 
             if (!useAsyncReadback)
             {
-                // Synchronous fallback: flushes the GPU and stalls the CPU every frame. Cheap on
-                // unified memory (Metal), expensive on discrete GPUs — kept only as a safety net.
+                // Synchronous fallback: flushes the GPU and stalls the CPU every frame. The sync
+                // barrier costs on EVERY GPU (unified memory only saves the copy, not the wait) —
+                // kept only as a safety net.
                 if (_agentScratch == null || _agentScratch.Length < readCount)
                     _agentScratch = new AgentLayout[Mathf.Max(readCount, _agentScratch != null ? _agentScratch.Length * 2 : 8)];
                 buf.GetData(_agentScratch, 0, 0, readCount);
