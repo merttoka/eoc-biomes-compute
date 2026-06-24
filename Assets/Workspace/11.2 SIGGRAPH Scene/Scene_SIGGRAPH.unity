@@ -1949,9 +1949,10 @@ MonoBehaviour:
   dispersalBaseline: 0.05
   dispersalAmount: 1
   dispersalFireThreshold: 0.1
-  firingDispersalSource: 1
+  firingDispersalSource: 0
   firingAgentSim: {fileID: 1010527583}
   firingAgentStampCap: 256
+  useAsyncReadback: 0
   drawGizmos: 0
   gizmoColor: {r: 0.3, g: 0.9, b: 1, a: 0.6}
 --- !u!114 &1919109757
