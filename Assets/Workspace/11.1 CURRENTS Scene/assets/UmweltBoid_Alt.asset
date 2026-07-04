@@ -37,6 +37,9 @@ MonoBehaviour:
   - channel: 10
     weight: 1
     effect: 3
+  - channel: 6
+    weight: 0.6
+    effect: 0
   writes:
   - channel: 2
     amount: 0.01

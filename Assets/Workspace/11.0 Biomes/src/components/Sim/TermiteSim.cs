@@ -94,14 +94,18 @@ namespace Biomes
             for (int i = 0; i < count; i++)
             {
                 var t = agentParams.types[i];
+                // Media-agent behavior multipliers applied into the TRANSIENT cache only (never
+                // written back into agentParams): speed→moveSpeed, trail→depositAmount,
+                // sensor→senseAngle (multiply the degree value BEFORE Deg2Rad). Termite has no
+                // cohesion → behCohesionMul is intentionally unused (cohesion leaf no-ops).
                 _typeParamsCache[i] = new TermiteTypeParamsGPU
                 {
-                    senseAngle = t.senseAngle * Mathf.Deg2Rad,
+                    senseAngle = t.senseAngle * behSensorMul * Mathf.Deg2Rad,
                     senseDistance = t.senseDistance,
                     turnAngle = t.turnAngle * Mathf.Deg2Rad,
-                    moveSpeed = t.moveSpeed,
+                    moveSpeed = t.moveSpeed * behSpeedMul,
                     firingSpeedMul = t.firingSpeedMul,
-                    depositAmount = t.depositAmount,
+                    depositAmount = t.depositAmount * behTrailMul,
                     firingDepositAmount = t.firingDepositAmount,
                     depositProbability = t.depositProbability,
                     firingDepositProbability = t.firingDepositProbability,

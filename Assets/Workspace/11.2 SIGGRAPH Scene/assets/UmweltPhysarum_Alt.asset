@@ -37,6 +37,12 @@ MonoBehaviour:
   - channel: 10
     weight: 1
     effect: 3
+  - channel: 11
+    weight: 0.8
+    effect: 0
+  - channel: 3
+    weight: 1.2
+    effect: 2
   writes:
   - channel: 1
     amount: 0.012
@@ -44,6 +50,8 @@ MonoBehaviour:
     amount: -0.004
   - channel: 0
     amount: -0.0025
+  - channel: 11
+    amount: -0.006
   preferredPermeabilityMin: 0.3
   preferredPermeabilityMax: 0.7
   metabolicHeat: 0.01

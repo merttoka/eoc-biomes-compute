@@ -23,6 +23,25 @@ namespace Biomes
         [SerializeField] public BiomeInjector m_BiomeInjector;
         [SerializeField] public NeuronFiringSource m_NeuronFiringSource;
 
+        // ── media-agent → biome bridge (topology B: Unity listens to /sn/<entity>/… direct) ──
+        // Maps each media-agent entity to a sim (behavior/* multipliers) and, optionally, a
+        // BiomeInjector source (warmth → Temperature stamp). Kept data-driven so the same build
+        // works when a maestra gateway later remaps the prefix/entity addresses.
+        [Serializable]
+        public class EntityBinding
+        {
+            [Tooltip("media-agent entity id in the OSC address (/sn/<entityId>/…), e.g. termite, physarum, boid.")]
+            public string entityId;
+            [Tooltip("Sim that consumes this entity's behavior/* multipliers (termite→TermiteSim, physarum→PhysarumSim, boid→BoidSim).")]
+            public SimulationBase sim;
+            [Tooltip("BiomeInjector source name that /sn/<entityId>/warmth drives (Temperature stamp). Blank = no warmth route.")]
+            public string warmthSourceName;
+        }
+        [Tooltip("OSC address prefix the media-agent OSCSink emits under (default /sn).")]
+        public string m_SnPrefix = "/sn";
+        [Tooltip("Per-entity routing for the media-agent bridge: warmth → BiomeInjector Temperature stamp, behavior/* → sim multipliers.")]
+        public List<EntityBinding> m_EntityBindings = new List<EntityBinding>();
+
         void Start()
         {
             m_OscServer = new OscServer(m_Port);
@@ -69,6 +88,9 @@ namespace Biomes
 
             // Biome injector source drivers: /inject/<name> <value>, /inject/<name>/pos <u> <v>
             RegisterInjectorSources();
+
+            // media-agent bridge: /sn/<entity>/warmth + /sn/<entity>/behavior/{speed,trail,sensor,cohesion}
+            RegisterMediaAgentBridge();
 
             // Catch-all debug
             m_OscServer.MessageDispatcher.AddCallback(
@@ -153,6 +175,62 @@ namespace Biomes
                 );
             }
             Debug.Log($"[OSC] Registered {m_BiomeInjector.sources.Count} injector source(s) under /inject/<name> (value · /pos · /shape · /stamp)");
+        }
+
+        // media-agent → biome bridge (topology B). Per entity binding, subscribe to the SHORT
+        // leaf names the media-agent OSCSink emits (media_agent/osc.py): /sn/<entity>/warmth and
+        // /sn/<entity>/behavior/{speed,trail,sensor,cohesion}. warmth drives a BiomeInjector
+        // Temperature stamp (reusing the thread-safe SetValue path); the four behavior leaves
+        // drive non-destructive per-sim global multipliers. All callbacks touch CPU state only and
+        // are thread-safe, so they run inline on the socket thread (no main-thread enqueue) — same
+        // pattern as the /inject/<name> callbacks above.
+        private void RegisterMediaAgentBridge()
+        {
+            if (m_EntityBindings == null) return;
+            string prefix = string.IsNullOrEmpty(m_SnPrefix) ? "/sn" : m_SnPrefix.TrimEnd('/');
+            int registered = 0;
+            foreach (var b in m_EntityBindings)
+            {
+                if (b == null || string.IsNullOrEmpty(b.entityId)) continue;
+                string entityId = b.entityId;
+
+                // warmth → Temperature stamp via BiomeInjector (thread-safe SetValue).
+                if (m_BiomeInjector != null && !string.IsNullOrEmpty(b.warmthSourceName))
+                {
+                    string warmthSource = b.warmthSourceName;
+                    m_OscServer.MessageDispatcher.AddCallback(
+                        $"{prefix}/{entityId}/warmth",
+                        (string addr, OscDataHandle data) => {
+                            m_BiomeInjector.SetValue(warmthSource, data.GetElementAsFloat(0));
+                        }
+                    );
+                }
+
+                // behavior/{speed,trail,sensor,cohesion} → non-destructive per-sim multipliers.
+                var sim = b.sim;
+                if (sim != null)
+                {
+                    RegisterBehaviorLeaf(prefix, entityId, "speed",    sim, SimulationBase.BehaviorLeaf.Speed);
+                    RegisterBehaviorLeaf(prefix, entityId, "trail",    sim, SimulationBase.BehaviorLeaf.Trail);
+                    RegisterBehaviorLeaf(prefix, entityId, "sensor",   sim, SimulationBase.BehaviorLeaf.Sensor);
+                    RegisterBehaviorLeaf(prefix, entityId, "cohesion", sim, SimulationBase.BehaviorLeaf.Cohesion);
+                }
+                registered++;
+            }
+            Debug.Log($"[OSC] Registered media-agent bridge for {registered} entity binding(s) under {prefix}/<entity>/ (warmth · behavior/{{speed,trail,sensor,cohesion}})");
+        }
+
+        // Register one media-agent behavior leaf → sim.SetBehaviorMultiplier. Inline + thread-safe
+        // (SetBehaviorMultiplier only writes a volatile float; consumed on the main thread).
+        private void RegisterBehaviorLeaf(string prefix, string entityId, string leafName,
+                                          SimulationBase sim, SimulationBase.BehaviorLeaf leaf)
+        {
+            m_OscServer.MessageDispatcher.AddCallback(
+                $"{prefix}/{entityId}/behavior/{leafName}",
+                (string addr, OscDataHandle data) => {
+                    sim.SetBehaviorMultiplier(leaf, data.GetElementAsFloat(0));
+                }
+            );
         }
 
         void Update()

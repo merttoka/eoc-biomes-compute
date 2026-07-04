@@ -481,6 +481,39 @@ namespace Biomes
             });
         }
 
+        // Append one near-global warmth Source per media-agent entity (termite/physarum/boid),
+        // each stamping the Temperature channel. Driven by /sn/<entity>/warmth via OSCMapping's
+        // media-agent bridge (SetValue → this source by name). MaxToward builds a stable warm
+        // tint rather than saturating; the large radius makes warmth a near-global valence per
+        // entity (NOT a per-swarm localized stamp). Set each name below as the matching
+        // EntityBinding.warmthSourceName in OSCMapping. Add in EDIT mode, then enter Play.
+        [Button("Add Example Warmth Sources")]
+        public void AddExampleWarmthSources()
+        {
+            if (sources == null) sources = new List<Source>();
+
+            AddWarmthSource("warmth-termite",  new Vector2(0.5f, 0.5f));
+            AddWarmthSource("warmth-physarum", new Vector2(0.5f, 0.5f));
+            AddWarmthSource("warmth-boid",     new Vector2(0.5f, 0.5f));
+
+            Debug.Log("[BiomeInjector] Added example Warmth sources: warmth-termite, warmth-physarum, warmth-boid " +
+                      "(Temperature, MaxToward, near-global radius). Set these names as EntityBinding.warmthSourceName " +
+                      "in OSCMapping. OSC: /sn/<entity>/warmth <0..1>. Re-enter Play so OSCMapping registers them.");
+#if UNITY_EDITOR
+            if (!Application.isPlaying) UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
+
+        private void AddWarmthSource(string name, Vector2 uv)
+        {
+            sources.Add(new Source
+            {
+                name = name, channel = BiomeChannel.Temperature, mode = BlendMode.MaxToward,
+                fieldUV = uv, radius = 0.5f, falloff = 1.5f, gain = 1f,
+                inputMin = 0f, inputMax = 1f, smoothing = 0f, value = 0f, valueTimeout = 0.5f,
+            });
+        }
+
         void OnDestroy()
         {
             // Force any in-flight readback to finish before freeing the buffers it writes into.

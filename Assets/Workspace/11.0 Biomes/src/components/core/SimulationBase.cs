@@ -148,6 +148,56 @@ namespace Biomes
 #endif
         }
 
+        // ── Media-agent behavior multipliers (topology-B OSC bridge) ──────────────
+        // Non-destructive per-sim global multipliers driven by the media-agent's
+        // /sn/<entity>/behavior/{speed,trail,sensor,cohesion} leaves. Applied ONLY in each
+        // sim's UploadTypeParams into the transient type-params cache each frame — never
+        // written back into serialized agentParams (so authored presets are never clobbered
+        // and values never compound). Neutral bias (behaviorMulNeutral) → multiplier 1.0.
+        [Header("Media-agent behavior multipliers")]
+        [Tooltip("bias 0 → this multiplier (agent slows / thins its trail / narrows its cone).")]
+        [Range(0.01f, 1f)] public float behaviorMulMin = 0.25f;
+        [Tooltip("bias 1 → this multiplier (agent speeds up / thickens its trail / widens its cone).")]
+        [Range(1f, 8f)] public float behaviorMulMax = 4f;
+        [Tooltip("bias value that maps to multiplier 1.0 (identity — no change).")]
+        [Range(0f, 1f)] public float behaviorMulNeutral = 0.5f;
+
+        // Live multipliers, written off-thread by SetBehaviorMultiplier, read on the main
+        // thread in each sim's UploadTypeParams. volatile so the socket-thread write is
+        // visible promptly on the main thread.
+        protected volatile float behSpeedMul = 1f, behTrailMul = 1f, behSensorMul = 1f, behCohesionMul = 1f;
+
+        public enum BehaviorLeaf { Speed, Trail, Sensor, Cohesion }
+
+        /// <summary>Set a non-destructive global behavior multiplier from a 0..1 bias (a
+        /// media-agent /sn/&lt;entity&gt;/behavior/* leaf). Neutral bias (behaviorMulNeutral,
+        /// default 0.5) → 1.0; below neutral lerps toward behaviorMulMin, above toward
+        /// behaviorMulMax. Thread-safe: writes only a volatile float (no Unity API), so it is
+        /// safe to call from the OSC socket thread — same contract as BiomeInjector.SetValue.
+        /// Consumed on the main thread in UploadTypeParams; never written into agentParams.</summary>
+        public void SetBehaviorMultiplier(BehaviorLeaf leaf, float bias01)
+        {
+            float mul = BiasToMultiplier(bias01);
+            switch (leaf)
+            {
+                case BehaviorLeaf.Speed:    behSpeedMul    = mul; break;
+                case BehaviorLeaf.Trail:    behTrailMul    = mul; break;
+                case BehaviorLeaf.Sensor:   behSensorMul   = mul; break;
+                case BehaviorLeaf.Cohesion: behCohesionMul = mul; break;
+            }
+        }
+
+        // Map a 0..1 bias to a multiplier around neutral: bias==neutral → 1.0, bias→0 →
+        // behaviorMulMin, bias→1 → behaviorMulMax (two-sided lerp so neutral is exactly identity).
+        float BiasToMultiplier(float bias01)
+        {
+            float b = Mathf.Clamp01(bias01);
+            float n = Mathf.Clamp01(behaviorMulNeutral);
+            if (b <= n)
+                return n <= 0f ? 1f : Mathf.Lerp(behaviorMulMin, 1f, b / n);
+            return n >= 1f ? 1f : Mathf.Lerp(1f, behaviorMulMax, (b - n) / (1f - n));
+        }
+
         protected abstract void InitBuffers();
         protected abstract void GPUReset();
         protected abstract void GPUStep();

@@ -19,7 +19,8 @@ namespace Biomes
         public const int FlowY      = 9;
         public const int Dispersal  = 10;  // transient agitation: scatters all sims
         public const int Humidity   = 11;  // renewable moisture: agent-consumed, evaporated by Temperature
-        public const int Count      = 12;
+        public const int HumidityGrad = 12;  // |∇Humidity| magnitude: precomputed moisture-edge (termite build cue)
+        public const int Count      = 13;
 
         /// <summary>Display names, index-aligned with the constants above. Single source of
         /// truth for the inspector channel dropdown — keep in sync if channels change.</summary>
@@ -27,6 +28,7 @@ namespace Biomes
         {
             "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
             "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal", "Humidity",
+            "Humidity_Grad",
         };
     }
 
@@ -71,6 +73,7 @@ namespace Biomes
             new() { name = "Flow_Y",         diffuseRate = 0.92f,  decayRate = 0.02f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Dispersal",      diffuseRate = 0.9f,   decayRate = 0.12f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Humidity",       diffuseRate = 0.97f,  decayRate = 0.001f, advectedByFlow = true,  initialValue = 0.5f, relaxRate = 0.01f },
+            new() { name = "Humidity_Grad",  diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
         };
 
         // Cross-field interaction rates
@@ -85,6 +88,10 @@ namespace Biomes
                  "(humidity -= rate·max(0, temp-0.5) each step). Dries the field behind the hot zones; " +
                  "the |∇Humidity| edge this leaves is the termite build cue. 0 = no thermal evaporation.")]
         [Range(0f, 0.2f)] public float temperatureToEvaporation = 0.05f;   // Temperature dries Humidity
+        [Tooltip("Gain applied to |∇Humidity| before saturate when writing CH_HUMIDITY_GRAD. The raw " +
+                 "central-difference magnitude is tiny (Humidity diffuseRate 0.97 smooths the field), so " +
+                 "this lifts the drying-wake edge into a usable termite build cue. 0 = no gradient signal.")]
+        [Range(0f, 32f)]  public float humidityGradientGain = 12f;         // |∇Humidity| magnitude gain
 
         [Header("Initial Matter Map")]
         [Range(0f, 10f)] public float noiseScale = 3f;

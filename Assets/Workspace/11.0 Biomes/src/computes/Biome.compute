@@ -28,7 +28,8 @@
 #define CH_FLOW_Y       9
 #define CH_DISPERSAL    10
 #define CH_HUMIDITY     11
-#define CH_COUNT        12
+#define CH_HUMIDITY_GRAD 12
+#define CH_COUNT        13
 
 // --- Textures ---
 SamplerState sampler_fieldRead;
@@ -53,6 +54,7 @@ float decompTempSpan;       // Q10 exponent span for decomposition (0 ≈ flat, 
 float tempToFlowStrength;
 float tempToPermeability;
 float tempToEvaporation;    // Temperature above 0.5 baseline sinks Humidity (evaporation)
+float humidityGradientGain; // |∇Humidity| magnitude gain (raw grad tiny; Humidity diffuseRate smooths it)
 float noiseScale;
 float noiseThreshold;
 
@@ -255,10 +257,26 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     //    cool ground is the |∇Humidity| termite build cue (sampled agent-side via perception).
     humidity -= tempToEvaporation * max(0.0, temp - 0.5);
 
+    // 4. |∇Humidity| → CH_HUMIDITY_GRAD. Central differences on PRE-evaporation Humidity: the
+    //    neighbour taps sample fieldRead, which the evaporation above never touched (it only
+    //    decremented the local `humidity`), so this encodes the sharpest drying-wake edge.
+    //    Reads center-neighbours, writes its own cell only → race-free. This channel's
+    //    diffuseRate is 0 so DiffuseFieldsKernel won't blur the edge it encodes.
+    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
+    float dx = 1.0 / (float)rezX;
+    float dy = 1.0 / (float)rezY;
+    float hL = fieldRead.SampleLevel(sampler_fieldRead, float3(uv.x - dx, uv.y, CH_HUMIDITY), 0);
+    float hR = fieldRead.SampleLevel(sampler_fieldRead, float3(uv.x + dx, uv.y, CH_HUMIDITY), 0);
+    float hD = fieldRead.SampleLevel(sampler_fieldRead, float3(uv.x, uv.y - dy, CH_HUMIDITY), 0);
+    float hU = fieldRead.SampleLevel(sampler_fieldRead, float3(uv.x, uv.y + dy, CH_HUMIDITY), 0);
+    float gradX = (hR - hL) * 0.5;
+    float gradY = (hU - hD) * 0.5;
+
     fieldWrite[uint3(id.xy, CH_NUTRIENT)] = clamp(nutrient, 0, 1);
     fieldWrite[uint3(id.xy, CH_WASTE)] = clamp(waste, 0, 1);
     fieldWrite[uint3(id.xy, CH_PERMEABILITY)] = perm;
     fieldWrite[uint3(id.xy, CH_HUMIDITY)] = clamp(humidity, 0, 1);
+    fieldWrite[uint3(id.xy, CH_HUMIDITY_GRAD)] = saturate(length(float2(gradX, gradY)) * humidityGradientGain);
 }
 
 
@@ -431,6 +449,7 @@ void RenderDebugKernel(uint3 id : SV_DISPATCHTHREADID) {
     else if (debugChannel == CH_FLOW_Y)      color = float4(0.2, val * 0.5 + 0.5, 0.5 - val * 0.5, 1); // green-blue
     else if (debugChannel == CH_DISPERSAL)   color = float4(1.0, 0.5, 0.1, 1) * val;  // orange (agitation)
     else if (debugChannel == CH_HUMIDITY)    color = float4(0.1, 0.6, 0.9, 1) * val;  // teal (moisture)
+    else if (debugChannel == CH_HUMIDITY_GRAD) color = float4(1.0, 0.85, 0.2, 1) * val; // amber (moisture edge)
     else color = float4(val, val, val, 1);
 
     debugOutTex[id.xy] = color;

@@ -136,14 +136,19 @@ namespace Biomes
             for (int i = 0; i < count; i++)
             {
                 var t = agentParams.types[i];
+                // Media-agent behavior multipliers applied into the TRANSIENT cache only (never
+                // written back into agentParams): speed→maxSpeed, trail→depositAmount,
+                // sensor→alignRange (per Track-D decision — boids have no chemotactic cone),
+                // cohesion→attractRange. Ranges are stored squared, so a multiplier scales the
+                // effective radius by its square root — acceptable for a light global tweak.
                 _typeParamsCache[i] = new BoidTypeParamsGPU
                 {
                     separateRange = t.separationRange * t.separationRange,
-                    alignRange = t.alignmentRange * t.alignmentRange,
-                    attractRange = t.attractionRange * t.attractionRange,
-                    maxSpeed = t.maxSpeed,
+                    alignRange = t.alignmentRange * t.alignmentRange * behSensorMul,
+                    attractRange = t.attractionRange * t.attractionRange * behCohesionMul,
+                    maxSpeed = t.maxSpeed * behSpeedMul,
                     maxForce = t.maxForce,
-                    depositAmount = t.depositAmount,
+                    depositAmount = t.depositAmount * behTrailMul,
                     eatAmount = t.eatAmount,
                     foodSensorDistance = t.foodSensorDistance,
                     sensorAngleRad = t.sensorAngleRad,

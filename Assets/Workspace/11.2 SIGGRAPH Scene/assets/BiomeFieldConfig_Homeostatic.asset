@@ -85,6 +85,12 @@ MonoBehaviour:
     advectedByFlow: 1
     initialValue: 0.5
     relaxRate: 0.01
+  - name: Humidity_Grad
+    diffuseRate: 0
+    decayRate: 0
+    advectedByFlow: 0
+    initialValue: 0
+    relaxRate: 0
   wasteToNutrientRate: 0.02
   decompositionTempSpan: 2
   temperatureToFlowStrength: 0.6

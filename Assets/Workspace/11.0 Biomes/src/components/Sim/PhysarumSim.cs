@@ -93,13 +93,17 @@ namespace Biomes
             for (int i = 0; i < count; i++)
             {
                 var t = agentParams.types[i];
+                // Media-agent behavior multipliers applied into the TRANSIENT cache only (never
+                // written back into agentParams): speed→moveSpeed, trail→depositAmount,
+                // sensor→senseAngle (multiply the degree value BEFORE Deg2Rad). Physarum has no
+                // cohesion → behCohesionMul is intentionally unused (cohesion leaf no-ops).
                 _typeParamsCache[i] = new PhysarumTypeParamsGPU
                 {
-                    senseAngle = t.senseAngle * Mathf.Deg2Rad,
+                    senseAngle = t.senseAngle * behSensorMul * Mathf.Deg2Rad,
                     senseDistance = t.senseDistance,
                     turnAngle = t.turnAngle * Mathf.Deg2Rad,
-                    moveSpeed = t.moveSpeed,
-                    depositAmount = t.depositAmount,
+                    moveSpeed = t.moveSpeed * behSpeedMul,
+                    depositAmount = t.depositAmount * behTrailMul,
                     eatAmount = t.eatAmount,
                     diffuseRate = t.diffuseRate,
                     hue = t.hue,

@@ -131,12 +131,12 @@ float2 SensorTurns(uint3 id, Agent a, TermiteTypeParams p) {
 
     // Biome perception R = chemotaxis (0.5 neutral). Dispersal flee enters here via a
     // negative-weight read on the Dispersal channel in the Umwelt mapping (Phase F4).
-    float biomeLeft = perceptionTex.SampleLevel(sampler_perceptionTex, leftUV.xy, 0).r;
-    float biomeMiddle = perceptionTex.SampleLevel(sampler_perceptionTex, middleUV.xy, 0).r;
-    float biomeRight = perceptionTex.SampleLevel(sampler_perceptionTex, rightUV.xy, 0).r;
-    leftLevel   += (biomeLeft - 0.5) * 2.0;
-    middleLevel += (biomeMiddle - 0.5) * 2.0;
-    rightLevel  += (biomeRight - 0.5) * 2.0;
+    float4 pL = perceptionTex.SampleLevel(sampler_perceptionTex, leftUV.xy, 0);
+    float4 pM = perceptionTex.SampleLevel(sampler_perceptionTex, middleUV.xy, 0);
+    float4 pR = perceptionTex.SampleLevel(sampler_perceptionTex, rightUV.xy, 0);
+    leftLevel   += (pL.r - 0.5) * 2.0 - pL.b;
+    middleLevel += (pM.r - 0.5) * 2.0 - pM.b;
+    rightLevel  += (pR.r - 0.5) * 2.0 - pR.b;
 
     float2 d = direction;
     if (middleLevel > leftLevel && middleLevel > rightLevel) {

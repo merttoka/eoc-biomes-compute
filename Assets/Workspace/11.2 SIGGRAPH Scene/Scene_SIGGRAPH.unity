@@ -326,6 +326,9 @@ MonoBehaviour:
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.5, y: 0.6}
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
   agentsCount: 500000
   paramsSO: {fileID: 11400000, guid: 6ca6f9cecd7334df8a7e565fc5038868, type: 2}
   agentParams: {fileID: 0}
@@ -1184,6 +1187,9 @@ MonoBehaviour:
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.5, y: 0.6}
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
   agentsCount: 131
   turnAngleSpread: 0.8
   paramsSO: {fileID: 11400000, guid: 48e01c58791f549c9b8f2506450e572b, type: 2}
@@ -1616,6 +1622,9 @@ MonoBehaviour:
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
   spawnScale: {x: 0.5, y: 0.6}
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
   agentsCount: 15000
   paramsSO: {fileID: 11400000, guid: df5034b204bf64d5193cc08da4915fd6, type: 2}
   agentParams: {fileID: 0}
@@ -1949,10 +1958,10 @@ MonoBehaviour:
   dispersalBaseline: 0.05
   dispersalAmount: 1
   dispersalFireThreshold: 0.1
-  firingDispersalSource: 0
+  firingDispersalSource: 1
   firingAgentSim: {fileID: 1010527583}
   firingAgentStampCap: 256
-  useAsyncReadback: 0
+  useAsyncReadback: 1
   drawGizmos: 0
   gizmoColor: {r: 0.3, g: 0.9, b: 1, a: 0.6}
 --- !u!114 &1919109757
@@ -1982,7 +1991,7 @@ MonoBehaviour:
   labelColor: {r: 0.6, g: 0.6, b: 0.6, a: 0.6156863}
   labelYOffset: 0.4
   debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
-  debugChannel: 0
+  debugChannel: 6
   exportFolder: Exports/Biomes
   exportNormalized: 1
 --- !u!1 &1938610676
@@ -2022,6 +2031,8 @@ MonoBehaviour:
   - {fileID: 1010527583}
   m_BiomeInjector: {fileID: 1919109756}
   m_NeuronFiringSource: {fileID: 2000144462}
+  m_SnPrefix: /sn
+  m_EntityBindings: []
 --- !u!4 &1938610678
 Transform:
   m_ObjectHideFlags: 0
@@ -2112,7 +2123,7 @@ MonoBehaviour:
   stepsPerFrame: 1
   stepMod: 1
   limitFPS: 1
-  targetFPS: 330
+  targetFPS: 60
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1
