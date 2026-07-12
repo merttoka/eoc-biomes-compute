@@ -216,13 +216,16 @@ namespace Biomes
             rezY = y;
         }
 
-        // Wrapped frame counter fed to shaders as `time`. Keeps (float)time small so RNG
-        // seeds (e.g. time*0.001 + id*0.0001, sin(time)) keep per-agent precision over
-        // long installation runs — raw Time.frameCount degrades them within hours.
-        // Wraps every 65536 frames (~18 min @60fps); the one-frame discontinuity at wrap
-        // is imperceptible.
+        // Wrapped sim-step counter fed to shaders as `time`. Keeps (float)time small so
+        // RNG seeds (e.g. time*0.001 + id*0.0001, sin(time)) keep per-agent precision over
+        // long installation runs — a raw monotonic counter degrades them within hours.
+        // Sourced from the sim step, NOT Time.frameCount: consecutive Step()s in one
+        // render frame (catch-up on slow HW, or stepsPerTick>1) must get distinct seeds
+        // so the sim advances identically regardless of frame pacing. Wraps every 65536
+        // steps (~18 min @60Hz); the one-step discontinuity at wrap is imperceptible.
         protected const int TimeWrap = 65536;
-        protected int WrappedFrame => Time.frameCount % TimeWrap;
+        private int _simStep;
+        protected int WrappedStep => _simStep % TimeWrap;
 
         // True when the live resolution/scale/counts differ from what GPU resources were
         // last allocated for (or nothing is allocated yet). Drives clear-in-place: a normal
@@ -237,6 +240,7 @@ namespace Biomes
         [Button]
         public virtual void Reset()
         {
+            _simStep = 0;
             if (NeedsAllocation())
                 Allocate();
             GPUReset();                                 // clear trails + outTex, respawn agents
@@ -288,7 +292,8 @@ namespace Biomes
 
         public virtual void Step()
         {
-            cs.SetInt(s_TimeID, WrappedFrame);
+            _simStep++;
+            cs.SetInt(s_TimeID, WrappedStep);
             cs.SetFloat(s_PersistenceID, renderPersistence);
             GPUStep();
             SwapTrailArrays();
