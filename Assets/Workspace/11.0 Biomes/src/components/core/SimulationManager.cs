@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using EasyButtons;
 
 namespace Biomes
@@ -14,8 +15,13 @@ namespace Biomes
         [Range(0.1f, 1f)] public float simResolutionScale = 1f;
         [Tooltip("Build each sim's perception texture at this fraction of its sim resolution. Perception only upsamples the low-res biome field (it carries no sim-res detail), and every sim reads it through bilinear UV sampling — 0.25-0.5 is visually identical and removes a full-res build pass per sim per step. Takes effect on Reset.")]
         [Range(0.05f, 1f)] public float perceptionResScale = 1f;
-        [Range(0, 10)] public int stepsPerFrame = 1;
-        [Range(1, 50)] public int stepMod = 1;
+        [Tooltip("Fixed simulation rate in steps/sec. The sim advances at this wall-clock rate on every install regardless of render FPS (Time.fixedDeltaTime = 1/simRate). 60 matches the legacy per-frame feel, so no content re-tuning is needed. Each scene's SimulationManager can set its own.")]
+        [Range(15f, 120f)] public float simRate = 60f;
+        [Tooltip("Spiral-of-death guard (Time.maximumDeltaTime). Caps how much real time one frame may hand to the fixed sim loop. At 60 Hz, 0.1s = at most ~6 catch-up sim steps per rendered frame. If a frame takes longer, the extra time is dropped: the sim slows down uniformly instead of bursting into steps that make the next frame slower still. Lower = steadier under load but lags real-time sooner; higher = tracks real-time harder but risks stutter on a hitching machine. Weak installs run timed loops long, never fast.")]
+        [Range(0.02f, 0.5f)] public float maxAllowedTimestep = 0.1f;
+        [Tooltip("Sim steps per fixed tick. 2 = double-speed sim, still hardware-independent — but it multiplies per-tick GPU cost with no change to tick scheduling, so a high value can push a marginal install into the maxAllowedTimestep clamp (where it also fails to hold sim rate). A dev/artist tool, not a shipping default; content tuned with it won't survive a port to weaker hardware. 0 = paused.")]
+        [FormerlySerializedAs("stepsPerFrame")]
+        [Range(0, 10)] public int stepsPerTick = 1;
         public bool limitFPS = true;
         [Range(24, 330)] public int targetFPS = 60;
 
@@ -113,6 +119,13 @@ namespace Biomes
 
         void Awake()
         {
+            // Fixed-timestep sim: Step() runs in FixedUpdate at simRate steps/sec,
+            // independent of render FPS. maxAllowedTimestep is Unity's spiral-of-death
+            // guard (see field tooltips). Both are global Time settings, but nothing else
+            // in this project uses FixedUpdate/physics, so they're ours to own.
+            Time.fixedDeltaTime = 1f / Mathf.Max(1f, simRate);
+            Time.maximumDeltaTime = maxAllowedTimestep;
+
             if (limitFPS)
             {
                 QualitySettings.vSyncCount = 0;
@@ -196,12 +209,19 @@ namespace Biomes
             _allocRezX = rezX; _allocRezY = rezY;
         }
 
-        void Update()
+        // Sim advances on the fixed clock (simRate). Unity's accumulator calls FixedUpdate
+        // 0..N times per rendered frame to track wall-clock, bounded by maxAllowedTimestep.
+        void FixedUpdate()
         {
-            if (Time.frameCount % stepMod == 0)
-                for (int i = 0; i < stepsPerFrame; i++)
-                    Step();
+            for (int i = 0; i < stepsPerTick; i++)
+                Step();
         }
+
+        // Render is decoupled from the sim: exactly one composite per rendered frame,
+        // showing the latest stepped state (FixedUpdate always runs before LateUpdate
+        // within a frame). On fast HW render free-runs above simRate; on slow HW it
+        // composites the most recent step.
+        void LateUpdate() => Render();
 
         public void Step()
         {
@@ -305,8 +325,6 @@ namespace Biomes
             //    sims accumulate into the field every step regardless (WriteField above).
             if (biome != null)
                 biome.Step();
-
-            Render();
         }
 
         void Render()
