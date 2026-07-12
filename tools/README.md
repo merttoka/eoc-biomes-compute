@@ -33,6 +33,9 @@ tools/.venv/bin/python tools/osc_index_tester.py --stream 60000 66000 --fps 60
 # stream + loop forever (Ctrl+C to stop)
 tools/.venv/bin/python tools/osc_index_tester.py --stream 0 180000 --fps 30 --loop
 
+# stream full range with 5 resetSimsOnly commands evenly spaced through it
+tools/.venv/bin/python tools/osc_index_tester.py --stream 0 179999 --resets 5
+
 # random frames
 tools/.venv/bin/python tools/osc_index_tester.py --random --count 10 --hold 0.5
 
@@ -45,10 +48,19 @@ tools/.venv/bin/python tools/osc_index_tester.py 1234 --host 10.0.0.5 --port 900
 | `index` (positional) | send one frame | quick check |
 | `--sweep [START END] --steps N --hold S` | N discrete frames, hold each S s | inspecting *which* neurons a frame fires (each blips then decays) |
 | `--stream [START END] --fps F [--loop]` | every frame at F fps | sustained firing (intensity stays ~1) — tuning the ring overlay / visual balance |
+| `--stream … --resets N` | fire `/sim_resetSimsOnly` at N evenly-spaced interior frames during the stream | scripted resets mid-playback (e.g. clear sims partway through a run) |
 | `--random --count N --hold S` | N random frames | stress / variety |
 
-Defaults: `--host 127.0.0.1`, `--port 9000` (= `OSCMapping.m_Port`), `--addr /index`,
-`--max 179999` (indices are clamped). `--sweep`/`--stream` ranges default to `0..max`.
+`--resets N` only applies to `--stream`. It splits the streamed span into `N+1` parts and
+sends a reset at each interior boundary — so `--stream 0 179999 --resets 5` resets at frames
+`30000, 60000, 90000, 119999, 149999`. Override the address with `--reset-addr` (default
+`/sim_resetSimsOnly` → `SimulationManager.ResetSimsOnly()`; the argument is ignored, any value
+triggers it). Reset commands are marshalled to Unity's main thread, so they take effect on the
+next frame.
+
+Defaults: `--host 127.0.0.1`, `--port 1234` (= `OSCMapping.m_Port`), `--addr /index`,
+`--reset-addr /sim_resetSimsOnly`, `--max 179999` (indices are clamped). `--sweep`/`--stream`
+ranges default to `0..max`.
 
 ---
 

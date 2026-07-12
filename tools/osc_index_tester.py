@@ -51,7 +51,7 @@ def main():
     )
     p.add_argument("index", nargs="?", type=int, help="single frame index to send (0..%d)" % MAX_FRAME)
     p.add_argument("--host", default="127.0.0.1", help="target host (default 127.0.0.1)")
-    p.add_argument("--port", type=int, default=9000, help="target port (default 9000, = OSCMapping m_Port)")
+    p.add_argument("--port", type=int, default=1234, help="target port (default 1234, = OSCMapping m_Port)")
     p.add_argument("--addr", default="/index", help="OSC address (default /index)")
     p.add_argument("--max", type=int, default=MAX_FRAME, dest="max_frame",
                    help="max frame index, for clamping (default %d)" % MAX_FRAME)
@@ -66,6 +66,11 @@ def main():
     p.add_argument("--fps", type=float, default=None,
                    help="frames/sec for --stream (default 60; ignored by --sweep/--random, use --hold)")
     p.add_argument("--loop", action="store_true", help="loop --stream/--sweep forever (Ctrl+C to stop)")
+
+    p.add_argument("--resets", type=int, default=0, metavar="N",
+                   help="send N reset commands evenly spaced through --stream (interior points)")
+    p.add_argument("--reset-addr", default="/sim_resetSimsOnly", dest="reset_addr",
+                   help="OSC address for --resets (default /sim_resetSimsOnly)")
 
     p.add_argument("--random", action="store_true", help="send random frames")
     p.add_argument("--count", type=int, default=10, help="number of frames for --random (default 10)")
@@ -91,7 +96,19 @@ def main():
             fps = args.fps if args.fps is not None else 60.0
             dt = 1.0 / fps if fps > 0 else 0.0
             step = 1 if end >= start else -1
+            # Evenly spaced interior reset points (N resets split the span into N+1 parts).
+            reset_frames = set()
+            if args.resets > 0:
+                span = end - start
+                reset_frames = {round(start + span * i / (args.resets + 1)) for i in range(1, args.resets + 1)}
+
+            def send_reset():
+                client.send_message(args.reset_addr, 1)
+                print("  %s (resetSimsOnly)" % args.reset_addr)
+
             print("stream %d..%d @ %.0ffps%s" % (start, end, fps, "  (loop)" if args.loop else ""))
+            if reset_frames:
+                print("resets @ %s" % sorted(reset_frames))
             # Absolute-deadline pacing: sleep until next_t, not sleep(dt) after each
             # send — otherwise send/print overhead accumulates and the actual rate
             # undershoots the requested fps (~18% low at 60fps).
@@ -100,6 +117,8 @@ def main():
             while True:
                 for f in range(start, end + step, step):
                     send(f)
+                    if f in reset_frames:
+                        send_reset()
                     rate_n += 1
                     now = time.monotonic()
                     if now - rate_t0 >= 2.0:
