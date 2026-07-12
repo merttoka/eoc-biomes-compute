@@ -52,8 +52,11 @@ took the field 10→11); Humidity takes it 11→12. Intended use: 11.2 SIGGRAPH 
   count sites: `BiomeChannel.Count/Names` + `Biome.compute` `CH_COUNT` + the asset lists.
 
 ## Open / next session
-1. Wire the SIGGRAPH `UmweltMapping`s: Physarum/Termite Humidity `+Chemotaxis` (seek moisture)
-   and a consumption write; termite build cue off `|∇Humidity|`.
+1. ~~Wire the SIGGRAPH `UmweltMapping`s: Physarum/Termite Humidity `+Chemotaxis` (seek moisture)
+   and a consumption write; termite build cue off `|∇Humidity|`.~~ → **shipped in `0365ed0`**
+   (both CURRENTS + SIGGRAPH). Physarum: ch11 `w0.8` Chemotaxis + `-0.006` consume. Termite:
+   ch11 `w0.6` Chemotaxis + `-0.004` consume, ch12 `w1.0` Chemotaxis + `w0.6` SpeedPenalty
+   (build cue). Verified [[2026-07-11-fps-independent-sim|2026-07-11]].
 2. Tune `temperatureToEvaporation` against the diurnal-sun work (not yet shipped) so the
    drying wake actually travels rather than pinning a static dry disk.
 3. Validate in Unity (compile, debug-grid shows the teal channel, evaporation reads visibly).
