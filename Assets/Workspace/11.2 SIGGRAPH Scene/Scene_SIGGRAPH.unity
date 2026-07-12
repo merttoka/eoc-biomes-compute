@@ -183,12 +183,12 @@ MonoBehaviour:
     ndi: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
     syphon: {fileID: 11400000, guid: 4f35cf6570beb4605a26cd2d71c4f8fc, type: 2}
   streams:
-  - enabled: 1
+  - enabled: 0
     source: 0
     index: 0
-    protocol: 1
+    protocol: 0
     streamName: EoC_compositeOut
-    resolutionScale: 1
+    resolutionScale: 0.1
 --- !u!4 &39187334
 Transform:
   m_ObjectHideFlags: 0
@@ -329,7 +329,7 @@ MonoBehaviour:
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  agentsCount: 500000
+  agentsCount: 300000
   paramsSO: {fileID: 11400000, guid: 6ca6f9cecd7334df8a7e565fc5038868, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
@@ -342,6 +342,7 @@ GameObject:
   m_Component:
   - component: {fileID: 417804409}
   - component: {fileID: 417804410}
+  - component: {fileID: 417804413}
   - component: {fileID: 417804411}
   m_Layer: 0
   m_Name: Params
@@ -392,8 +393,8 @@ MonoBehaviour:
   rightMid: 0
   rightBot: 15
   sendLEDFeedback: 1
-  ledUpdateInterval: 0.6
-  logMidi: 0
+  ledUpdateInterval: 0.3
+  logMidi: 1
   ccSideL1: 8
   ccSideL2: 9
   ccSideL3: 10
@@ -418,6 +419,24 @@ MonoBehaviour:
   isRecording: 0
   isPlaying: 0
   playbackStep: 0
+--- !u!114 &417804413
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 417804407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96eedfd67d2c849ac8d7899ecfe91d37, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.MidiPianoMixer
+  m_SimManager: {fileID: 2000144461}
+  mixerBaseNote: 21
+  commandLowNote: 96
+  weightMax: 2
+  smoothingSeconds: 0.08
+  logMidi: 0
 --- !u!1 &527395916
 GameObject:
   m_ObjectHideFlags: 0
@@ -2092,7 +2111,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2000144458}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a81345919d00e415285bf20e1c5b4d5b, type: 3}
   m_Name: 
@@ -2120,8 +2139,9 @@ MonoBehaviour:
   rezY: 1080
   simResolutionScale: 1
   perceptionResScale: 0.75
-  stepsPerFrame: 1
-  stepMod: 1
+  simRate: 60
+  maxAllowedTimestep: 0.1
+  stepsPerTick: 1
   limitFPS: 1
   targetFPS: 60
   biome: {fileID: 1919109757}
