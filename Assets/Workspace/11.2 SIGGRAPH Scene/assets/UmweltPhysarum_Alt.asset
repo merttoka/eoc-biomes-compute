@@ -29,7 +29,7 @@ MonoBehaviour:
     weight: 0.75
     effect: 1
   - channel: 4
-    weight: 0.5
+    weight: 0.4
     effect: 3
   - channel: 10
     weight: -2
@@ -54,7 +54,7 @@ MonoBehaviour:
     amount: -0.006
   preferredPermeabilityMin: 0.3
   preferredPermeabilityMax: 0.7
-  metabolicHeat: 0.01
+  metabolicHeat: 0.0005
   oxygenConsumption: 0.004
   enableDeath: 0
   deathThresholdOxygen: 0.05

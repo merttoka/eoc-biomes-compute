@@ -318,7 +318,7 @@ MonoBehaviour:
   renderPersistence: 0.8
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
-  dispersalConstantSpeed: 40
+  dispersalConstantSpeed: 30
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: 63c180cf80e5b49ca94b4648442b7add, type: 2}
@@ -1633,7 +1633,7 @@ MonoBehaviour:
   renderPersistence: 0.9
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
-  dispersalConstantSpeed: 40
+  dispersalConstantSpeed: 30
   rezX: 2048
   rezY: 2048
   umwelt: {fileID: 11400000, guid: ad7466382b28644daa8d0f4190b4e647, type: 2}
@@ -1939,6 +1939,11 @@ MonoBehaviour:
     smoothing: 0.145
     value: 0.775
     valueTimeout: 4
+    drive: 0
+    phaseSource: 0
+    periodSteps: 7200
+    dayFraction: 0.7
+    sweepHeight: 0.5
   - name: arm2
     enabled: 0
     oscAddress: 
@@ -1953,6 +1958,11 @@ MonoBehaviour:
     smoothing: 0.145
     value: 0.775
     valueTimeout: 4
+    drive: 0
+    phaseSource: 0
+    periodSteps: 7200
+    dayFraction: 0.7
+    sweepHeight: 0.5
   - name: arm3
     enabled: 0
     oscAddress: 
@@ -1967,15 +1977,39 @@ MonoBehaviour:
     smoothing: 0.145
     value: 0.775
     valueTimeout: 4
+    drive: 0
+    phaseSource: 0
+    periodSteps: 7200
+    dayFraction: 0.7
+    sweepHeight: 0.5
+  - name: DiurnalSun
+    enabled: 1
+    oscAddress: 
+    fieldUV: {x: 0.5, y: 0.5}
+    radius: 0.5
+    falloff: 1.22
+    channel: 5
+    gain: 0.9
+    mode: 1
+    inputMin: 0
+    inputMax: 1
+    smoothing: 0
+    value: 1
+    valueTimeout: 0
+    drive: 1
+    phaseSource: 0
+    periodSteps: 7200
+    dayFraction: 0.7
+    sweepHeight: 0.5
   firingSource: {fileID: 2000144462}
   firingDispersalEnabled: 1
   dispersalChannel: 10
   firingSpawnScale: {x: 0.4, y: 0.75}
-  dispersalRadius: 0.025
-  dispersalExpandGain: 1.5
+  dispersalRadius: 0.02
+  dispersalExpandGain: 2
   dispersalFalloff: 0.4
-  dispersalBaseline: 0.05
-  dispersalAmount: 1
+  dispersalBaseline: 0.025
+  dispersalAmount: 0.95
   dispersalFireThreshold: 0.1
   firingDispersalSource: 1
   firingAgentSim: {fileID: 1010527583}
@@ -2147,7 +2181,7 @@ MonoBehaviour:
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1
-  metabolismEvery: 2
+  metabolismEvery: 1
   simulations:
   - {fileID: 276895388}
   - {fileID: 1825205988}

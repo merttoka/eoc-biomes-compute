@@ -41,14 +41,14 @@ MonoBehaviour:
     diffuseRate: 0.995
     decayRate: 0
     advectedByFlow: 1
-    initialValue: 0.8
+    initialValue: 0.5
     relaxRate: 0.01
   - name: Temperature
-    diffuseRate: 0.997
+    diffuseRate: 0.96
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0.5
-    relaxRate: 0.02
+    relaxRate: 0.06
   - name: Waste
     diffuseRate: 0.99
     decayRate: 0.001
@@ -92,9 +92,10 @@ MonoBehaviour:
     initialValue: 0
     relaxRate: 0
   wasteToNutrientRate: 0.02
-  decompositionTempSpan: 2
-  temperatureToFlowStrength: 0.6
-  temperatureToPermeability: 0.2
-  temperatureToEvaporation: 0.05
+  decompositionTempSpan: 3
+  temperatureToFlowStrength: 0.8
+  temperatureToPermeability: 0.4
+  temperatureToEvaporation: 0.13
+  humidityGradientGain: 12
   noiseScale: 3
-  noiseThreshold: 0.212
+  noiseThreshold: 0.25

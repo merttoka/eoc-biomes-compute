@@ -49,7 +49,7 @@ MonoBehaviour:
     amount: -0.005
   preferredPermeabilityMin: 0.6
   preferredPermeabilityMax: 1
-  metabolicHeat: 0.08
+  metabolicHeat: 0.02
   oxygenConsumption: 0.09
   enableDeath: 0
   deathThresholdOxygen: 0.05
