@@ -20,7 +20,16 @@ Sends the OSC frame index that `NeuronFiringSource` scrubs. `OSCMapping` listens
 valid indices are `0..179999`. Firing **decays to quiet ~0.5 s** after the last message —
 so `--stream` for sustained firing, `--sweep` to scrub discrete frames.
 
+**Run with no arguments** for the canonical installation loop: full-range `0..180000` stream at
+60fps, looping forever, with `/sim_resetSimsOnly` at the start of each pass and `/sim_resetPhysarum`
+fired 5× evenly through it.
+
 ```bash
+# default: the installation loop (equivalent to the --stream line below)
+tools/.venv/bin/python tools/osc_index_tester.py
+#   == --stream 0 180000 --fps 60 --loop --resets 5 \
+#      --reset-addr /sim_resetPhysarum --reset-start /sim_resetSimsOnly
+
 # one frame
 tools/.venv/bin/python tools/osc_index_tester.py 90000
 
@@ -36,6 +45,10 @@ tools/.venv/bin/python tools/osc_index_tester.py --stream 0 180000 --fps 30 --lo
 # stream full range with 5 resetSimsOnly commands evenly spaced through it
 tools/.venv/bin/python tools/osc_index_tester.py --stream 0 179999 --resets 5
 
+# per-type resets: resetSimsOnly at the start of each pass, 5x resetPhysarum through it
+tools/.venv/bin/python tools/osc_index_tester.py --stream 0 180000 --loop \
+    --reset-start /sim_resetSimsOnly --resets 5 --reset-addr /sim_resetPhysarum
+
 # random frames
 tools/.venv/bin/python tools/osc_index_tester.py --random --count 10 --hold 0.5
 
@@ -45,22 +58,31 @@ tools/.venv/bin/python tools/osc_index_tester.py 1234 --host 10.0.0.5 --port 900
 
 | Mode | What it does | Use for |
 |------|--------------|---------|
+| *(no args)* | full-range 60fps loop + `resetSimsOnly` at each pass start + 5× `resetPhysarum` | the installation default |
 | `index` (positional) | send one frame | quick check |
 | `--sweep [START END] --steps N --hold S` | N discrete frames, hold each S s | inspecting *which* neurons a frame fires (each blips then decays) |
 | `--stream [START END] --fps F [--loop]` | every frame at F fps | sustained firing (intensity stays ~1) — tuning the ring overlay / visual balance |
-| `--stream … --resets N` | fire `/sim_resetSimsOnly` at N evenly-spaced interior frames during the stream | scripted resets mid-playback (e.g. clear sims partway through a run) |
+| `--stream … --resets N [--reset-addr A]` | fire reset `A` at N evenly-spaced interior frames during the stream | scripted resets mid-playback (e.g. clear one sim family partway through a run) |
+| `--stream … --reset-start A` | fire reset `A` once at the start of each stream pass | reset state before each loop (e.g. `resetSimsOnly`) |
 | `--random --count N --hold S` | N random frames | stress / variety |
 
-`--resets N` only applies to `--stream`. It splits the streamed span into `N+1` parts and
-sends a reset at each interior boundary — so `--stream 0 179999 --resets 5` resets at frames
-`30000, 60000, 90000, 119999, 149999`. Override the address with `--reset-addr` (default
-`/sim_resetSimsOnly` → `SimulationManager.ResetSimsOnly()`; the argument is ignored, any value
-triggers it). Reset commands are marshalled to Unity's main thread, so they take effect on the
-next frame.
+`--resets N` / `--reset-start` only apply to `--stream`. `--resets` splits the streamed span
+into `N+1` parts and sends `--reset-addr` at each interior boundary — so `--stream 0 179999
+--resets 5` resets at frames `30000, 60000, 90000, 119999, 149999`. `--reset-start` fires its
+address once at the top of every pass (before frame 0). The reset argument is ignored (any value
+triggers it); commands are marshalled to Unity's main thread, so they take effect on the next
+frame. Available reset addresses (see `OSCMapping`):
+
+| Address | Effect |
+| ------- | ------ |
+| `/sim_reset` | full reset — sims + biome + external input |
+| `/sim_resetSimsOnly` | respawn all sims, preserve biome |
+| `/sim_resetPhysarum` · `/sim_resetBoids` · `/sim_resetTermites` | respawn only that sim family |
 
 Defaults: `--host 127.0.0.1`, `--port 1234` (= `OSCMapping.m_Port`), `--addr /index`,
-`--reset-addr /sim_resetSimsOnly`, `--max 179999` (indices are clamped). `--sweep`/`--stream`
-ranges default to `0..max`.
+`--reset-addr /sim_resetSimsOnly` (interior resets) with no `--reset-start`, `--max 179999`
+(indices are clamped). `--sweep`/`--stream` ranges default to `0..max`. With **no mode flag at
+all**, the tool runs the installation default described at the top.
 
 ---
 

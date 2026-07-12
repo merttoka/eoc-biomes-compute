@@ -15,7 +15,16 @@ Generic MIDI CC mapping for any controller. Inspector dropdown for param names.
 
 OscJack server (default port 9000). Auto-registers addresses from `ModulatableParams`.
 Convention: `/<simPrefix>_<paramName>_<index>` (e.g. `/p_moveSpeed_0`, `/b_maxSpeed_0`).
-Commands: `/sim_reset`, `/sim_resetSimsOnly`.
+
+Reset commands (arg ignored — any value triggers; all marshalled to the main thread):
+
+| Address | Effect |
+| ------- | ------ |
+| `/sim_reset` | full reset (`SimulationManager.Reset()`) — sims + biome + external input |
+| `/sim_resetSimsOnly` | respawn **all** sims, preserve biome; zeros the global step counter |
+| `/sim_resetPhysarum` | respawn only Physarum sims (others keep running; step counter untouched) |
+| `/sim_resetBoids` | respawn only Boid sims |
+| `/sim_resetTermites` | respawn only Termite sims |
 
 **Biome injector** — assign a `BiomeInjector` to OSCMapping's `Biome Injector` field.
 Registers one address per source, keyed by the source's **Name** (use OSC-safe names, no

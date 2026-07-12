@@ -69,13 +69,36 @@ def main():
 
     p.add_argument("--resets", type=int, default=0, metavar="N",
                    help="send N reset commands evenly spaced through --stream (interior points)")
-    p.add_argument("--reset-addr", default="/sim_resetSimsOnly", dest="reset_addr",
+    p.add_argument("--reset-addr", default=None, dest="reset_addr",
                    help="OSC address for --resets (default /sim_resetSimsOnly)")
+    p.add_argument("--reset-start", default=None, dest="reset_start", metavar="ADDR",
+                   help="OSC address sent once at the start of each --stream pass (e.g. /sim_resetSimsOnly)")
 
     p.add_argument("--random", action="store_true", help="send random frames")
     p.add_argument("--count", type=int, default=10, help="number of frames for --random (default 10)")
 
     args = p.parse_args()
+
+    # Default composite mode: no positional index and no mode flag -> the canonical
+    # installation loop. Full-range 60fps stream, /sim_resetSimsOnly once at the start
+    # of each pass, /sim_resetPhysarum 5x spaced through it, looping forever.
+    no_mode = (args.index is None and args.stream is None
+               and args.sweep is None and not args.random)
+    if no_mode:
+        args.stream = [0, 180000]
+        args.loop = True
+        if args.fps is None:
+            args.fps = 30.0
+        if args.resets == 0:
+            args.resets = 5
+        if args.reset_addr is None:
+            args.reset_addr = "/sim_resetPhysarum"
+        if args.reset_start is None:
+            args.reset_start = "/sim_resetSimsOnly"
+        print("default mode: full-range 30fps loop + resetSimsOnly@start + 5x resetPhysarum")
+    if args.reset_addr is None:
+        args.reset_addr = "/sim_resetSimsOnly"
+
     if args.fps is not None and args.stream is None:
         print("WARNING: --fps only applies to --stream; --sweep/--random pace with --hold", file=sys.stderr)
     client = SimpleUDPClient(args.host, args.port)
@@ -102,23 +125,27 @@ def main():
                 span = end - start
                 reset_frames = {round(start + span * i / (args.resets + 1)) for i in range(1, args.resets + 1)}
 
-            def send_reset():
-                client.send_message(args.reset_addr, 1)
-                print("  %s (resetSimsOnly)" % args.reset_addr)
+            def send_reset(addr):
+                client.send_message(addr, 1)
+                print("  %s (reset)" % addr)
 
             print("stream %d..%d @ %.0ffps%s" % (start, end, fps, "  (loop)" if args.loop else ""))
+            if args.reset_start:
+                print("reset-start @ frame %d: %s" % (start, args.reset_start))
             if reset_frames:
-                print("resets @ %s" % sorted(reset_frames))
+                print("resets @ %s -> %s" % (sorted(reset_frames), args.reset_addr))
             # Absolute-deadline pacing: sleep until next_t, not sleep(dt) after each
             # send — otherwise send/print overhead accumulates and the actual rate
-            # undershoots the requested fps (~18% low at 60fps).
+            # undershoots the requested fps (~18% low at 30fps).
             next_t = time.monotonic()
             rate_t0, rate_n = next_t, 0
             while True:
+                if args.reset_start:
+                    send_reset(args.reset_start)
                 for f in range(start, end + step, step):
                     send(f)
                     if f in reset_frames:
-                        send_reset()
+                        send_reset(args.reset_addr)
                     rate_n += 1
                     now = time.monotonic()
                     if now - rate_t0 >= 2.0:

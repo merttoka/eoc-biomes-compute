@@ -69,6 +69,25 @@ namespace Biomes
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetSimsOnly());
                 }
             );
+            // Per-type sim resets (respawn one family, others keep running).
+            m_OscServer.MessageDispatcher.AddCallback(
+                "/sim_resetPhysarum",
+                (string address, OscDataHandle data) => {
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetPhysarum());
+                }
+            );
+            m_OscServer.MessageDispatcher.AddCallback(
+                "/sim_resetBoids",
+                (string address, OscDataHandle data) => {
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetBoids());
+                }
+            );
+            m_OscServer.MessageDispatcher.AddCallback(
+                "/sim_resetTermites",
+                (string address, OscDataHandle data) => {
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetTermites());
+                }
+            );
 
             // Register param callbacks per sim using ModulatableParams
             // Convention: /<simPrefix>_<paramName>_<index>
