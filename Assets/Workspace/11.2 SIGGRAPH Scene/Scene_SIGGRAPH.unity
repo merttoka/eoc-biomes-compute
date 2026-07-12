@@ -329,8 +329,8 @@ MonoBehaviour:
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  agentsCount: 300000
-  paramsSO: {fileID: 11400000, guid: 6ca6f9cecd7334df8a7e565fc5038868, type: 2}
+  agentsCount: 1000000
+  paramsSO: {fileID: 11400000, guid: 2940244884229420484178027317dab3, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
 GameObject:
@@ -394,7 +394,7 @@ MonoBehaviour:
   rightBot: 15
   sendLEDFeedback: 1
   ledUpdateInterval: 0.3
-  logMidi: 1
+  logMidi: 0
   ccSideL1: 8
   ccSideL2: 9
   ccSideL3: 10
@@ -1209,9 +1209,9 @@ MonoBehaviour:
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  agentsCount: 131
-  turnAngleSpread: 0.8
-  paramsSO: {fileID: 11400000, guid: 48e01c58791f549c9b8f2506450e572b, type: 2}
+  agentsCount: 262
+  turnAngleSpread: 0.7
+  paramsSO: {fileID: 11400000, guid: 80a3a020693b64ab993ba515436ad336, type: 2}
   agentParams: {fileID: 0}
 --- !u!114 &1010527584
 MonoBehaviour:
@@ -1644,8 +1644,8 @@ MonoBehaviour:
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  agentsCount: 15000
-  paramsSO: {fileID: 11400000, guid: df5034b204bf64d5193cc08da4915fd6, type: 2}
+  agentsCount: 20000
+  paramsSO: {fileID: 11400000, guid: 9864d76211be94419ba3b2f751784aaf, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &1915234168
 GameObject:
@@ -2135,15 +2135,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 1920
-  rezY: 1080
+  rezX: 3840
+  rezY: 2160
   simResolutionScale: 1
   perceptionResScale: 0.75
   simRate: 60
   maxAllowedTimestep: 0.1
   stepsPerTick: 1
   limitFPS: 1
-  targetFPS: 60
+  targetFPS: 90
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1
