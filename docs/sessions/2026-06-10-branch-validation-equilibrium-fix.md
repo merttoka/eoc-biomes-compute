@@ -29,7 +29,14 @@ Tested `claude/biomes-11-performance-3aog3h` (perf second pass, injector calibra
 7. Nine low-severity footnotes (full list: review workflow output, session 2026-06-10).
 
 ## Open / next session
-1. Apply fixes 1–6 above (each is small + surgical; 3 and 1 first — install-killers).
+1. ~~Apply fixes 1–6 above (each is small + surgical; 3 and 1 first — install-killers).~~ →
+   verified [[2026-07-11-fps-independent-sim|2026-07-11]]: **#3** (NaN-latch, install-killer) +
+   **#2** (ring freeze) already landed (`IsNaN/IsInfinity` ingress guards; `_scaled` cleared on
+   release). **#1** (boid overrun, install-killer) **fixed `b5be95b`** — per-step dispatch now
+   clamps to `AllocatedAgentCount`; live `agentsCount` buffers until Reset. Extended to
+   Physarum (slider→40M) + Termite (→4M), same latent bug. Still open, low-stakes: **#4**
+   (injector EMA not dt-based; fixedUpdate incidentally stabilized the step-driven path) and
+   **#6** (`decompositionTempSpan` default 4f — show scenes override).
 2. Validate homeostatic look long-run at 640 px PDE (equilibrium hold, Q10 fronts at span 2, dig healing).
 3. Injector click-to-place + texture-valued source (carried over).
 4. Neuron disruption routing aesthetic call (carried over).

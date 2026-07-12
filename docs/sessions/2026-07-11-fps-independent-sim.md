@@ -46,12 +46,10 @@ Five commits on `main` (`b5e0d10` → `76e4e06`), unpushed until wrap-up.
   ADR later if the timing model needs a standalone decision record.
 
 ## Open / next session
-1. **Play-mode verification (not yet run)** — the FPS-independence proof: play `TestScene`
-   at `targetFPS 60`, then `30`, then uncapped; confirm `SimStepCount` grows ~60/sec in all
-   three (sim wall-clock speed identical, only render smoothness differs). Plan Task 2 Steps 7–8.
-2. **Injector integration check** (spec §5) — fire a firing/dispersal event at `targetFPS 30`
-   vs uncapped; the async agent-position readback must not assume one `Step()`/frame. If the
-   dispersal desyncs in wall-clock terms, that's a follow-up bug.
+1. ~~**Play-mode verification** — FPS-independence proof at 60/30/uncapped.~~ → **verified working**
+   (sim holds wall-clock speed across render FPS).
+2. ~~**Injector integration check** (spec §5) — dispersal at 30 vs uncapped.~~ → **verified working**
+   (no async-readback desync observed).
 3. **Housekeeping** — `PhysarumParams.asset` (SIGGRAPH) carries unrelated MIDI param tuning,
    left uncommitted.
 4. Consider an ADR for the fixed-timestep timing model if it accrues more constraints.
