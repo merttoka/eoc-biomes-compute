@@ -46,7 +46,15 @@ cleanly, with no write conflict against the Twister.
 
 ## Architecture
 
-Native, via the existing Minis MIDI path. No new process, lowest latency.
+> **Implementation note (2026-07-11):** shipped **self-contained** — `MidiPianoMixer` opens
+> its own Minis device connection (same `InputSystem.onDeviceChange` + `ConnectAllDevices`
+> pattern as `MidiFighterTwister`) and tracks the sustain pedal (CC64) itself, rather than
+> depending on a `MIDIMapping` component. This avoids attaching a second MIDI reader (and its
+> unconditional log spam) to the scene. The `MIDIMapping` `NoteOn`/`SustainHeld` events drafted
+> below were reverted as unused. Everything else (key mapping, command zone, composition levers)
+> is as designed.
+
+Native, via the Minis MIDI path. No new process, lowest latency.
 
 ```
 Clavinova ──USB──▶ Unity Input System ──▶ Minis.MidiDevice

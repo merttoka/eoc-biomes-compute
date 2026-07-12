@@ -8,6 +8,13 @@
 
 **Tech Stack:** Unity (default `Assembly-CSharp`), C#, Minis 1.3.2 (`jp.keijiro.minis`) for MIDI over the Input System, EasyButtons (`[Button]`) for in-editor self-tests, `SimulationManager` composite (`simWeights` ← `compositeWeight`).
 
+> **Post-implementation note (2026-07-11):** built **self-contained**. `MidiPianoMixer` opens
+> its own Minis connection and tracks CC64 itself (mirroring `MidiFighterTwister`) instead of
+> consuming `MIDIMapping` — the scene's live MIDI hub turned out to be `MidiFighterTwister`, and
+> `MIDIMapping` wasn't in the scene. Task 1's `MIDIMapping` edits were made, then **reverted as
+> unused**; Task 3's `MidiPianoMixer` absorbed the device-connection + sustain logic. Also: the
+> pause field is `stepsPerTick` (renamed from `stepsPerFrame`). Tasks 2, 4, 5 stand as written.
+
 ## Global Constraints
 
 - Target namespace: `Biomes`. All new files live under `Assets/Workspace/11.0 Biomes/src/components/network/` (editor code under `network/Editor/`).
