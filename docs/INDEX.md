@@ -18,6 +18,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-07-11-diurnal-sun]] — diurnal sun: procedural `BiomeInjector` source sweeps Temperature L→R, phased off the neuron playhead (one blob playthrough = one day); kept indirect (no temp reads) — retuned temp diffuse/evap/Q10/flow + cut metabolic heat for headroom; OSC per-family resets
 - [[sessions/2026-07-11-fps-independent-sim]] — fixed 60 Hz timestep via `FixedUpdate`; composite render decoupled to `LateUpdate`; sim RNG seeded from monotonic sim step; `stepsPerFrame`+`stepMod` → `simRate`/`maxAllowedTimestep`/`stepsPerTick`; all 3 scenes migrated
 - [[sessions/2026-06-23-humidity-channel]] — Humidity biome channel (11→12): high-diffusion, flow-advected, relaxes to ambient baseline, Temperature evaporates it (`|∇Humidity|` = termite build cue); both Homeostatic assets + docs updated
 - [[sessions/2026-06-17-per-show-scene-split]] — split 11.0 Biomes into per-show folders (11.1 CURRENTS, 11.2 SIGGRAPH); engine stays in 11.0; organoid blob rename; Unity 6 build profile + HDRP
