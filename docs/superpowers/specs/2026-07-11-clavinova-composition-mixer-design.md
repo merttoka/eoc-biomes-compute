@@ -75,25 +75,34 @@ untouched.
 **`MidiPianoMixer.cs` (new MonoBehaviour):** subscribes to `MIDIMapping.NoteOn` /
 `SustainPedal`. Holds the key layout and a reference to `SimulationManager` (to read the
 `simulations` list in order). Owns all `compositeWeight` writes. Serialized config:
-- `commandOctaveLowNote` (default 96 = C7) — notes ≥ this are the command zone.
-- `mixerBaseNote` (default 21 = A0) — first N white keys map to sims 0..N-1 in
-  `SimulationManager.simulations` order.
-- `weightMax` (default 1; up to 4 to allow boost).
+- `commandOctaveLowNote` (default 96 = C7) — notes ≥ this are the command zone
+  (spans C7..C8, 96..108).
+- `mixerBaseNote` (default 21 = A0) — **white keys** from here up auto-assign to sims
+  0..N-1 in `SimulationManager.simulations` order (skip black keys).
+- `weightMax` (default 2.0, range 0..4) — velocity01 × weightMax → target weight; >1
+  boosts a layer past its default 1.0.
 - `smoothingSeconds` (default 0.08) — lerp `compositeWeight` toward target in `Update`
   to avoid pops. (`ParameterInterpolator` is a waypoint/preset tool, not a per-value
   smoother, so use a simple per-sim lerp here.)
+
+**`MidiPianoMixerEditor.cs` (new, `Editor/`):** custom Inspector that draws the live
+key→sim mapping as a keyboard strip (which white key drives which sim, current weight per
+sim, command-zone keys labeled) — the piano analogue of the Twister's binding-table
+readout (`MidiFighterTwister.LogBindingTable`). Read-only visualization; assignment stays
+automatic.
 
 ### Key layout (v1)
 
 | Zone | Notes | Behavior |
 |---|---|---|
-| **Command zone** | top octave C7–B7 (96–107) | reserved; v1 wires **Reset** and **TogglePause** only (rest reserved for v2) |
-| **Sim mixer** | lowest white keys from A0 up, one per sim | **note-on velocity → that sim's `compositeWeight` target** (`vel01 × weightMax`) |
+| **Command zone** | top octave C7–C8 (96–108) | reserved; v1 wires the two Reset keys + **TogglePause** (rest reserved for v2) |
+| **Sim mixer** | white keys from A0 up, one per sim | **note-on velocity → that sim's `compositeWeight` target** (`vel01 × weightMax`) |
 | everything else | — | ignored in v1 |
 
 Command-zone assignments (v1):
-- **Reset** — one white key; fires `SimulationManager.ResetSimsOnly()` **only while the
-  sustain pedal is held** (guard against accidental hits).
+- **C8 (108, the last/highest key)** → full `SimulationManager.Reset()`.
+- **B7 (107, next to it)** → `SimulationManager.ResetSimsOnly()`.
+  - Both fire **only while the sustain pedal is held** (guard against accidental hits).
 - **TogglePause** — one white key.
 - Termite/Physarum/Boid **target-select** keys are *reserved* (labeled) but inert in v1;
   they activate in v2 when per-sim behavior play exists.
@@ -145,9 +154,11 @@ Add a one-line `[PianoMixer]` debug log on each weight change as the observabili
 - **v3:** biome-channel compositing — composite-shader change to blend selected biome
   fields into the output, then a biome-channel mixer zone on the keyboard.
 
-## Open questions
+## Decisions (resolved)
 
-- Which key is Reset, and `ResetSimsOnly()` vs full `Reset()`?
-- `weightMax`: cap at 1 (pure fade) or allow >1 boost?
-- Mixer keys: white-keys-only from A0, or an explicit per-sim note list in the Inspector?
-- Should note-off on a mixer key fade the layer *out* instead of holding (gate vs fader)?
+- **Reset keys:** C8 (108, last key) → full `Reset()`; B7 (107) → `ResetSimsOnly()`; both
+  sustain-pedal-armed.
+- **`weightMax`:** allow >1 — default 2.0, range 0..4.
+- **Mixer keys:** auto-assign white keys from A0 in sim-list order, plus a custom Inspector
+  visualization of the key→sim map (Twister-style).
+- **Mixer note-off:** holds the level (fader semantics), does not fade out.
