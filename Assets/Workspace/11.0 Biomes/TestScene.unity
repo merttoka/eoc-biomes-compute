@@ -1114,8 +1114,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
   rezX: 1920
   rezY: 1080
-  stepsPerFrame: 1
-  stepMod: 1
+  simRate: 60
+  maxAllowedTimestep: 0.1
+  stepsPerTick: 1
   limitFPS: 1
   targetFPS: 60
   biome: {fileID: 414066866}

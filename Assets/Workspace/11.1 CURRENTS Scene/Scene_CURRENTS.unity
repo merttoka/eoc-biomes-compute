@@ -2117,8 +2117,9 @@ MonoBehaviour:
   rezY: 1080
   simResolutionScale: 1
   perceptionResScale: 0.75
-  stepsPerFrame: 1
-  stepMod: 1
+  simRate: 60
+  maxAllowedTimestep: 0.1
+  stepsPerTick: 1
   limitFPS: 0
   targetFPS: 60
   biome: {fileID: 1919109757}

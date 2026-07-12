@@ -93,9 +93,12 @@ src/
 
 A single `SimulationManager` owns resolution, timing, the `Biome`, a list of
 `SimulationBase` sims, the `ExternalInputProvider`, and the composite output. It is
-the only driver: `Reset()` (re)initializes everything; `Update()` calls `Step()`
-`stepsPerFrame` times every `stepMod` frames. `SimStepCount` is the canonical sim
-clock (monotonic, increments per `Step()`), used by time-based tooling.
+the only driver: `Reset()` (re)initializes everything; `FixedUpdate()` calls `Step()`
+`stepsPerTick` times on a fixed clock — `Time.fixedDeltaTime = 1/simRate` (default
+60 Hz) — so sim speed is independent of render FPS; `LateUpdate()` runs the composite
+`Render()` once per rendered frame. Unity's `Time.maximumDeltaTime` (exposed as
+`maxAllowedTimestep`) caps catch-up on slow hardware. `SimStepCount` is the canonical
+sim clock (monotonic, increments per `Step()`), used by time-based tooling.
 
 `Reset()` is **clear-in-place** ([[adr/0008-clear-in-place-reset]]): each owner
 (`SimulationManager`, `Biome`, every `SimulationBase`, `NeuronFiringSource`,
@@ -110,7 +113,8 @@ and composite.
 
 ### 3.2 The per-step pipeline
 
-`SimulationManager.Step()` runs a fixed sequence each simulation step:
+`SimulationManager.Step()` runs a fixed sequence each simulation step (the composite
+render is **not** part of it — it runs separately in `LateUpdate`):
 
 ```
 0. ExternalInput.UpdateInput()      → influence texture assigned to every sim
