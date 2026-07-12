@@ -123,7 +123,7 @@ namespace Biomes
             // independent of render FPS. maxAllowedTimestep is Unity's spiral-of-death
             // guard (see field tooltips). Both are global Time settings, but nothing else
             // in this project uses FixedUpdate/physics, so they're ours to own.
-            Time.fixedDeltaTime = 1f / Mathf.Max(1f, simRate);
+            ApplySimRate();
             Time.maximumDeltaTime = maxAllowedTimestep;
 
             if (limitFPS)
@@ -132,6 +132,10 @@ namespace Biomes
                 Application.targetFrameRate = targetFPS;
             }
         }
+
+        /// <summary>Apply simRate to Unity's fixed timestep. Call after changing simRate
+        /// at runtime (e.g. from a MIDI knob) so the new rate takes effect next fixed step.</summary>
+        public void ApplySimRate() => Time.fixedDeltaTime = 1f / Mathf.Max(1f, simRate);
 
         private bool ManagerNeedsAllocation() =>
             gpu == null || rezX != _allocRezX || rezY != _allocRezY;

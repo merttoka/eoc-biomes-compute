@@ -29,7 +29,7 @@ namespace Biomes
     ///   Bank 0: Core sim params (moveSpeed, senseAngle, turnAngle, senseDistance / maxSpeed, maxForce, ranges)
     ///   Bank 1: Secondary sim params (depositAmount, eatAmount, diffuseRate, foodSensor...)
     ///   Bank 2: Visual + Biome (hue, saturation, biome cross-field interactions)
-    ///   Bank 3: Umwelt + Global (metabolicHeat, oxygenConsumption, stepsPerFrame, stepMod)
+    ///   Bank 3: Umwelt + Global (metabolicHeat, oxygenConsumption, stepsPerTick, simRate)
     /// </summary>
     [ExecuteInEditMode]
     public class MidiFighterTwister : MonoBehaviour
@@ -333,10 +333,10 @@ namespace Biomes
             var mgr = m_SimManager;
             if (mgr != null)
             {
-                bindings[ColRowToEncoderIdx(3, 0)] = MakeGlobalBinding("stepsPerFrame",
-                    v => mgr.stepsPerFrame = Mathf.RoundToInt(v), () => mgr.stepsPerFrame, 0f, 10f);
-                bindings[ColRowToEncoderIdx(3, 1)] = MakeGlobalBinding("stepMod",
-                    v => mgr.stepMod = Mathf.Max(1, Mathf.RoundToInt(v)), () => mgr.stepMod, 1f, 50f);
+                bindings[ColRowToEncoderIdx(3, 0)] = MakeGlobalBinding("stepsPerTick",
+                    v => mgr.stepsPerTick = Mathf.RoundToInt(v), () => mgr.stepsPerTick, 0f, 10f);
+                bindings[ColRowToEncoderIdx(3, 1)] = MakeGlobalBinding("simRate",
+                    v => { mgr.simRate = v; mgr.ApplySimRate(); }, () => mgr.simRate, 15f, 120f);
 
                 var biome = mgr.biome;
                 if (biome != null)
@@ -824,8 +824,8 @@ namespace Biomes
                 case SideButtonAction.TogglePause:
                     if (m_SimManager != null)
                     {
-                        m_SimManager.stepsPerFrame = m_SimManager.stepsPerFrame > 0 ? 0 : 1;
-                        if (logMidi) Debug.Log($"[MFT] Paused = {m_SimManager.stepsPerFrame == 0}");
+                        m_SimManager.stepsPerTick = m_SimManager.stepsPerTick > 0 ? 0 : 1;
+                        if (logMidi) Debug.Log($"[MFT] Paused = {m_SimManager.stepsPerTick == 0}");
                     }
                     break;
 
