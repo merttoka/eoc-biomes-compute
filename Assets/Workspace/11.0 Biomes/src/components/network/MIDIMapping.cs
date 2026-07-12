@@ -25,6 +25,12 @@ namespace Biomes
 
         public List<MIDIControlMapping> m_MIDIMappings = new List<MIDIControlMapping>();
 
+        // ── Piano mixer bridge: raise note + sustain so MidiPianoMixer can subscribe ──
+        public event Action<int, int, float> NoteOn;  // channel, noteNumber, velocity01
+        public event Action<int, int> NoteOff;        // channel, noteNumber
+        public bool SustainHeld { get; private set; }
+        private const int CC_SUSTAIN = 64;
+
         #region Callbacks
 
         void OnDeviceChange(InputDevice device, InputDeviceChange change)
@@ -38,10 +44,16 @@ namespace Biomes
         }
 
         void OnWillNoteOn(Minis.MidiNoteControl note, float velocity)
-          => Debug.Log($"[MIDI] Ch.{note.channel,-2} {note.shortDisplayName,3} ({note.noteNumber:000}) NoteOn {velocity * 100,3:0}%");
+        {
+            Debug.Log($"[MIDI] Ch.{note.channel,-2} {note.shortDisplayName,3} ({note.noteNumber:000}) NoteOn {velocity * 100,3:0}%");
+            NoteOn?.Invoke(note.channel, note.noteNumber, velocity);
+        }
 
         void OnWillNoteOff(Minis.MidiNoteControl note)
-          => Debug.Log($"[MIDI] Ch.{note.channel,-2} {note.shortDisplayName,3} ({note.noteNumber:000}) NoteOff");
+        {
+            Debug.Log($"[MIDI] Ch.{note.channel,-2} {note.shortDisplayName,3} ({note.noteNumber:000}) NoteOff");
+            NoteOff?.Invoke(note.channel, note.noteNumber);
+        }
 
         void OnWillAftertouch(Minis.MidiNoteControl note, float pressure)
           => Debug.Log($"[MIDI] Ch.{note.channel,-2} {note.shortDisplayName,3} ({note.noteNumber:000}) Pressure {pressure * 100,3:0}%");
@@ -52,6 +64,16 @@ namespace Biomes
             m_lastMidiValues.TryGetValue(controlKey, out float lastValue);
             float delta = value - lastValue;
             m_lastMidiValues[controlKey] = value;
+
+            if (cc.controlNumber == CC_SUSTAIN)
+            {
+                bool held = value >= 0.5f;
+                if (held != SustainHeld)
+                {
+                    SustainHeld = held;
+                    Debug.Log($"[MIDI] Sustain {(held ? "DOWN" : "UP")}");
+                }
+            }
 
             Debug.Log($"[MIDI] Ch.{cc.channel,-2} CC ({cc.controlNumber:000}) {value * 100,3:0}% (Δ: {delta:F2})");
 
