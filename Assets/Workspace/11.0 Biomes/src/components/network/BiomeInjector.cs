@@ -20,10 +20,26 @@ namespace Biomes
     ///
     /// Examples: a plant → Oxygen source at its mapped floor location; a robot arm →
     /// Temperature source driven by a proximity sensor; neuron firing → Pheromone/alarm.
+    ///
+    /// A source may instead be <see cref="Drive.Procedural"/> — self-animating from a
+    /// phase clock rather than OSC. The diurnal sun is one: a warm MaxToward stamp that sweeps
+    /// Temperature L→R, phased off the neuron playhead so one blob playthrough is one day
+    /// (<see cref="AddDiurnalSunSource"/>).
     /// </summary>
     public class BiomeInjector : MonoBehaviour
     {
         public enum BlendMode { Additive = 0, MaxToward = 1, SetToward = 2 }
+
+        // Source value origin. External = inspector/OSC (default). Procedural = the source
+        // animates its own position + value from a phase clock (e.g. the diurnal sun), ignoring OSC.
+        public enum Drive { External = 0, Procedural = 1 }
+
+        // Phase clock for a Procedural source. FiringIndex = the neuron playhead
+        // (NeuronFiringSource.CurrentFrame / FrameCount): one full firing-blob playthrough
+        // (index 0 → last) is one "day", so the biome's diurnal rhythm rides the organoid
+        // playback and the index=0 loop reset lands on sunrise. SimStep = free-running
+        // SimStepCount with periodSteps (fallback when no OSC index, e.g. a tempo breath).
+        public enum PhaseSource { FiringIndex = 0, SimStep = 1 }
 
         [Serializable]
         public class Source
@@ -67,6 +83,25 @@ namespace Biomes
 
             [Tooltip("Seconds before an un-refreshed value decays to 0 (sensor-dropout guard). 0 = never.")]
             public float valueTimeout = 0f;
+
+            [Header("Procedural drive (self-animating; ignores OSC when Procedural)")]
+            [Tooltip("External = value from inspector/OSC (default). Procedural = the source animates " +
+                     "its own fieldUV + value from a phase clock — the diurnal sun. Reuses radius/falloff/" +
+                     "channel/gain/mode below; with MaxToward the sun only ever RAISES Temperature, so it " +
+                     "warms by day and simply stops at night (field relaxes to its 0.5 baseline).")]
+            public Drive drive = Drive.External;
+            [Tooltip("Procedural phase clock. FiringIndex = the neuron playhead (one blob playthrough = one day). " +
+                     "SimStep = free-running SimStepCount over periodSteps.")]
+            public PhaseSource phaseSource = PhaseSource.FiringIndex;
+            [Tooltip("SimStep mode only: sim steps per full day. 7200 = 2 min @ 60 Hz. Ignored in FiringIndex mode " +
+                     "(period = the blob's frame range, e.g. 0..180000).")]
+            public int periodSteps = 7200;
+            [Tooltip("Fraction of the cycle that is daylight; the remainder is a dark, cool night (no stamp, " +
+                     "field relaxes to baseline). 0.7 = 70% day.")]
+            [Range(0.1f, 1f)] public float dayFraction = 0.7f;
+            [Tooltip("Vertical position of the sun (0..1). It sweeps horizontally L→R across daylight; gain is the " +
+                     "noon warmth target (MaxToward), tapering to 0 at sunrise/sunset via a sine envelope.")]
+            [Range(0f, 1f)] public float sweepHeight = 0.5f;
 
             [NonSerialized] public float lastSetTime = -1f;
             [NonSerialized] public volatile bool valueDirty; // set off-thread by SetValue, consumed in Inject
@@ -215,8 +250,9 @@ namespace Biomes
         }
 
         /// <summary>Pack the active sources and dispatch injection into the biome. Call once
-        /// per step, AFTER sim write-back and BEFORE biome.Step().</summary>
-        public void Inject(Biome biome)
+        /// per step, AFTER sim write-back and BEFORE biome.Step(). simStep is the canonical
+        /// SimStepCount, used as the fallback phase clock for Procedural sources.</summary>
+        public void Inject(Biome biome, int simStep)
         {
             if (biome == null || sources == null) return;
 
@@ -236,21 +272,42 @@ namespace Biomes
                 var s = sources[i];
                 if (s == null || !s.enabled || s.radius <= 0f) continue;
 
-                if (s.valueDirty) { s.lastSetTime = now; s.monLastMsgTime = now; s.valueDirty = false; } // stamp set-time on main thread
+                Vector2 uv;
+                float value;   // 0..1, pre-gain
 
-                // Calibrate raw → 0..1, guard sensor dropout, then EMA-smooth.
-                float cal = Calibrate(s.value, s.inputMin, s.inputMax);
-                s.monStale = (s.valueTimeout > 0f && s.lastSetTime >= 0f && now - s.lastSetTime > s.valueTimeout);
-                if (s.monStale) cal = 0f; // stale value decays to nothing
-                s.monCalibrated = Mathf.Lerp(cal, s.monCalibrated, Mathf.Clamp(s.smoothing, 0f, 0.99f));
+                if (s.drive == Drive.Procedural)
+                {
+                    // Self-driving source (diurnal sun): sweep position + sine warmth from a phase
+                    // clock. Night (phase past dayFraction) emits no stamp — MaxToward never cools,
+                    // so the field just relaxes to baseline until the next sunrise.
+                    float phase = ProceduralPhase(s, simStep);
+                    float day = Mathf.Clamp(s.dayFraction, 0.05f, 1f);
+                    if (phase >= day) { s.monCalibrated = 0f; continue; }
+                    float dayPhase = phase / day;                 // 0..1 across daylight
+                    uv = new Vector2(dayPhase, Mathf.Clamp01(s.sweepHeight));
+                    value = Mathf.Sin(Mathf.PI * dayPhase);       // 0 sunrise → 1 noon → 0 sunset
+                    s.monCalibrated = value;                      // inspector readout
+                }
+                else
+                {
+                    if (s.valueDirty) { s.lastSetTime = now; s.monLastMsgTime = now; s.valueDirty = false; } // stamp set-time on main thread
+
+                    // Calibrate raw → 0..1, guard sensor dropout, then EMA-smooth.
+                    float cal = Calibrate(s.value, s.inputMin, s.inputMax);
+                    s.monStale = (s.valueTimeout > 0f && s.lastSetTime >= 0f && now - s.lastSetTime > s.valueTimeout);
+                    if (s.monStale) cal = 0f; // stale value decays to nothing
+                    s.monCalibrated = Mathf.Lerp(cal, s.monCalibrated, Mathf.Clamp(s.smoothing, 0f, 0.99f));
+                    value = s.monCalibrated;
+                    uv = new Vector2(Mathf.Clamp01(s.fieldUV.x), Mathf.Clamp01(s.fieldUV.y));
+                }
 
                 _scratch[k++] = new Stamp
                 {
-                    uv = new Vector2(Mathf.Clamp01(s.fieldUV.x), Mathf.Clamp01(s.fieldUV.y)),
+                    uv = uv,
                     radius = s.radius,
                     falloff = s.falloff,
                     channel = Mathf.Clamp(s.channel, 0, BiomeChannel.Count - 1),
-                    amount = s.gain * s.monCalibrated,
+                    amount = s.gain * value,
                     mode = (int)s.mode,
                     pad = 0f,
                 };
@@ -279,6 +336,43 @@ namespace Biomes
             }
             _buffer.SetData(_scratch, 0, 0, k);
             biome.InjectSources(_buffer, k);
+        }
+
+        // Phase 0..1 for a Procedural source. FiringIndex rides the neuron playhead so one
+        // full blob playthrough (index 0→last) is one day; CurrentFrame<0 (pre-playback) or a
+        // missing/unloaded firing source falls back to the free-running SimStep clock.
+        private float ProceduralPhase(Source s, int simStep)
+        {
+            if (s.phaseSource == PhaseSource.FiringIndex && firingSource != null && firingSource.FrameCount > 1)
+            {
+                int f = firingSource.CurrentFrame;
+                if (f >= 0) return Mathf.Clamp01((float)f / (firingSource.FrameCount - 1));
+                // else: no index received yet → fall through to the free-running clock (sunrise-ish)
+            }
+            int period = Mathf.Max(1, s.periodSteps);
+            return (simStep % period) / (float)period;
+        }
+
+        /// <summary>Append a ready-tuned diurnal-sun source (Procedural, Temperature, MaxToward,
+        /// FiringIndex-phased). Edit gain/radius/dayFraction after adding to taste.</summary>
+        [Button]
+        public void AddDiurnalSunSource()
+        {
+            sources ??= new List<Source>();
+            sources.Add(new Source
+            {
+                name = "DiurnalSun",
+                drive = Drive.Procedural,
+                phaseSource = PhaseSource.FiringIndex,
+                channel = BiomeChannel.Temperature,
+                mode = BlendMode.MaxToward,
+                gain = 0.8f,          // noon Temperature target (baseline is 0.5)
+                radius = 0.22f,
+                falloff = 1.5f,
+                dayFraction = 0.7f,
+                sweepHeight = 0.5f,
+                periodSteps = 7200,   // SimStep-mode fallback (2 min @ 60 Hz)
+            });
         }
 
         // Grow the stamp scratch array, preserving existing entries.

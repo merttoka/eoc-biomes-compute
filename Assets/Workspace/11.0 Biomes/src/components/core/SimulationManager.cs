@@ -322,7 +322,7 @@ namespace Biomes
             // 3.5 External sources (plants/robot/neurons) → biome channels at mapped
             //     locations. Writes into fieldReadArray pre-Step (same seam as WriteField).
             if (biome != null)
-                injector?.Inject(biome);
+                injector?.Inject(biome, SimStepCount);
 
             // 4. Step biome (diffusion, interactions, advection). Biome self-decimates the
             //    PDE internally via its stepEvery (the field is slow-changing). Deposits from
@@ -495,6 +495,27 @@ namespace Biomes
                 if (sim == null) continue;
                 // Scale sim resolution by simResolutionScale, preserving the manager's
                 // aspect ratio (both dims scale equally). Composite UV-samples back up.
+                sim.SetResolution(
+                    Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
+                    Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
+                sim.perceptionResScale = perceptionResScale;
+                sim.Reset();
+            }
+        }
+
+        // Per-type resets: respawn only one family of sim (each sim's own Reset()).
+        // Unlike ResetSimsOnly(), these leave _simStepCount alone — it's a global
+        // metabolism cadence shared by the sims still running, so zeroing it here
+        // would disrupt them.
+        [Button("Reset Physarum Only")] public void ResetPhysarum() => ResetSimsOfType<PhysarumSim>();
+        [Button("Reset Boids Only")]    public void ResetBoids()    => ResetSimsOfType<BoidSim>();
+        [Button("Reset Termites Only")] public void ResetTermites() => ResetSimsOfType<TermiteSim>();
+
+        private void ResetSimsOfType<T>() where T : SimulationBase
+        {
+            foreach (var sim in simulations)
+            {
+                if (sim is not T) continue;
                 sim.SetResolution(
                     Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
                     Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
