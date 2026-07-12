@@ -198,17 +198,18 @@ namespace Biomes
             int gw = Mathf.CeilToInt((float)rezX / cs_cellSize);
             int gh = Mathf.CeilToInt((float)rezY / cs_cellSize);
 
+            int n = AllocatedAgentCount;   // buffers are sized for this; live agentsCount takes effect on Reset
             cs.SetFloat(s_CellSizeID, cs_cellSize);
             cs.SetInt(s_GridWID, gw);
             cs.SetInt(s_GridHID, gh);
-            cs.SetInt(s_AgentsCountID, agentsCount);
+            cs.SetInt(s_AgentsCountID, n);
 
             cs.SetBuffer(clearCellCountsKernel, s_CellCountsID, cellCountsBuffer);
             Dispatch(clearCellCountsKernel, gw * gh, 1, 1);
 
             cs.SetBuffer(hashAndCountKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(hashAndCountKernel, s_CellCountsID, cellCountsBuffer);
-            Dispatch(hashAndCountKernel, agentsCount, 1, 1);
+            Dispatch(hashAndCountKernel, n, 1, 1);
 
             cs.SetBuffer(prefixSumKernel, s_CellCountsID, cellCountsBuffer);
             cs.SetBuffer(prefixSumKernel, s_CellOffsetsID, cellOffsetsBuffer);
@@ -218,34 +219,36 @@ namespace Biomes
             cs.SetBuffer(scatterKernel, s_CellCountsID, cellCountsBuffer);
             cs.SetBuffer(scatterKernel, s_CellOffsetsID, cellOffsetsBuffer);
             cs.SetBuffer(scatterKernel, s_SortedBoidIndicesID, sortedBoidIndicesBuffer);
-            Dispatch(scatterKernel, agentsCount, 1, 1);
+            Dispatch(scatterKernel, n, 1, 1);
 
             // Copy agents into cell order so the Move neighbour loop reads contiguously.
             cs.SetBuffer(reorderAgentsKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(reorderAgentsKernel, s_SortedIndicesReadID, sortedBoidIndicesBuffer);
             cs.SetBuffer(reorderAgentsKernel, s_AgentsSortedID, sortedAgentsBuffer);
-            Dispatch(reorderAgentsKernel, agentsCount, 1, 1);
+            Dispatch(reorderAgentsKernel, n, 1, 1);
         }
 
         private void GPUMoveAgentsKernel()
         {
             BindDispersalSpeedParams();
-            cs.SetInt(s_AgentsCountID, agentsCount);
+            int n = AllocatedAgentCount;
+            cs.SetInt(s_AgentsCountID, n);
             cs.SetBuffer(moveAgentsKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_CellOffsetsReadID, cellOffsetsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_SortedIndicesReadID, sortedBoidIndicesBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsSortedReadID, sortedAgentsBuffer);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);
-            Dispatch(moveAgentsKernel, agentsCount, 1, 1);
+            Dispatch(moveAgentsKernel, n, 1, 1);
         }
 
         private void GPUWriteTrailsKernel()
         {
-            cs.SetInt(s_AgentsCountID, agentsCount);
+            int n = AllocatedAgentCount;
+            cs.SetInt(s_AgentsCountID, n);
             cs.SetBuffer(writeTrailsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetTexture(writeTrailsKernel, s_TrailWriteID, trailWriteArray);
-            Dispatch(writeTrailsKernel, agentsCount, 1, 1);
+            Dispatch(writeTrailsKernel, n, 1, 1);
         }
 
         private void GPUDiffuseTextureKernel()

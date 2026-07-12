@@ -237,6 +237,13 @@ namespace Biomes
             || GetAgentCount() != _allocAgentCount
             || !Mathf.Approximately(perceptionResScale, _allocPerceptionScale);
 
+        // Agent count the GPU agent buffers are currently sized for. A live edit to a sim's
+        // agent count flags NeedsAllocation, so it only takes effect on the next Reset();
+        // until then per-step dispatches MUST clamp to this, not the live field, or they index
+        // past the allocated buffers (out-of-bounds GPU access — the boid live-slider bug).
+        // -1 before the first Allocate(), but Step() only runs post-Reset so it's always set.
+        protected int AllocatedAgentCount => _allocAgentCount;
+
         [Button]
         public virtual void Reset()
         {

@@ -130,20 +130,21 @@ namespace Biomes
             cs.SetFloat("turnAngleSpread", turnAngleSpread);
             BindDispersalSpeedParams();
 
-            cs.SetInt(s_AgentsCountID, agentsCount);
+            int n = AllocatedAgentCount;   // buffers are sized for this; live agentsCount takes effect on Reset
+            cs.SetInt(s_AgentsCountID, n);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);
             cs.SetBuffer(moveAgentsKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
-            Dispatch(moveAgentsKernel, agentsCount, 1, 1);
+            Dispatch(moveAgentsKernel, n, 1, 1);
 
             cs.SetTexture(diffuseTextureKernel, s_TrailReadID, trailReadArray);
             cs.SetTexture(diffuseTextureKernel, s_TrailWriteID, trailWriteArray);
             Dispatch(diffuseTextureKernel, rezX, rezY, 1);
 
-            cs.SetInt(s_AgentsCountID, agentsCount);
+            cs.SetInt(s_AgentsCountID, n);
             cs.SetBuffer(writeTrailsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetTexture(writeTrailsKernel, s_TrailWriteID, trailWriteArray);
-            Dispatch(writeTrailsKernel, agentsCount, 1, 1);
+            Dispatch(writeTrailsKernel, n, 1, 1);
 
             (readAgentsBuffer, writeAgentsBuffer) = (writeAgentsBuffer, readAgentsBuffer);
         }
