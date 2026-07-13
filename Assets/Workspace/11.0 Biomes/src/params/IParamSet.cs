@@ -18,5 +18,11 @@ namespace Biomes
         void RandomizeParams();
         void RandomizeColors();
         void ResetToDefaults();
+
+        // Resolution-independence: scale pixel-unit distance params (speed, ranges, sensor
+        // distance) and trail-density params (deposit/eat) by k = rezY/referenceHeight.
+        // Applied to the runtime clone on Reset — never the on-disk asset. See SimulationBase.
+        void ScaleSpatial(float k);
+        void ScaleDensity(float k);
     }
 }

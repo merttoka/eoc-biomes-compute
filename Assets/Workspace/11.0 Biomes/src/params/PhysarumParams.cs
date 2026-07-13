@@ -102,6 +102,26 @@ namespace Biomes
                 types.Add(new PhysarumAgentType());
         }
 
+        // Pixel-unit distance params → ×k for resolution-independence (see IParamSet).
+        public void ScaleSpatial(float k)
+        {
+            foreach (var t in types)
+            {
+                t.senseDistance *= k;
+                t.moveSpeed     *= k;
+            }
+        }
+
+        // Trail-density params → ×k so visual density holds across resolutions (see IParamSet).
+        public void ScaleDensity(float k)
+        {
+            foreach (var t in types)
+            {
+                t.depositAmount *= k;
+                t.eatAmount     *= k;
+            }
+        }
+
         public void RandomizeParams()
         {
             foreach (var t in types)

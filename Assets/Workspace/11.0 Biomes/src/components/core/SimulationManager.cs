@@ -15,6 +15,12 @@ namespace Biomes
         [Range(0.1f, 1f)] public float simResolutionScale = 1f;
         [Tooltip("Build each sim's perception texture at this fraction of its sim resolution. Perception only upsamples the low-res biome field (it carries no sim-res detail), and every sim reads it through bilinear UV sampling — 0.25-0.5 is visually identical and removes a full-res build pass per sim per step. Takes effect on Reset.")]
         [Range(0.05f, 1f)] public float perceptionResScale = 1f;
+        [Tooltip("Output height (px) the sim/trail params are authored at. On Reset each sim rescales its pixel-unit params by rezY/referenceHeight, so motion + trail density read the same at any output resolution. 2160 = 4K-height baseline; installs go wider (more projectors), not taller — so height-only scaling is enough.")]
+        public float referenceHeight = 2160f;
+        [Tooltip("Scale distance params (moveSpeed, sensor distance, neighbour ranges, maxForce) by rezY/referenceHeight on Reset. Off = raw authored values (legacy — sim speed/scale changes with output resolution).")]
+        public bool scaleSpatialToResolution = true;
+        [Tooltip("Also scale trail-density params (deposit/eat amount) by rezY/referenceHeight, so overall visual density looks similar across resolutions. First-order (×k) model — toggle off to A/B if the look drifts.")]
+        public bool scaleDensityToResolution = true;
         [Tooltip("Fixed simulation rate in steps/sec. The sim advances at this wall-clock rate on every install regardless of render FPS (Time.fixedDeltaTime = 1/simRate). 60 matches the legacy per-frame feel, so no content re-tuning is needed. Each scene's SimulationManager can set its own.")]
         [Range(15f, 120f)] public float simRate = 60f;
         [Tooltip("Spiral-of-death guard (Time.maximumDeltaTime). Caps how much real time one frame may hand to the fixed sim loop. At 60 Hz, 0.1s = at most ~6 catch-up sim steps per rendered frame. If a frame takes longer, the extra time is dropped: the sim slows down uniformly instead of bursting into steps that make the next frame slower still. Lower = steadier under load but lags real-time sooner; higher = tracks real-time harder but risks stutter on a hitching machine. Weak installs run timed loops long, never fast.")]
@@ -174,6 +180,9 @@ namespace Biomes
                     Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
                     Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
                 sim.perceptionResScale = perceptionResScale;
+                sim.referenceHeight = referenceHeight;
+                sim.scaleSpatialToResolution = scaleSpatialToResolution;
+                sim.scaleDensityToResolution = scaleDensityToResolution;
                 sim.Reset();
             }
 
@@ -499,6 +508,9 @@ namespace Biomes
                     Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
                     Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
                 sim.perceptionResScale = perceptionResScale;
+                sim.referenceHeight = referenceHeight;
+                sim.scaleSpatialToResolution = scaleSpatialToResolution;
+                sim.scaleDensityToResolution = scaleDensityToResolution;
                 sim.Reset();
             }
         }
@@ -520,6 +532,9 @@ namespace Biomes
                     Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
                     Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
                 sim.perceptionResScale = perceptionResScale;
+                sim.referenceHeight = referenceHeight;
+                sim.scaleSpatialToResolution = scaleSpatialToResolution;
+                sim.scaleDensityToResolution = scaleDensityToResolution;
                 sim.Reset();
             }
         }

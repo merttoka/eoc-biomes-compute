@@ -36,6 +36,13 @@ namespace Biomes
 
         [HideInInspector] public int rezX = 1024;
         [HideInInspector] public int rezY = 1024;
+        // Resolution-independence (pushed by SimulationManager). Pixel-unit params (speed,
+        // ranges, sensor distance) and trail density (deposit/eat) are authored at
+        // referenceHeight and rescaled by rezY/referenceHeight on Reset, so motion + density
+        // read the same across output resolutions. See ResolutionScale + ScaleSpatial/ScaleDensity.
+        [HideInInspector] public float referenceHeight = 2160f;
+        [HideInInspector] public bool scaleSpatialToResolution = true;
+        [HideInInspector] public bool scaleDensityToResolution = true;
 
         [Header("Biome Integration")]
         public UmweltMapping umwelt;
@@ -244,10 +251,28 @@ namespace Biomes
         // -1 before the first Allocate(), but Step() only runs post-Reset so it's always set.
         protected int AllocatedAgentCount => _allocAgentCount;
 
+        // rezY / referenceHeight — 1 at the reference height, <1 shorter, >1 taller. Pixel-unit
+        // params are multiplied by this on Reset (LiveParamSet.ScaleSpatial/ScaleDensity) so
+        // authored values ground at referenceHeight and read the same across output resolutions.
+        protected float ResolutionScale =>
+            (referenceHeight > 0f && rezY > 0) ? rezY / referenceHeight : 1f;
+
         [Button]
         public virtual void Reset()
         {
             _simStep = 0;
+
+            // Resolution-independence: rescale the freshly-cloned pixel-unit params. LiveParamSet
+            // is the runtime clone the concrete Reset set (via Instantiate) before calling base —
+            // re-cloned from the pristine asset each Reset, so scaling never compounds and never
+            // touches the on-disk asset. Applied before GPUReset→UploadTypeParams reads them.
+            if (LiveParamSet != null)
+            {
+                float k = ResolutionScale;
+                if (scaleSpatialToResolution) LiveParamSet.ScaleSpatial(k);
+                if (scaleDensityToResolution) LiveParamSet.ScaleDensity(k);
+            }
+
             if (NeedsAllocation())
                 Allocate();
             GPUReset();                                 // clear trails + outTex, respawn agents

@@ -107,6 +107,31 @@ namespace Biomes
             types.Add(new BoidAgentType());
         }
 
+        // Pixel-unit distance params → ×k for resolution-independence (see IParamSet). Ranges
+        // are uploaded squared (sep*sep), so scaling the linear field here gives the correct k².
+        public void ScaleSpatial(float k)
+        {
+            foreach (var t in types)
+            {
+                t.separationRange    *= k;
+                t.alignmentRange     *= k;
+                t.attractionRange    *= k;
+                t.maxSpeed           *= k;
+                t.maxForce           *= k;
+                t.foodSensorDistance *= k;
+            }
+        }
+
+        // Trail-density params → ×k so visual density holds across resolutions (see IParamSet).
+        public void ScaleDensity(float k)
+        {
+            foreach (var t in types)
+            {
+                t.depositAmount *= k;
+                t.eatAmount     *= k;
+            }
+        }
+
         public void RandomizeParams()
         {
             foreach (var t in types)

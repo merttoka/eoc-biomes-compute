@@ -105,6 +105,24 @@ namespace Biomes
             types.Add(new TermiteAgentType());
         }
 
+        // Pixel-unit distance params → ×k for resolution-independence (see IParamSet).
+        public void ScaleSpatial(float k)
+        {
+            foreach (var t in types)
+            {
+                t.senseDistance *= k;
+                t.moveSpeed     *= k;
+            }
+        }
+
+        // Trail-density param → ×k so visual density holds across resolutions (see IParamSet).
+        // Termite has no separate eatAmount; depositProbability is a probability, left unscaled.
+        public void ScaleDensity(float k)
+        {
+            foreach (var t in types)
+                t.depositAmount *= k;
+        }
+
         public void RandomizeParams()
         {
             foreach (var t in types)
