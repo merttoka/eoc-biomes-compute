@@ -14,12 +14,11 @@ inspector-visible, even MIDI-mapped, yet read by no kernel (see Dead Code below)
 ## ✅ Shipped — Tier-1 "make it alive" complete
 Q10 ignition + decay sinks · relax-to-baseline · Humidity channel (+ build cue wired both
 shows) · **diurnal sun** (procedural injector, neuron-playhead-phased) · fixed-timestep sim ·
-clear-in-place stream-safe resets.
+clear-in-place stream-safe resets · **resolution-independent params** (pixel-unit spatial +
+trail-density scale by `rezY/referenceHeight` on Reset, grounded at 2160 — no-op at reference,
+activates on any resolution change; per-scene toggles).
 
 ## 🔧 In design (specs forthcoming)
-- **Resolution-independent params** — spatial params (moveSpeed, ranges, sensor distance…) are
-  pixel-unit, so changing output size breaks every tune. Ground at 3840×2160, scale on Reset by
-  `rezY/2160` (height-only; installs go wider, not taller). *Important — actively blocking.*
 - **Permeability rework** — replace the static, repetitive, seedless noise terrain with
   agent-authored, *persistent* structure; fix the write-then-dissolve (temp coupling + relax
   heal both fight termite digs). Moderate visual disruption OK; **no** deterministic terrain.
