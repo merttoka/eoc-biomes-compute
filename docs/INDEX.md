@@ -8,6 +8,7 @@ tags: [meta, index]
 ## Architecture (living)
 - [[ARCHITECTURE]] — system reference (Unity runtime + memory overview)
 - [[migration]] — memory architecture plan + open questions
+- [[ROADMAP]] — backlog + deeper-biology roadmap (shipped / in design / below), verified against code
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans

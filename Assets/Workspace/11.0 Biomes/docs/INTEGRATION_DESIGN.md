@@ -154,7 +154,7 @@ Status legend: ✅ shipped · 🟡 partial (scaffolded, not fully wired) · ⬜ 
 | 2 | **Q10 + decay sinks** (stop the mush) — `pow(2.74,(temp−0.5)·decompTempSpan)`; Waste decay 0.001, Nutrient 0.0005 | 1 | low | no | no | ✅ shipped |
 | 3 | **Relax-to-baseline + permeability runaway fix** — per-channel `relaxRate` (O₂→0.8, Temp→0.5); perm relaxes toward recomputed noise terrain | 1 | low | no | no | ✅ shipped |
 | 4 | **Humidity** channel — high-diffusion (0.97), flow-advected, relax→0.5, Temp evaporation | 2 | med | no | **yes (→12)** | ✅ shipped; build-cue `\|∇Humidity\|` wired both shows (termite ch12 Chemotaxis+SpeedPenalty; both seek ch11) |
-| 5 | **B-channel predator/prey + waste scavenging** (asset edits + 3 lines/sim) | 0 | low | no | no | ⬜ pending (only Boid reads `.b`; Physarum/Termite don't) |
+| 5 | **B-channel predator/prey + waste scavenging** (asset edits + 3 lines/sim) | 0 | low | no | no | 🟡 partial — all 3 sims *sample* `.b`; functional = Physarum flees Termite's Pheromone_2 (ch3 avoid +1.2) + seeks/eats Waste. Boid's waste-avoid `−1` is **neutralized** (`avoidance=max(0,·)` floors negatives to 0); Termite has no avoid read |
 | 6 | **Diurnal sun** (procedural injector stamp, phase from neuron playhead / `SimStepCount`) | 1 | low–med | no | no | ✅ shipped |
 | 7 | **Permeability-as-Topography** (Laplacian stigmergy) | 2 | med | flags→typeId bits | no | ⬜ pending |
 | 8 | **Mortality → succession** (+ Physarum dormancy latch) | 2 | med | flags→typeId bits | no | 🟡 lifecycle fields scaffolded (`UmweltMapping`, `enableDeath=false`); death/dormancy not wired |
