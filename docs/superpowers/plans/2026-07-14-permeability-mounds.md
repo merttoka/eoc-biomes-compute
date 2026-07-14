@@ -190,11 +190,14 @@ void BuildPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
 
 - [ ] **Step 3: Find the kernel in `Biome.cs`**
 
-Add the field by the other kernel handles (~line 75):
+Add the fields by the other kernel handles (~line 75):
 
 ```csharp
         private int buildPermeabilityKernel;
+        private ComputeBuffer _buildDummyFiring;   // 1-elem dummy bound when no firing source
 ```
+
+Also release it wherever the biome frees its GPU buffers (the `Release()`/`OnDestroy` path that releases `gpu`): add `_buildDummyFiring?.Release(); _buildDummyFiring = null;`.
 
 In `FindKernels()` (~line 169, by `writeFieldKernel = ...`):
 
@@ -223,16 +226,17 @@ Modeled on `WriteField` (line 498). Add after it:
             cs.SetFloat("buildFiringDepositProb", firingDepositProb);
             cs.SetFloat("buildFiringThreshold", firingThreshold);
             cs.SetFloat("buildAmount", buildAmount);
-            cs.SetInt("buildNeuronCount", firing != null ? neuronCount : 0);
+            // A StructuredBuffer must always be bound; with no firing source, bind a persistent
+            // 1-element dummy and force neuronCount 0 so the kernel never indexes it.
+            if (firing == null) { _buildDummyFiring ??= new ComputeBuffer(1, sizeof(float)); firing = _buildDummyFiring; neuronCount = 0; }
+            cs.SetInt("buildNeuronCount", neuronCount);
             cs.SetInt("buildTimeSeed", timeSeed);
-            if (firing != null) cs.SetBuffer(buildPermeabilityKernel, "buildFiring", firing);
+            cs.SetBuffer(buildPermeabilityKernel, "buildFiring", firing);
             cs.SetBuffer(buildPermeabilityKernel, "agentPositions", agentPositions);
             cs.SetTexture(buildPermeabilityKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(buildPermeabilityKernel, agentCount, 1, 1);
         }
 ```
-
-Note: if `buildFiring` is left unbound when `firing == null`, guard by setting `buildNeuronCount = 0` (done above) so the kernel never indexes it; also bind a 1-element dummy buffer if the platform requires all `StructuredBuffer`s bound — if the Console warns about an unbound buffer, bind `firing ?? _dummyFiringBuffer` (a persistent 1-float `ComputeBuffer` allocated in `Allocate()`).
 
 - [ ] **Step 5: Add termite build fields**
 
@@ -342,7 +346,7 @@ In `ReadFieldKernel`, after the read-entry loop and before writing `perceptionTe
     speedMod  *= saturate(1.0 - outOfBand * habitatSlowGain);
 ```
 
-(`uv` and `sampler_fieldRead` are already in scope in this kernel — confirm the local UV variable name matches what the existing samples use; reuse it.)
+(`uv`, `sampler_fieldRead`, `avoidance`, and `speedMod` are all already in scope in `ReadFieldKernel` — they are the same locals the existing read-entry loop uses to sample and to write `perceptionTex = float4(chemotaxis*0.5+0.5, speedMod, avoidance, boost)`.)
 
 - [ ] **Step 2: Add Biome tuning fields**
 
@@ -367,16 +371,14 @@ Add property IDs by the others (~line 93):
 
 - [ ] **Step 3: Set the uniforms per species in `BuildPerceptionTex`**
 
-`Biome.cs` `BuildPerceptionTex(sim)` (~line 578) — before dispatching `readFieldKernel`, add (the method receives the sim, which exposes `umwelt`):
+`Biome.cs` — the method signature is `public void BuildPerceptionTex(RenderTexture perceptionTex, UmweltMapping umwelt, ...)` (line 578), so it receives `umwelt` directly. Just before the `readFieldKernel` bind/dispatch (the `cs.SetBuffer(readFieldKernel, "readEntries", ...)` block at ~line 614–617), add:
 
 ```csharp
-            cs.SetFloat(s_HabitatBandMinID, sim.umwelt != null ? sim.umwelt.preferredPermeabilityMin : 0f);
-            cs.SetFloat(s_HabitatBandMaxID, sim.umwelt != null ? sim.umwelt.preferredPermeabilityMax : 1f);
+            cs.SetFloat(s_HabitatBandMinID, umwelt != null ? umwelt.preferredPermeabilityMin : 0f);
+            cs.SetFloat(s_HabitatBandMaxID, umwelt != null ? umwelt.preferredPermeabilityMax : 1f);
             cs.SetFloat(s_HabitatAvoidGainID, habitatAvoidGain);
             cs.SetFloat(s_HabitatSlowGainID, habitatSlowGain);
 ```
-
-(If `BuildPerceptionTex`'s parameter isn't named `sim` / doesn't expose `umwelt`, adapt to the actual accessor — the method is already per-sim, so the band source is whatever sim it builds for.)
 
 - [ ] **Step 4: Compile-clean**
 
@@ -516,27 +518,32 @@ void MoundOverlayKernel(uint3 id : SV_DISPATCHTHREADID) {
         private int moundOverlayKernel = -1;
 ```
 
-Find the kernel where the other manager kernels are found (add `moundOverlayKernel = compositeCS.FindKernel("MoundOverlayKernel");` alongside the ring kernel lookup).
+At the composite kernel-find site (`SimulationManager.cs:217–219`, by `neuronRingKernel = compositeCS.HasKernel("NeuronRingKernel") ? … : -1;`), add:
+
+```csharp
+                moundOverlayKernel = compositeCS.HasKernel("MoundOverlayKernel")
+                    ? compositeCS.FindKernel("MoundOverlayKernel") : -1;
+```
 
 - [ ] **Step 3: Dispatch after the ring pass**
 
-`SimulationManager.cs` `Render()`, after the neuron-ring dispatch block (~line 442) and gated on strength + a valid biome, add (model the bind/dispatch on the ring pass):
+`SimulationManager.cs` `Render()`, after the neuron-ring dispatch block (the ring pass ends ~line 450, just before `Render()`'s closing brace), add (all names here are the real ones the composite/ring passes already use — `compositeCS`, `compositeOutTex`, `s_CompositeOutTexID`):
 
 ```csharp
-            if (moundOverlayStrength > 0f && biome != null && biome.FieldReadArray != null)
+            if (moundOverlayStrength > 0f && moundOverlayKernel >= 0 && biome != null && biome.FieldReadArray != null)
             {
                 compositeCS.SetTexture(moundOverlayKernel, "permField", biome.FieldReadArray);
-                compositeCS.SetTexture(moundOverlayKernel, "compositeOut", compositeOutTex);
+                compositeCS.SetTexture(moundOverlayKernel, s_CompositeOutTexID, compositeOutTex);
                 compositeCS.SetInt("permChannel", BiomeChannel.Permeability);
                 compositeCS.SetFloat("permOpenBaselineOv", biome.OpenBaseline);
                 compositeCS.SetFloat("moundStrength", moundOverlayStrength);
                 compositeCS.SetVector("moundColor", moundColor);
-                int gx = Mathf.CeilToInt(rezX / 8f), gy = Mathf.CeilToInt(rezY / 8f);
-                compositeCS.Dispatch(moundOverlayKernel, gx, gy, 1);
+                compositeCS.GetKernelThreadGroupSizes(moundOverlayKernel, out uint mwx, out uint mwy, out uint _);
+                compositeCS.Dispatch(moundOverlayKernel,
+                    Mathf.CeilToInt((float)rezX / mwx),
+                    Mathf.CeilToInt((float)rezY / mwy), 1);
             }
 ```
-
-(Use the actual composite compute-shader field name and the actual composite-output texture name from `Render()`; `compositeCS`/`compositeOutTex` are placeholders for whatever the ring pass uses.)
 
 - [ ] **Step 4: Expose the open baseline on `Biome`**
 
