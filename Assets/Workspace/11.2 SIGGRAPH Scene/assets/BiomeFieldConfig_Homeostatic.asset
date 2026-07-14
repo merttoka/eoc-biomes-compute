@@ -60,7 +60,7 @@ MonoBehaviour:
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0.7
-    relaxRate: 0.001
+    relaxRate: 0.0005
   - name: Flow_X
     diffuseRate: 0.92
     decayRate: 0.02
@@ -94,7 +94,8 @@ MonoBehaviour:
   wasteToNutrientRate: 0.02
   decompositionTempSpan: 3
   temperatureToFlowStrength: 0.8
-  temperatureToPermeability: 0.4
+  temperatureToPermeability: 0.02
+  permeabilityOpenBaseline: 0.9
   temperatureToEvaporation: 0.13
   humidityGradientGain: 12
   noiseScale: 3

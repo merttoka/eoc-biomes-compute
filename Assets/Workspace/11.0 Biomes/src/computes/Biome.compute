@@ -55,6 +55,7 @@ float tempToFlowStrength;
 float tempToPermeability;
 float tempToEvaporation;    // Temperature above 0.5 baseline sinks Humidity (evaporation)
 float humidityGradientGain; // |∇Humidity| magnitude gain (raw grad tiny; Humidity diffuseRate smooths it)
+float permOpenBaseline;      // open-ground permeability; termite mounds build downward from it
 float noiseScale;
 float noiseThreshold;
 
@@ -133,12 +134,8 @@ void ResetFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 [numthreads(8, 8, 1)]
 void InitPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
-    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
-    float n = FractalSimplexNoise(uv * noiseScale);
-    // n is 0-1 centered ~0.5. Use it directly as permeability,
-    // then threshold creates solid regions (low perm) where noise is low.
-    float perm = smoothstep(noiseThreshold, noiseThreshold + 0.3, n);
-    fieldWrite[uint3(id.xy, CH_PERMEABILITY)] = perm;
+    // Uniform-open baseline: agent-authored termite mounds replace the static noise terrain.
+    fieldWrite[uint3(id.xy, CH_PERMEABILITY)] = permOpenBaseline;
 }
 
 
@@ -235,19 +232,13 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     waste -= decomposed;
 
     // 2. Temperature → permeability as a BOUNDED, relaxing target (not an accumulator).
-    //    The noise terrain is a pure function of uv, so recompute it (same as
-    //    InitPermeabilityKernel) and relax toward terrain + a bounded temperature offset.
-    //    Fixes the old runaway integrator (perm += … every step) AND preserves the terrain:
-    //    termite digs (negative writes) carve transient galleries that heal back over time.
     float relaxPerm = channelRelax[CH_PERMEABILITY];
     if (relaxPerm > 0.0) {
-        float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
-        float n = FractalSimplexNoise(uv * noiseScale);
-        float permTerrain = smoothstep(noiseThreshold, noiseThreshold + 0.3, n);
-        float permTarget = saturate(permTerrain + (temp - 0.5) * tempToPermeability);
+        // Relax toward uniform-open so built walls slowly heal to open ground, not to a fixed
+        // noise terrain. Temperature coupling retained but tuned to ~0 (asset).
+        float permTarget = saturate(permOpenBaseline + (temp - 0.5) * tempToPermeability);
         perm = lerp(perm, permTarget, relaxPerm);
     } else {
-        // Legacy path (relaxRate 0): original integrator, for exact A/B comparison.
         perm = clamp(perm + (temp - 0.5) * tempToPermeability, 0, 1);
     }
 

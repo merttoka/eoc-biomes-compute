@@ -84,6 +84,8 @@ namespace Biomes
         [Range(0f, 8f)]   public float decompositionTempSpan = 4f;
         [Range(0f, 1f)]   public float temperatureToFlowStrength = 0.5f;   // convection
         [Range(0f, 1f)]   public float temperatureToPermeability = 0.3f;   // phase transitions (now a bounded offset, see Biome.compute)
+        [Tooltip("Open-ground permeability the field starts at and slowly relaxes toward. Termite mounds build downward from this; replaces the old noise terrain.")]
+        [Range(0f, 1f)] public float permeabilityOpenBaseline = 0.9f;
         [Tooltip("Evaporation: Humidity sinks where Temperature is above its 0.5 baseline " +
                  "(humidity -= rate·max(0, temp-0.5) each step). Dries the field behind the hot zones; " +
                  "the |∇Humidity| edge this leaves is the termite build cue. 0 = no thermal evaporation.")]
