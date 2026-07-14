@@ -74,9 +74,16 @@ namespace Biomes
         public Transform compositeOutputQuad;
         public Camera recordingCamera;
 
+        [Header("Mound overlay")]
+        [Tooltip("How strongly termite-built walls are painted over the composite (0 = off).")]
+        [Range(0f, 1f)] public float moundOverlayStrength = 0.5f;
+        [Tooltip("Colour of the painted mounds/walls.")]
+        public Color moundColor = new(0.25f, 0.18f, 0.12f, 1f);
+
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
         private int neuronRingKernel = -1;
+        private int moundOverlayKernel = -1;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
 
@@ -217,6 +224,8 @@ namespace Biomes
                 compositeRenderKernel = compositeCS.FindKernel("CompositeRenderKernel");
                 neuronRingKernel = compositeCS.HasKernel("NeuronRingKernel")
                     ? compositeCS.FindKernel("NeuronRingKernel") : -1;
+                moundOverlayKernel = compositeCS.HasKernel("MoundOverlayKernel")
+                    ? compositeCS.FindKernel("MoundOverlayKernel") : -1;
             }
 
             _allocRezX = rezX; _allocRezY = rezY;
@@ -460,6 +469,20 @@ namespace Biomes
                         Mathf.CeilToInt((float)rezX / rwx),
                         Mathf.CeilToInt((float)rezY / rwy), 1);
                 }
+            }
+
+            if (moundOverlayStrength > 0f && moundOverlayKernel >= 0 && biome != null && biome.FieldReadArray != null)
+            {
+                compositeCS.SetTexture(moundOverlayKernel, "permField", biome.FieldReadArray);
+                compositeCS.SetTexture(moundOverlayKernel, s_CompositeOutTexID, compositeOutTex);
+                compositeCS.SetInt("permChannel", BiomeChannel.Permeability);
+                compositeCS.SetFloat("permOpenBaselineOv", biome.OpenBaseline);
+                compositeCS.SetFloat("moundStrength", moundOverlayStrength);
+                compositeCS.SetVector("moundColor", moundColor);
+                compositeCS.GetKernelThreadGroupSizes(moundOverlayKernel, out uint mwx, out uint mwy, out uint _);
+                compositeCS.Dispatch(moundOverlayKernel,
+                    Mathf.CeilToInt((float)rezX / mwx),
+                    Mathf.CeilToInt((float)rezY / mwy), 1);
             }
 
             if (compositeOutMat != null)

@@ -3,6 +3,7 @@
 #pragma kernel CompositeRenderKernel
 #pragma kernel ResetTextureKernel
 #pragma kernel NeuronRingKernel
+#pragma kernel MoundOverlayKernel
 
 uint rezX;
 uint rezY;
@@ -114,5 +115,26 @@ void NeuronRingKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     float4 c = compositeOut[id.xy];
     c.rgb = saturate(c.rgb + add);
+    compositeOut[id.xy] = c;
+}
+
+// Paint the termite-built walls (low permeability) over the composite, independent of the
+// additive sim blend. wall-ness = (baseline - perm)/baseline, so open ground reads 0.
+Texture2DArray<float> permField;
+SamplerState sampler_permField;
+int   permChannel;         // BiomeChannel.Permeability
+float permOpenBaselineOv;  // "open" value; wall-ness = (baseline - perm)/baseline
+float moundStrength;
+float4 moundColor;
+
+[numthreads(8, 8, 1)]
+void MoundOverlayKernel(uint3 id : SV_DISPATCHTHREADID) {
+    uint w, h; compositeOut.GetDimensions(w, h);
+    if (id.x >= w || id.y >= h) return;
+    float2 uv = (float2(id.xy) + 0.5) / float2(w, h);
+    float perm = permField.SampleLevel(sampler_permField, float3(uv, permChannel), 0);
+    float wall = saturate((permOpenBaselineOv - perm) / max(1e-4, permOpenBaselineOv));  // 0 open, 1 solid
+    float4 c = compositeOut[id.xy];
+    c.rgb = lerp(c.rgb, moundColor.rgb, wall * moundStrength);
     compositeOut[id.xy] = c;
 }

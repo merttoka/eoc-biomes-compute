@@ -122,6 +122,7 @@ namespace Biomes
         private static readonly int s_NoiseThresholdID = Shader.PropertyToID("noiseThreshold");
 
         public RenderTexture FieldReadArray => fieldReadArray;
+        public float OpenBaseline => fieldConfig != null ? fieldConfig.permeabilityOpenBaseline : 0.9f;
         public int RezX => biomeRezX;
         public int RezY => biomeRezY;
 
