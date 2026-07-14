@@ -11,6 +11,11 @@ Setup (venv per repo convention):
     tools/.venv/bin/pip install -r tools/requirements.txt
 
 Examples:
+    # no args = default installation loop: full-range 30fps stream, looping, with a full
+    # /sim_reset at the start of each pass, then 5x /sim_resetTermites + 10x /sim_resetPhysarum
+    # spread evenly through the pass
+    tools/.venv/bin/python tools/osc_index_tester.py
+
     # one frame
     tools/.venv/bin/python tools/osc_index_tester.py 90000
 
@@ -79,9 +84,13 @@ def main():
 
     args = p.parse_args()
 
+    # Reset schedules: list of (osc_addr, count). Each count is spread evenly through the
+    # --stream span (interior points). Multiple schedules run concurrently at their own cadence.
+    reset_specs = []
+
     # Default composite mode: no positional index and no mode flag -> the canonical
-    # installation loop. Full-range 60fps stream, /sim_resetSimsOnly once at the start
-    # of each pass, /sim_resetPhysarum 5x spaced through it, looping forever.
+    # installation loop. Full-range 30fps stream, a full /sim_reset at the start of each
+    # pass, then 5x /sim_resetTermites and 10x /sim_resetPhysarum spaced through it, looping.
     no_mode = (args.index is None and args.stream is None
                and args.sweep is None and not args.random)
     if no_mode:
@@ -89,15 +98,14 @@ def main():
         args.loop = True
         if args.fps is None:
             args.fps = 30.0
-        if args.resets == 0:
-            args.resets = 5
-        if args.reset_addr is None:
-            args.reset_addr = "/sim_resetPhysarum"
         if args.reset_start is None:
-            args.reset_start = "/sim_resetSimsOnly"
-        print("default mode: full-range 30fps loop + resetSimsOnly@start + 5x resetPhysarum")
-    if args.reset_addr is None:
-        args.reset_addr = "/sim_resetSimsOnly"
+            args.reset_start = "/sim_reset"
+        reset_specs = [("/sim_resetTermites", 5), ("/sim_resetPhysarum", 10)]
+        print("default mode: full-range 30fps loop + /sim_reset@start + 5x resetTermites + 10x resetPhysarum")
+
+    # Explicit single schedule via --resets/--reset-addr (when a mode is chosen manually).
+    if args.resets > 0:
+        reset_specs.append((args.reset_addr or "/sim_resetSimsOnly", args.resets))
 
     if args.fps is not None and args.stream is None:
         print("WARNING: --fps only applies to --stream; --sweep/--random pace with --hold", file=sys.stderr)
@@ -119,11 +127,17 @@ def main():
             fps = args.fps if args.fps is not None else 60.0
             dt = 1.0 / fps if fps > 0 else 0.0
             step = 1 if end >= start else -1
-            # Evenly spaced interior reset points (N resets split the span into N+1 parts).
-            reset_frames = set()
-            if args.resets > 0:
-                span = end - start
-                reset_frames = {round(start + span * i / (args.resets + 1)) for i in range(1, args.resets + 1)}
+            # Evenly spaced interior reset points per schedule (N resets split the span into
+            # N+1 parts). Schedules merge into one frame -> [addr, ...] map; if two land on
+            # the same frame, both fire.
+            span = end - start
+            frame_resets = {}
+            for addr, count in reset_specs:
+                if count <= 0:
+                    continue
+                for i in range(1, count + 1):
+                    fr = round(start + span * i / (count + 1))
+                    frame_resets.setdefault(fr, []).append(addr)
 
             def send_reset(addr):
                 client.send_message(addr, 1)
@@ -132,8 +146,8 @@ def main():
             print("stream %d..%d @ %.0ffps%s" % (start, end, fps, "  (loop)" if args.loop else ""))
             if args.reset_start:
                 print("reset-start @ frame %d: %s" % (start, args.reset_start))
-            if reset_frames:
-                print("resets @ %s -> %s" % (sorted(reset_frames), args.reset_addr))
+            for addr, count in reset_specs:
+                print("resets x%d -> %s" % (count, addr))
             # Absolute-deadline pacing: sleep until next_t, not sleep(dt) after each
             # send — otherwise send/print overhead accumulates and the actual rate
             # undershoots the requested fps (~18% low at 30fps).
@@ -144,8 +158,9 @@ def main():
                     send_reset(args.reset_start)
                 for f in range(start, end + step, step):
                     send(f)
-                    if f in reset_frames:
-                        send_reset(args.reset_addr)
+                    if f in frame_resets:
+                        for addr in frame_resets[f]:
+                            send_reset(addr)
                     rate_n += 1
                     now = time.monotonic()
                     if now - rate_t0 >= 2.0:
