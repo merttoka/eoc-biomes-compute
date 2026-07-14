@@ -11,9 +11,9 @@ Setup (venv per repo convention):
     tools/.venv/bin/pip install -r tools/requirements.txt
 
 Examples:
-    # no args = default installation loop: full-range 30fps stream, looping, with a full
-    # /sim_reset at the start of each pass, then 5x /sim_resetTermites + 10x /sim_resetPhysarum
-    # spread evenly through the pass
+    # no args = default installation loop: full-range 60fps stream, looping, with a
+    # /sim_resetSimsOnly at the start of each pass, then 5x /sim_resetTermites +
+    # 10x /sim_resetPhysarum spread evenly through the pass
     tools/.venv/bin/python tools/osc_index_tester.py
 
     # one frame
@@ -89,7 +89,7 @@ def main():
     reset_specs = []
 
     # Default composite mode: no positional index and no mode flag -> the canonical
-    # installation loop. Full-range 30fps stream, a full /sim_reset at the start of each
+    # installation loop. Full-range 30fps stream, /sim_resetSimsOnly at the start of each
     # pass, then 5x /sim_resetTermites and 10x /sim_resetPhysarum spaced through it, looping.
     no_mode = (args.index is None and args.stream is None
                and args.sweep is None and not args.random)
@@ -97,11 +97,11 @@ def main():
         args.stream = [0, 180000]
         args.loop = True
         if args.fps is None:
-            args.fps = 30.0
+            args.fps = 60.0
         if args.reset_start is None:
-            args.reset_start = "/sim_reset"
+            args.reset_start = "/sim_resetSimsOnly"
         reset_specs = [("/sim_resetTermites", 5), ("/sim_resetPhysarum", 10)]
-        print("default mode: full-range 30fps loop + /sim_reset@start + 5x resetTermites + 10x resetPhysarum")
+        print("default mode: full-range 30fps loop + /sim_resetSimsOnly@start + 5x resetTermites + 10x resetPhysarum")
 
     # Explicit single schedule via --resets/--reset-addr (when a mode is chosen manually).
     if args.resets > 0:
