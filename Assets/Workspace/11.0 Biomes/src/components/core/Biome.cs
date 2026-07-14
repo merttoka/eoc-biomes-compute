@@ -19,6 +19,12 @@ namespace Biomes
         public BiomeFieldConfig fieldConfig;
         public ComputeShader cs;
 
+        [Header("Habitat confinement")]
+        [Tooltip("Strength of steer-back when an agent is outside its preferred permeability band.")]
+        [Range(0f, 8f)] public float habitatAvoidGain = 2f;
+        [Tooltip("Speed penalty when an agent is outside its band (1 unit out-of-band -> this fraction slower).")]
+        [Range(0f, 8f)] public float habitatSlowGain = 3f;
+
         [Tooltip("Optional swappable write-back shader (assign BiomeWriteFused.compute). When set AND SimulationManager.fusedWriteback is on, all of a sim's channel deposits are applied in ONE dispatch instead of one per channel. Leave null to use the default per-channel path.")]
         public ComputeShader fusedWriteCS;
 
@@ -106,6 +112,10 @@ namespace Biomes
         private static readonly int s_TempToFlowStrengthID = Shader.PropertyToID("tempToFlowStrength");
         private static readonly int s_TempToPermID = Shader.PropertyToID("tempToPermeability");
         private static readonly int s_PermOpenBaselineID = Shader.PropertyToID("permOpenBaseline");
+        private static readonly int s_HabitatBandMinID  = Shader.PropertyToID("habitatBandMin");
+        private static readonly int s_HabitatBandMaxID  = Shader.PropertyToID("habitatBandMax");
+        private static readonly int s_HabitatAvoidGainID = Shader.PropertyToID("habitatAvoidGain");
+        private static readonly int s_HabitatSlowGainID  = Shader.PropertyToID("habitatSlowGain");
         private static readonly int s_TempToEvaporationID = Shader.PropertyToID("tempToEvaporation");
         private static readonly int s_HumidityGradientGainID = Shader.PropertyToID("humidityGradientGain");
         private static readonly int s_NoiseScaleID = Shader.PropertyToID("noiseScale");
@@ -644,6 +654,10 @@ namespace Biomes
             cs.SetInt("perceptionRezY", simRezY);
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetFloat(s_HabitatBandMinID, umwelt != null ? umwelt.preferredPermeabilityMin : 0f);
+            cs.SetFloat(s_HabitatBandMaxID, umwelt != null ? umwelt.preferredPermeabilityMax : 1f);
+            cs.SetFloat(s_HabitatAvoidGainID, habitatAvoidGain);
+            cs.SetFloat(s_HabitatSlowGainID, habitatSlowGain);
             cs.SetBuffer(readFieldKernel, "readEntries", perceptionEntryBuffer);
             cs.SetTexture(readFieldKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(readFieldKernel, "perceptionTex", perceptionTex);

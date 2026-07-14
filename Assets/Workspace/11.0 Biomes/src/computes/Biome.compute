@@ -111,6 +111,12 @@ uint perceptionRezX;
 uint perceptionRezY;
 RWTexture2D<float4> perceptionTex;
 
+// Habitat confinement (per-species preferred permeability band)
+float habitatBandMin;    // this species' preferred permeability band (min)
+float habitatBandMax;    // ... (max)
+float habitatAvoidGain;  // out-of-band -> avoidance
+float habitatSlowGain;   // out-of-band -> speed penalty
+
 
 // Partial field passes (flow/advect/interact) write only a subset of channels.
 // Calling this first preserves the untouched channels across the ping-pong swap
@@ -444,6 +450,13 @@ void ReadFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
             boost += max(0, weighted);
         }
     }
+
+    // Habitat confinement: out-of-band permeability repels + slows this species (steer back
+    // toward its termite-grown territory). Bands overlap across species -> soft borders.
+    float habPerm = fieldRead.SampleLevel(sampler_fieldRead, float3(uv, CH_PERMEABILITY), 0);
+    float outOfBand = max(0.0, habitatBandMin - habPerm) + max(0.0, habPerm - habitatBandMax);
+    avoidance += outOfBand * habitatAvoidGain;
+    speedMod  *= saturate(1.0 - outOfBand * habitatSlowGain);
 
     perceptionTex[id.xy] = float4(
         saturate(chemotaxis * 0.5 + 0.5), // remap [-1,1] → [0,1]
