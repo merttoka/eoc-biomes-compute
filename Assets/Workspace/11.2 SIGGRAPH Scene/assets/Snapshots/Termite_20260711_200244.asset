@@ -23,7 +23,7 @@ MonoBehaviour:
     firingDepositAmount: 4
     depositProbability: 0.2
     firingDepositProbability: 0.4
-    diffuseRate: 0.96
+    diffuseRate: 0.97
     hue: 0.56692916
     saturation: 0.39370078
   ranges:

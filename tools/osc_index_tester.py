@@ -101,7 +101,7 @@ def main():
         if args.reset_start is None:
             args.reset_start = "/sim_resetSimsOnly"
         reset_specs = [("/sim_resetTermites", 5), ("/sim_resetPhysarum", 10)]
-        print("default mode: full-range 30fps loop + /sim_resetSimsOnly@start + 5x resetTermites + 10x resetPhysarum")
+        print("default mode: full-range 60fps loop + /sim_resetSimsOnly@start + 5x resetTermites + 10x resetPhysarum")
 
     # Explicit single schedule via --resets/--reset-addr (when a mode is chosen manually).
     if args.resets > 0:

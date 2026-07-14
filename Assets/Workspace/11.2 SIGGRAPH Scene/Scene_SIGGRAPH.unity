@@ -321,6 +321,9 @@ MonoBehaviour:
   dispersalConstantSpeed: 30
   rezX: 2048
   rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 63c180cf80e5b49ca94b4648442b7add, type: 2}
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
@@ -1201,6 +1204,9 @@ MonoBehaviour:
   dispersalConstantSpeed: 6
   rezX: 1024
   rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: e75260013159b4e70a29a1ff89a37950, type: 2}
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
@@ -1209,10 +1215,12 @@ MonoBehaviour:
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  agentsCount: 262
-  turnAngleSpread: 0.7
+  agentsCount: 131
+  turnAngleSpread: 0.8
   paramsSO: {fileID: 11400000, guid: 80a3a020693b64ab993ba515436ad336, type: 2}
   agentParams: {fileID: 0}
+  wallBuildAmount: 0.003
+  wallBuildFiringThreshold: 0.1
 --- !u!114 &1010527584
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1636,6 +1644,9 @@ MonoBehaviour:
   dispersalConstantSpeed: 30
   rezX: 2048
   rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: ad7466382b28644daa8d0f4190b4e647, type: 2}
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
@@ -2013,7 +2024,7 @@ MonoBehaviour:
   dispersalFireThreshold: 0.1
   firingDispersalSource: 1
   firingAgentSim: {fileID: 1010527583}
-  firingAgentStampCap: 256
+  firingAgentStampCap: 262
   useAsyncReadback: 1
   drawGizmos: 0
   gizmoColor: {r: 0.3, g: 0.9, b: 1, a: 0.6}
@@ -2029,17 +2040,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 320
-  biomeRezY: 180
+  biomeRezX: 512
+  biomeRezY: 288
   stepEvery: 1
   fieldConfig: {fileID: 11400000, guid: 0ad296b92ed3641b8a092a78a31d4921, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
+  habitatAvoidGain: 2
+  habitatSlowGain: 3
+  habitatSpeedFloor: 0.25
   fusedWriteCS: {fileID: 7200000, guid: 9ce42c0778aa14270950ac44dbcad2b1, type: 3}
   showDebugGrid: 1
   debugQuadSize: 0.65
   debugGridSpacing: 0.2
-  debugGridOrigin: {x: -2.7, y: -2.3, z: 0}
-  debugGridColumns: 6
+  debugGridOrigin: {x: -2, y: -2.3, z: 0}
+  debugGridColumns: 5
   showBiomeLabels: 1
   labelColor: {r: 0.6, g: 0.6, b: 0.6, a: 0.6156863}
   labelYOffset: 0.4
@@ -2169,10 +2183,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 3840
-  rezY: 2160
+  rezX: 2560
+  rezY: 1440
   simResolutionScale: 1
   perceptionResScale: 0.75
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   simRate: 60
   maxAllowedTimestep: 0.1
   stepsPerTick: 1
@@ -2203,6 +2220,8 @@ MonoBehaviour:
   compositeOutMat: {fileID: 2100000, guid: 3e812a8bed0cf4881bce47a8fab00566, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
+  moundOverlayStrength: 0.6
+  moundColor: {r: 0.5294118, g: 0.8078432, b: 0.9215687, a: 1}
 --- !u!114 &2000144462
 MonoBehaviour:
   m_ObjectHideFlags: 0

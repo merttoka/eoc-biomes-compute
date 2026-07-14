@@ -17,11 +17,8 @@ MonoBehaviour:
     weight: 1
     effect: 0
   - channel: 7
-    weight: -0.4
+    weight: -0.24
     effect: 0
-  - channel: 7
-    weight: 0.5
-    effect: 1
   - channel: 1
     weight: 0.8
     effect: 0
