@@ -19,9 +19,11 @@ trail-density scale by `rezY/referenceHeight` on Reset, grounded at 2160 — no-
 activates on any resolution change; per-scene toggles).
 
 ## 🔧 In design (specs forthcoming)
-- **Permeability rework** — replace the static, repetitive, seedless noise terrain with
-  agent-authored, *persistent* structure; fix the write-then-dissolve (temp coupling + relax
-  heal both fight termite digs). Moderate visual disruption OK; **no** deterministic terrain.
+- **Permeability mounds** ([[superpowers/specs/2026-07-14-permeability-mounds-design|spec]]) —
+  termites build persistent walls that partition the field into habitats (Boids open / Physarum
+  edges / Termites walls), reusing permeability ch7 + the dead habitat gate; `ResetTermites`
+  melts them. Accretion + confinement baseline; curvature/humidity-scaffold deferred as layers.
+  **Spec drafted — ready to plan** (implementation on a dedicated branch).
 
 ## 📋 Backlog — verified status
 
