@@ -325,6 +325,18 @@ namespace Biomes
                             biome.WriteField(BiomeChannel.Oxygen, posBuffer, agentCount,
                                 -sim.umwelt.oxygenConsumption * metabScale, sim.rezX, sim.rezY);
                     }
+
+                    // Termite mound build: probabilistic, firing-gated permeability lowering.
+                    if (sim is TermiteSim termite && termite.wallBuildAmount > 0f)
+                    {
+                        biome.BuildPermeability(
+                            posBuffer, agentCount,
+                            neuronFiring != null ? neuronFiring.Buffer : null,
+                            neuronFiring != null ? neuronFiring.NeuronCount : 0,
+                            termite.WallBuildProbability, termite.WallBuildFiringProbability,
+                            termite.wallBuildFiringThreshold, termite.wallBuildAmount,
+                            _simStepCount, sim.rezX, sim.rezY);
+                    }
                 }
             }
 

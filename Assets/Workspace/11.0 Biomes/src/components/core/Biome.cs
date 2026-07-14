@@ -75,6 +75,8 @@ namespace Biomes
         private int writeFieldKernel;
         private int injectStampKernel;
         private int readFieldKernel;
+        private int buildPermeabilityKernel;
+        private ComputeBuffer _buildDummyFiring;   // 1-elem dummy bound when no firing source
 
         // GPU data: per-channel settings uploaded as structured buffer
         private ComputeBuffer channelSettingsBuffer;
@@ -170,6 +172,7 @@ namespace Biomes
             writeFieldKernel = cs.FindKernel("WriteFieldKernel");
             injectStampKernel = cs.FindKernel("InjectStampKernel");
             readFieldKernel = cs.FindKernel("ReadFieldKernel");
+            buildPermeabilityKernel = cs.FindKernel("BuildPermeabilityKernel");
         }
 
         // Allocate the per-channel settings buffers once (sizes are fixed by BiomeChannel.Count).
@@ -513,6 +516,33 @@ namespace Biomes
             Dispatch(writeFieldKernel, agentCount, 1, 1);
         }
 
+        // Termite mound build: lower permeability at agent positions, probabilistically and
+        // pulsing with neuron firing. Writes into fieldReadArray (same target as WriteField),
+        // so it rides the field ping-pong. See permeability-mounds spec.
+        public void BuildPermeability(ComputeBuffer agentPositions, int agentCount,
+            ComputeBuffer firing, int neuronCount,
+            float depositProb, float firingDepositProb, float firingThreshold,
+            float buildAmount, int timeSeed, int simRezX, int simRezY)
+        {
+            if (cs == null || fieldReadArray == null || agentPositions == null || agentCount <= 0) return;
+            cs.SetInt("agentCount", agentCount);
+            cs.SetFloat("simToFieldX", (float)biomeRezX / Mathf.Max(1, simRezX));
+            cs.SetFloat("simToFieldY", (float)biomeRezY / Mathf.Max(1, simRezY));
+            cs.SetFloat("buildDepositProb", depositProb);
+            cs.SetFloat("buildFiringDepositProb", firingDepositProb);
+            cs.SetFloat("buildFiringThreshold", firingThreshold);
+            cs.SetFloat("buildAmount", buildAmount);
+            // A StructuredBuffer must always be bound; with no firing source, bind a persistent
+            // 1-element dummy and force neuronCount 0 so the kernel never indexes it.
+            if (firing == null) { _buildDummyFiring ??= new ComputeBuffer(1, sizeof(float)); firing = _buildDummyFiring; neuronCount = 0; }
+            cs.SetInt("buildNeuronCount", neuronCount);
+            cs.SetInt("buildTimeSeed", timeSeed);
+            cs.SetBuffer(buildPermeabilityKernel, "buildFiring", firing);
+            cs.SetBuffer(buildPermeabilityKernel, "agentPositions", agentPositions);
+            cs.SetTexture(buildPermeabilityKernel, s_FieldWriteID, fieldReadArray);
+            Dispatch(buildPermeabilityKernel, agentCount, 1, 1);
+        }
+
         // ── Fused write-back (optional, via fusedWriteCS / BiomeWriteFused.compute) ──
         [StructLayout(LayoutKind.Sequential)]
         public struct FusedWrite { public int channel; public float amount; }   // 8 bytes, matches HLSL
@@ -670,6 +700,8 @@ namespace Biomes
             _perceptionEntryData = null;
             _writeEntryBuffer?.Release();   // not gpu-tracked (own buffer)
             _writeEntryBuffer = null;
+            _buildDummyFiring?.Release();
+            _buildDummyFiring = null;
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 

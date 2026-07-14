@@ -34,6 +34,18 @@ namespace Biomes
 
         protected override int TypeCount => agentParams != null ? agentParams.types.Count : 1;
 
+        [Header("Mound build (permeability)")]
+        [Tooltip("Permeability lowered per build event as termites construct walls/mounds. 0 = no building.")]
+        public float wallBuildAmount = 0.02f;
+        [Tooltip("Firing intensity above which a termite builds at the firing (burst) probability.")]
+        [Range(0f, 1f)] public float wallBuildFiringThreshold = 0.1f;
+
+        // Reuse the type's trail-deposit cadence as the build cadence (building pulses with firing).
+        public float WallBuildProbability =>
+            agentParams != null && agentParams.types.Count > 0 ? agentParams.types[0].depositProbability : 0.2f;
+        public float WallBuildFiringProbability =>
+            agentParams != null && agentParams.types.Count > 0 ? agentParams.types[0].firingDepositProbability : 0.3f;
+
         private ComputeBuffer typeParamsBuffer;
         private TermiteTypeParamsGPU[] _typeParamsCache;
 

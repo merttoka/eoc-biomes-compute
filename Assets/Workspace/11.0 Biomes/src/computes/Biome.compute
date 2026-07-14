@@ -11,6 +11,7 @@
 #pragma kernel WriteFieldKernel
 #pragma kernel InjectStampKernel
 #pragma kernel ReadFieldKernel
+#pragma kernel BuildPermeabilityKernel
 
 #include "includes/random.hlsl"
 #include "includes/color.hlsl"
@@ -339,6 +340,43 @@ void WriteFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     float current = fieldWrite[uint3(fieldPos, writeChannel)];
     fieldWrite[uint3(fieldPos, writeChannel)] = clamp(current + writeAmount, 0, 1);
+}
+
+
+// ════════════════════════════════════════════════
+// TERMITE MOUND BUILD (probabilistic, firing-gated permeability lowering)
+// ════════════════════════════════════════════════
+StructuredBuffer<float> buildFiring;   // per-neuron firing intensity (shared source)
+uint  buildNeuronCount;
+float buildDepositProb;                // baseline per-step build chance
+float buildFiringDepositProb;          // build chance when the agent's neuron is firing
+float buildFiringThreshold;            // firing intensity above which the firing chance applies
+float buildAmount;                     // permeability lowered per build event (positive)
+uint  buildTimeSeed;                   // per-step seed for the per-agent RNG
+
+float BuildHash(uint a, uint b) {
+    uint h = a * 747796405u + b * 2891336453u;
+    h = (h ^ (h >> 16)) * 2246822519u;
+    h = (h ^ (h >> 13)) * 3266489917u;
+    h ^= h >> 16;
+    return (h & 0x00FFFFFFu) / 16777216.0;   // 0..1
+}
+
+[numthreads(256, 1, 1)]
+void BuildPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentCount) return;
+    float2 simPos = agentPositions[id.x].position;
+    uint2 fieldPos = uint2(
+        clamp(simPos.x * simToFieldX, 0, rezX - 1),
+        clamp(simPos.y * simToFieldY, 0, rezY - 1)
+    );
+    // Build pulses with the agent's neuron (agent i -> neuron i % neuronCount).
+    float firing = buildNeuronCount > 0 ? buildFiring[id.x % buildNeuronCount] : 0.0;
+    float prob = firing > buildFiringThreshold ? buildFiringDepositProb : buildDepositProb;
+    if (BuildHash(id.x, buildTimeSeed) < prob) {
+        float current = fieldWrite[uint3(fieldPos, CH_PERMEABILITY)];
+        fieldWrite[uint3(fieldPos, CH_PERMEABILITY)] = clamp(current - buildAmount, 0, 1);
+    }
 }
 
 
