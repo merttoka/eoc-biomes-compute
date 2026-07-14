@@ -12,7 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
-- [[superpowers/specs/2026-07-14-permeability-mounds-design]] — termite-built persistent mounds partition the field into habitats (reuse permeability ch7 + dead habitat gate); `ResetTermites` melts them
+- [[superpowers/specs/2026-07-14-permeability-mounds-design]] — termite-built persistent mounds partition the field into habitats (reuse permeability ch7 + dead habitat gate); `ResetTermites` melts them ([[superpowers/plans/2026-07-14-permeability-mounds|plan]])
 - [[superpowers/specs/2026-07-11-fps-independent-sim-design]] — fixed 60 Hz timestep (`FixedUpdate`) + render decoupled to `LateUpdate`; FPS-independent sim ([[superpowers/plans/2026-07-11-fps-independent-sim|plan]])
 - [[../Assets/Workspace/11.0 Biomes/docs/INTERACTION_DESIGN_II]] — follow-on interaction design: outside-signal routing (audio/organoid/sensors), generalizing field→agent beyond the 4 perception slots, lifecycle (death→succession). Builds on INTEGRATION_DESIGN after Humidity shipped
 - [[../Assets/Workspace/11.0 Biomes/docs/INTEGRATION_DESIGN]] — layer/sim coupling exploration: stamp injector (shipped), Q10/decay, Humidity (shipped), perm-topography, mortality
