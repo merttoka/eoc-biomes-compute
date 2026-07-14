@@ -24,6 +24,8 @@ namespace Biomes
         [Range(0f, 8f)] public float habitatAvoidGain = 2f;
         [Tooltip("Speed penalty when an agent is outside its band (1 unit out-of-band -> this fraction slower).")]
         [Range(0f, 8f)] public float habitatSlowGain = 3f;
+        [Tooltip("Minimum speed multiplier when fully out-of-band. Keeps termites mobile enough to build their own habitat (0 = allow full freeze, which deadlocks at the uniform-open start).")]
+        [Range(0f, 1f)] public float habitatSpeedFloor = 0.25f;
 
         [Tooltip("Optional swappable write-back shader (assign BiomeWriteFused.compute). When set AND SimulationManager.fusedWriteback is on, all of a sim's channel deposits are applied in ONE dispatch instead of one per channel. Leave null to use the default per-channel path.")]
         public ComputeShader fusedWriteCS;
@@ -116,6 +118,7 @@ namespace Biomes
         private static readonly int s_HabitatBandMaxID  = Shader.PropertyToID("habitatBandMax");
         private static readonly int s_HabitatAvoidGainID = Shader.PropertyToID("habitatAvoidGain");
         private static readonly int s_HabitatSlowGainID  = Shader.PropertyToID("habitatSlowGain");
+        private static readonly int s_HabitatSpeedFloorID = Shader.PropertyToID("habitatSpeedFloor");
         private static readonly int s_TempToEvaporationID = Shader.PropertyToID("tempToEvaporation");
         private static readonly int s_HumidityGradientGainID = Shader.PropertyToID("humidityGradientGain");
         private static readonly int s_NoiseScaleID = Shader.PropertyToID("noiseScale");
@@ -671,6 +674,7 @@ namespace Biomes
             cs.SetFloat(s_HabitatBandMaxID, umwelt != null ? umwelt.preferredPermeabilityMax : 1f);
             cs.SetFloat(s_HabitatAvoidGainID, habitatAvoidGain);
             cs.SetFloat(s_HabitatSlowGainID, habitatSlowGain);
+            cs.SetFloat(s_HabitatSpeedFloorID, habitatSpeedFloor);
             cs.SetBuffer(readFieldKernel, "readEntries", perceptionEntryBuffer);
             cs.SetTexture(readFieldKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(readFieldKernel, "perceptionTex", perceptionTex);

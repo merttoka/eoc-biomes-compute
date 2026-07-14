@@ -116,6 +116,7 @@ float habitatBandMin;    // this species' preferred permeability band (min)
 float habitatBandMax;    // ... (max)
 float habitatAvoidGain;  // out-of-band -> avoidance
 float habitatSlowGain;   // out-of-band -> speed penalty
+float habitatSpeedFloor; // min speed multiplier out-of-band (never fully freeze; builders must roam)
 
 
 // Partial field passes (flow/advect/interact) write only a subset of channels.
@@ -456,7 +457,9 @@ void ReadFieldKernel(uint3 id : SV_DISPATCHTHREADID) {
     float habPerm = fieldRead.SampleLevel(sampler_fieldRead, float3(uv, CH_PERMEABILITY), 0);
     float outOfBand = max(0.0, habitatBandMin - habPerm) + max(0.0, habPerm - habitatBandMax);
     avoidance += outOfBand * habitatAvoidGain;
-    speedMod  *= saturate(1.0 - outOfBand * habitatSlowGain);
+    // Floor the penalty so out-of-band agents slow but never fully freeze — termites must stay
+    // mobile to build the walls that create their own in-band habitat (else init deadlocks).
+    speedMod  *= max(habitatSpeedFloor, 1.0 - outOfBand * habitatSlowGain);
 
     perceptionTex[id.xy] = float4(
         saturate(chemotaxis * 0.5 + 0.5), // remap [-1,1] → [0,1]
