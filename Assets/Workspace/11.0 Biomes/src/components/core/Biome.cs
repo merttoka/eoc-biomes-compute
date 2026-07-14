@@ -553,6 +553,18 @@ namespace Biomes
             Dispatch(buildPermeabilityKernel, agentCount, 1, 1);
         }
 
+        // Reset permeability (the termite-built mounds) to uniform-open in both ping-pong
+        // buffers, without touching any other channel. Called when termites reset.
+        public void ClearPermeability()
+        {
+            if (cs == null || fieldReadArray == null) return;
+            cs.SetFloat(s_PermOpenBaselineID, fieldConfig.permeabilityOpenBaseline);
+            cs.SetTexture(initPermeabilityKernel, s_FieldWriteID, fieldWriteArray);
+            Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
+            cs.SetTexture(initPermeabilityKernel, s_FieldWriteID, fieldReadArray);
+            Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
+        }
+
         // ── Fused write-back (optional, via fusedWriteCS / BiomeWriteFused.compute) ──
         [StructLayout(LayoutKind.Sequential)]
         public struct FusedWrite { public int channel; public float amount; }   // 8 bytes, matches HLSL

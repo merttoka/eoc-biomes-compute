@@ -533,7 +533,7 @@ namespace Biomes
         // would disrupt them.
         [Button("Reset Physarum Only")] public void ResetPhysarum() => ResetSimsOfType<PhysarumSim>();
         [Button("Reset Boids Only")]    public void ResetBoids()    => ResetSimsOfType<BoidSim>();
-        [Button("Reset Termites Only")] public void ResetTermites() => ResetSimsOfType<TermiteSim>();
+        [Button("Reset Termites Only")] public void ResetTermites() { ResetSimsOfType<TermiteSim>(); biome?.ClearPermeability(); }
 
         private void ResetSimsOfType<T>() where T : SimulationBase
         {
