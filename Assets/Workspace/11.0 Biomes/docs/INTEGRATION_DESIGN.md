@@ -8,7 +8,13 @@
 > them interact **richer**, (3) an **external-input** injection architecture for
 > the gallery. Shipped so far: the stamp **injector**, **Q10 + decay sinks +
 > relax-to-baseline**, the **permeability runaway fix**, and the **Humidity
-> channel** (consumer read still to wire). Last verified against code: 2026-06-23.
+> channel** (consumer read still to wire), and **permeability mounds** — permeability is now
+agent-built topography (uniform-open baseline + firing-gated termite build kernel) with
+per-species habitat-band confinement; the habitat gate's speed penalty is **floored** so it
+can't drive speed→0 (see Part 2 caveat (b) below — that exact freeze happened and was fixed).
+See `docs/adr/0010-permeability-agent-built-topography.md`. The 1a–1c tables below describe the
+*pre-mound* coupling; their permeability rows are superseded by ADR-0010.
+Last verified against code: 2026-07-15.
 
 ---
 

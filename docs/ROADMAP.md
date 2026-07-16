@@ -1,6 +1,6 @@
 ---
 status: living
-date: 2026-07-13
+date: 2026-07-15
 tags: [meta, roadmap, backlog]
 related: [[../Assets/Workspace/11.0 Biomes/docs/INTEGRATION_DESIGN]], [[INDEX]]
 ---
@@ -16,14 +16,18 @@ Q10 ignition + decay sinks · relax-to-baseline · Humidity channel (+ build cue
 shows) · **diurnal sun** (procedural injector, neuron-playhead-phased) · fixed-timestep sim ·
 clear-in-place stream-safe resets · **resolution-independent params** (pixel-unit spatial +
 trail-density scale by `rezY/referenceHeight` on Reset, grounded at 2160 — no-op at reference,
-activates on any resolution change; per-scene toggles).
+activates on any resolution change; per-scene toggles) · **permeability mounds** (termites build
+persistent walls that partition the field into habitats — agent-authored ch7 + firing-gated build
+kernel + habitat-band confinement + `ResetTermites` melt + composite overlay;
+[[adr/0010-permeability-agent-built-topography|ADR-0010]]).
 
 ## 🔧 In design (specs forthcoming)
-- **Permeability mounds** ([[superpowers/specs/2026-07-14-permeability-mounds-design|spec]]) —
-  termites build persistent walls that partition the field into habitats (Boids open / Physarum
-  edges / Termites walls), reusing permeability ch7 + the dead habitat gate; `ResetTermites`
-  melts them. Accretion + confinement baseline; curvature/humidity-scaffold deferred as layers.
-  **Spec drafted — ready to plan** (implementation on a dedicated branch).
+- _Permeability mounds **shipped 2026-07-15** (see Shipped /
+  [[adr/0010-permeability-agent-built-topography|ADR-0010]] /
+  [[sessions/2026-07-15-permeability-mounds|session]])._ Deferred follow-on layers: curvature
+  (Laplacian) build/dig cue, humidity-scaffold, optional per-run seed bootstrap, discrete build
+  types. Open: legacy umwelt ch7 chemotaxis/speed reads now overlap the habitat bands (Physarum/
+  Boid contradict) — decide whether to strip them.
 
 ## 📋 Backlog — verified status
 
@@ -39,8 +43,9 @@ activates on any resolution change; per-scene toggles).
   current per-step deposits).
 - **Waste utilization without mortality** — Termite is the biggest depositor but reads Waste
   nowhere; give it a waste read + amplify the Q10 fertility wave the Physarum food-read chases.
-- **Permeability-as-topography** (Laplacian curvature → build/dig) — technique exists on
-  *Humidity* (`|∇|`), not Permeability. Likely folded into the permeability rework.
+- **Permeability-as-topography** — the agent-authored permeability field **shipped**
+  ([[adr/0010-permeability-agent-built-topography|ADR-0010]]); the *Laplacian-curvature*
+  build/dig cue itself is still deferred (build is firing-gated probabilistic, not curvature-driven).
 - **Trails → separate overlaid composite channel** — decouple termite trail thickness from the
   *additive* main composite (model on the existing post-composite `NeuronRingKernel` overlay).
 - **Injector click-to-place + texture-valued source** — no CustomEditor/OnSceneGUI; `Source.value`
@@ -55,11 +60,13 @@ activates on any resolution change; per-scene toggles).
 - Outside-signal routing (audio / organoid / sensors → field, beyond the 4 perception slots).
 - Lifecycle: death → succession (needs mortality first).
 - Tempo-breath procedural injector source (reuses the diurnal-sun phase hook; phase = musical bar).
-- Habitat differentiation — *without* deterministic terrain, keyed to an agent-authored
-  permeability field rather than static noise (converges with the permeability rework).
+- ~~Habitat differentiation~~ → **shipped 2026-07-15** — agent-authored permeability + per-species
+  habitat bands (no deterministic terrain); [[adr/0010-permeability-agent-built-topography|ADR-0010]].
 
 ## ⚰️ Dead code / scaffolding (configured but executed by no kernel)
-- `preferredPermeabilityMin/Max` habitat gate — per-species, MIDI-mapped, read by **no** kernel.
+- ~~`preferredPermeabilityMin/Max` habitat gate — read by **no** kernel~~ → **wired 2026-07-15**
+  into `ReadFieldKernel` (out-of-band → avoidance + speed penalty, floored);
+  [[adr/0010-permeability-agent-built-topography|ADR-0010]].
 - Mortality params — declared, unused.
 - Boid `.b` waste-avoidance — sampled every frame but neutralized by its negative weight.
 

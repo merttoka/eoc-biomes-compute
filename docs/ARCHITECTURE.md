@@ -1,6 +1,6 @@
 ---
 status: living
-date: 2026-06-08
+date: 2026-07-15
 tags: [architecture, unity, gpu, memory, biomes]
 related: [[migration]], [[INDEX]]
 ---
@@ -136,7 +136,10 @@ The biome is a double-buffered `Texture2DArray` of **12 scalar channels**
 Waste, Permeability, FlowX, FlowY, Dispersal, Humidity` (Pheromone0/1/2 are per-species
 scents for the three sims; **Dispersal** is a transient, fast-decay agitation field that
 scatters all sims — see §3.5; **Humidity** is a high-diffusion, flow-advected moisture
-field that relaxes to an ambient baseline and is evaporated by Temperature). Per-channel
+field that relaxes to an ambient baseline and is evaporated by Temperature;
+**Permeability** starts at a uniform-open baseline and relaxes toward it near-zero — its
+structure is authored entirely by termites, not static terrain, see §3.4 +
+[[adr/0010-permeability-agent-built-topography|ADR-0010]]). Per-channel
 behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
 from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
 hardcoded in two sync'd places — `BiomeChannel.Count/Names` (the C# source of truth; both
@@ -166,8 +169,13 @@ sim resolution; sim↔field coordinates are mapped by ratio.
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
   ranges, food-seeking).
 - **`TermiteSim`** — neuron-coupled pheromone-stigmergy swarm (ported from
-  `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat". Builds permeability
-  mounds through the Biome/Umwelt. Runs at **131 agents (1:1 with neurons)** by default —
+  `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat". Builds persistent
+  **permeability mounds** via a dedicated firing-gated `Biome.BuildPermeability` /
+  `BuildPermeabilityKernel` (agent-authored ch7 topography, not the umwelt write path); each
+  species is then confined to its `preferredPermeabilityMin/Max` band by the perception habitat
+  gate (out-of-band → avoidance + floored speed penalty). `ResetTermites` melts the mounds.
+  See [[adr/0010-permeability-agent-built-topography|ADR-0010]]. Runs at **131 agents
+  (1:1 with neurons)** by default —
   each termite is its own neuron group, seeded with a coherent heading and a **per-group
   fixed turn-angle magnitude** (`turnAngleSpread`, via the `NeuronGroup()` helper) so each
   stream curves with its own character instead of a single global turn angle. Specs:

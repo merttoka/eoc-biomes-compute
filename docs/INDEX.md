@@ -20,6 +20,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-07-15-permeability-mounds]] — termite-built permeability walls partition the field into habitats (Boids open / Physarum edges / Termites walls); wired the dead `preferredPermeabilityMin/Max` gate + firing-gated build kernel + `ResetTermites` melt + composite overlay; speed-floor freeze fix; merged to main ([[adr/0010-permeability-agent-built-topography|ADR-0010]])
 - [[sessions/2026-07-13-resolution-independent-params]] — spatial + trail-density params scale by `rezY/2160` on Reset (resolution-independent, grounded at 2160; no-op at reference); + 3-agent backlog audit + new ROADMAP
 - [[sessions/2026-07-11-diurnal-sun]] — diurnal sun: procedural `BiomeInjector` source sweeps Temperature L→R, phased off the neuron playhead (one blob playthrough = one day); kept indirect (no temp reads) — retuned temp diffuse/evap/Q10/flow + cut metabolic heat for headroom; OSC per-family resets
 - [[sessions/2026-07-11-fps-independent-sim]] — fixed 60 Hz timestep via `FixedUpdate`; composite render decoupled to `LateUpdate`; sim RNG seeded from monotonic sim step; `stepsPerFrame`+`stepMod` → `simRate`/`maxAllowedTimestep`/`stepsPerTick`; all 3 scenes migrated
@@ -33,6 +34,7 @@ tags: [meta, index]
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
 ## ADRs (newest first)
+- [[adr/0010-permeability-agent-built-topography]] — permeability is agent-built topography (uniform-open baseline + termite build kernel), not static noise; habitat bands confine species
 - [[adr/0009-per-show-scene-workspaces]] — one workspace folder per show; shared engine stays in `11.0 Biomes/`
 - [[adr/0008-clear-in-place-reset]] — sim reset clears GPU resources in place (stable `outTex` → no Syphon teardown)
 - [[adr/0007-mass-conserving-diffusion-relax-channels]] — diffusion operator gated per channel class (homeostatic vs stigmergic)
