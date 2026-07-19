@@ -43,8 +43,8 @@ namespace Biomes
         [Tooltip("Receiver #2: the StreamDiffusion return stream (Spout from TouchDesigner).")]
         /// <summary>Optional external receiver reference; not sampled directly by this component.</summary>
         public ExternalTextureReceiver diffusionReturn;
-        [Tooltip("Receiver #1: the general external input (same one SimulationManager uses).")]
         /// <summary>Optional external receiver reference; resolved by ResolveSource for CellSource.InputReceiver.</summary>
+        [Tooltip("Receiver #1: the general external input (same one SimulationManager uses).")]
         public ExternalTextureReceiver inputReceiver;
 
         [Header("Composer")]

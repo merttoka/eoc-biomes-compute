@@ -25,13 +25,13 @@ namespace Biomes
         public CellSource source = CellSource.Rig;
         /// <summary>Rig to sample when <see cref="source"/> is <see cref="CellSource.Rig"/>. Resolved from the director's bindings.</summary>
         public ExposedReference<BiomeCellRig> rig;
-        [Tooltip("Normalized composer rect: x, y, width, height in 0..1.")]
         /// <summary>Destination rect on the composer, normalized 0-1 (x, y, width, height).</summary>
+        [Tooltip("Normalized composer rect: x, y, width, height in 0..1.")]
         public Rect dstRect = new(0.25f, 0.25f, 0.5f, 0.5f);
         /// <summary>Overlay (additive) or Replace (alpha lerp) blend against the composer.</summary>
         public CellBlendMode mode = CellBlendMode.Overlay;
-        [Tooltip("Replace only: also duck the base sim composite to 1-weight while active.")]
         /// <summary>When true and <see cref="mode"/> is Replace, also calls SetBaseWeight(1-weight) while this clip is active.</summary>
+        [Tooltip("Replace only: also duck the base sim composite to 1-weight while active.")]
         public bool duckBase = false;
 
         /// <summary>Clip supports Timeline's built-in ease-in/ease-out blend curves.</summary>

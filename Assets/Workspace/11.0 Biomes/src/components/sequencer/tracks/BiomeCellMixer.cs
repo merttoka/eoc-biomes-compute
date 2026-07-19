@@ -35,5 +35,33 @@ namespace Biomes
                     seq.SetBaseWeight(1f - w);
             }
         }
+
+        /// <summary>Forces every reachable rig to stop when the graph tears down this mixer
+        /// (e.g. director Stop), so a rig mid-clip doesn't stay Running forever.</summary>
+        public override void OnPlayableDestroy(Playable playable)
+        {
+            StopAllRigs(playable);
+        }
+
+        /// <summary>Forces every reachable rig to stop when the graph pauses evaluation of
+        /// this mixer. Also fires when the mixer's overall effective weight hits 0 mid-timeline
+        /// (e.g. between clips) — that's acceptable and matches ProcessFrame's own
+        /// w &lt;= 0 → Running=false semantics.</summary>
+        public override void OnBehaviourPause(Playable playable, FrameData info)
+        {
+            StopAllRigs(playable);
+        }
+
+        private static void StopAllRigs(Playable playable)
+        {
+            int n = playable.GetInputCount();
+            for (int i = 0; i < n; i++)
+            {
+                var input = (ScriptPlayable<BiomeCellBehaviour>)playable.GetInput(i);
+                var b = input.GetBehaviour();
+                if (b == null || b.rig == null) continue;
+                b.rig.Running = false;
+            }
+        }
     }
 }
