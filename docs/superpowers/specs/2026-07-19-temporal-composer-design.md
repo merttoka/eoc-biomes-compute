@@ -26,7 +26,11 @@ Editor-hosted temporal sequencer for the SIGGRAPH show. Choreographs, on a scrub
 | Biome grid | In the composite output, 2–4 live cells, overlay or replace |
 | Network patches | Free-scattered patches; also feed `externalInfluenceTex`; source = StreamDiffusion return via Spout/Syphon/NDI |
 | Composer output | **Own RT, resolution independent from sim rez** (not in-place into `compositeOutTex`) |
-| StreamDiffusion | Same machine as Unity; Unity rates capped to share GPU |
+| Composer rez default | Match sim composite rez (keeps `ScreenLayout` pixel-crop rects valid); scale factor exposed |
+| Displays | `ScreenLayout` + senders sample `composerOutTex` (not the sim composite) |
+| "Info UI" | = the cells+patches layer itself; debug/annotation overlay is a separate optional toggle layer |
+| Show machine | Windows, RTX 5080; **TouchDesigner runs StreamDiffusion**; Unity rates capped to share GPU |
+| Local transport | Spout both directions (Unity ↔ TD); NDI only for cross-machine |
 
 ## Architecture
 
@@ -46,7 +50,8 @@ PlayableDirector(ShowSequence) → CompositeSequencer → composerOutTex → Ext
 
 **`CompositeSequencer`** (runtime MonoBehaviour, `11.0 Biomes/src/components/sequencer/`)
 - Owns `composerOutTex`: ARGBHalf, configurable resolution independent of sim rez (default: display rez). Allocated once, cleared in place, never recreated (same stable-RT rule as ADR-0008 so senders keep their native handle).
-- `LateUpdate` after `SimulationManager.Render()`: base layer = sample `CompositeOutputTexture` (or skip when a Replace cell owns the frame), then CellKernel, then PatchKernel. One dispatch each.
+- `LateUpdate` after `SimulationManager.Render()`: base layer = sample `CompositeOutputTexture` (or skip when a Replace cell owns the frame), then CellKernel, then PatchKernel, then optional debug/annotation overlay pass (toggleable, off for show). One dispatch each.
+- `ScreenLayout` and the outbound sender are re-pointed at `composerOutTex`; default composer rez = sim composite rez so existing pixel-crop rects stay valid (scale factor exposed for perf).
 - Receives per-frame state from Timeline mixers: active cells `{sourceRT, dstRect, weight, mode}`, active patch events, param interpolation targets, routing flags.
 
 **`BiomeCellRig`** (prefab, ≤4 instances in scene)
@@ -77,8 +82,8 @@ Grid of all snapshot/preset assets with cached PNG thumbnails (captured from com
 
 ### StreamDiffusion loop
 
-- Existing `ExternalTextureSender` ships `composerOutTex` out → StreamDiffusion (same machine) → returns via a **second** `ExternalTextureReceiver` instance (so the diffusion return and any other input stream coexist).
-- Local loop transport: Spout (Windows) / Syphon (macOS) — same-GPU zero-copy; avoid NDI locally (CPU encode + latency).
+- Existing `ExternalTextureSender` ships `composerOutTex` out via Spout → **TouchDesigner runs StreamDiffusion** on the same Windows/RTX 5080 machine → returns via Spout into a **second** `ExternalTextureReceiver` instance (so the diffusion return and any other input stream coexist).
+- Spout both directions locally (same-GPU zero-copy); NDI only for cross-machine sources. Syphon path remains for mac dev without the diffusion leg.
 - Return stream binds as PatchKernel source and optionally as `externalInfluenceTex` (existing path unchanged).
 - Patch scheduling makes diffusion fps nearly irrelevant: patches hold 0.2–1.5 s, so 5–10 fps return reads identically to 30 fps.
 
