@@ -105,6 +105,24 @@ HW bank switches are detected automatically via Note On (Ch 3, notes 0-3). The i
 
 Banks 2 and 3 reserve column 3 of HW bank 1 for biome/global params. Type columns shift accordingly.
 
+### LED Feedback
+
+**Per-type hue gradients** — SimParam knob color = family hue range interpolated by type index, so columns read left→right as a gradient (inspector-tunable, MFT hue-wheel CC values 1-125):
+
+| Family   | Default range | Reads as         |
+| -------- | ------------- | ---------------- |
+| Physarum | 20 → 40       | deep blue → cyan |
+| Termite  | 57 → 70       | yellow band      |
+| Boid     | 78 → 98       | orange → red     |
+
+Fixed: Biome=green(43), Umwelt=cyan(40), Global=purple(110). Single-type sims sit at range midpoint. Bound knobs full RGB brightness; unbound off.
+
+**Bank-switch flash** — on any soft/HW bank change, `bankFlashDuration` (default 0.7s) overlay:
+
+- Top row: `softBank+1` knobs lit in soft bank color (blue/orange/green/purple)
+- Bottom row: `hwBank+1` knobs lit white
+- Rings off during flash; normal LEDs restore after
+
 ### Soft-Takeover (Pickup)
 
 After switching either bank type, encoders are ignored until the physical knob position passes through the current param value. Prevents value jumps.
@@ -156,7 +174,7 @@ Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31)
 
 - **Two rows of tabs**: soft bank (param category) + HW bank (column page)
 - **4x4 color-coded grid** shows current page bindings
-- **Color legend**: blue=Physarum, orange=Boid, green=Biome, cyan=Umwelt, purple=Global
+- **Color legend**: blue=Physarum, orange=Boid, yellow=Termite, green=Biome, cyan=Umwelt, purple=Global (device LEDs use per-type gradients within each family — see LED Feedback)
 - Tabs auto-sync when switching banks on the physical MFT
 
 ### Debugging CC Numbers

@@ -57,6 +57,17 @@ namespace Biomes
         public bool sendLEDFeedback = true;
         [Range(0f, 2f)] public float ledUpdateInterval = 0.1f;
 
+        [Header("LED Colors")]
+        [Tooltip("MFT hue-wheel CC values (1-125). Column color = Lerp(start, end, typeIndex/(typeCount-1)).")]
+        [Range(1, 125)] public int physarumHueStart = 20;
+        [Range(1, 125)] public int physarumHueEnd   = 40;
+        [Range(1, 125)] public int boidHueStart     = 78;
+        [Range(1, 125)] public int boidHueEnd       = 98;
+        [Range(1, 125)] public int termiteHueStart  = 57;
+        [Range(1, 125)] public int termiteHueEnd    = 70;
+        [Tooltip("Bank-switch flash: top row = soft bank, bottom row = HW bank. 0 disables.")]
+        [Range(0f, 2f)] public float bankFlashDuration = 0.7f;
+
         [Header("Debug")]
         public bool logMidi = true;
 
@@ -90,10 +101,9 @@ namespace Biomes
         private const int RGB_YELLOW   = 65;
 
         // MFT LED animation values (sent as CC value on Ch 2)
-        private const int ANIM_NONE    = 0;
-        private const int ANIM_STROBE  = 47;
-        private const int ANIM_PULSE   = 55;
-        private const int ANIM_RAINBOW = 127;
+        // Per DJTT manual: 1-8 strobe, 9-16 pulse, 17-47 RGB brightness (47 = 100%), 127 rainbow
+        private const int ANIM_NONE           = 0;
+        private const int ANIM_RGB_BRIGHT_MAX = 47;
 
         // ─── MIDI Output ───
         private MidiOut _midiOut;
@@ -112,6 +122,10 @@ namespace Biomes
         private Dictionary<(int, int), float> _lastValues = new();
         private List<Minis.MidiDevice> _devices = new();
         private float _lastLEDUpdate;
+
+        // Bank-switch flash overlay: >0 while active; Update() restores LEDs on expiry.
+        private float _flashUntil = -1f;
+        private bool FlashActive => _flashUntil > 0f && Time.unscaledTime < _flashUntil;
 
         // After bank switch, ignore absolute encoder values until the knob moves.
         private bool[] _encoderPickedUp = new bool[ENCODERS_PER_HW_BANK];
@@ -205,6 +219,12 @@ namespace Biomes
 
         void Update()
         {
+            if (_flashUntil > 0f && !FlashActive)
+            {
+                _flashUntil = -1f;
+                SendAllLEDs();
+            }
+            if (FlashActive) return;
             if (sendLEDFeedback && Time.realtimeSinceStartup - _lastLEDUpdate > ledUpdateInterval)
             {
                 _lastLEDUpdate = Time.realtimeSinceStartup;
@@ -917,7 +937,7 @@ namespace Biomes
                 Debug.Log($"[MFT] === Soft Bank {bank}: {bankNames[bank]} | HW Bank {_hwBank} ===");
                 LogBindingTable(_softBank);
             }
-            SendAllLEDs();
+            StartBankFlash();
             onBankChanged?.Invoke();
         }
 
@@ -927,7 +947,7 @@ namespace Biomes
             for (int i = 0; i < ENCODERS_PER_HW_BANK; i++) _encoderPickedUp[i] = false;
             if (logMidi)
                 Debug.Log($"[MFT] HW Bank {bank} (Soft Bank {_softBank})");
-            SendAllLEDs();
+            StartBankFlash();
             onBankChanged?.Invoke();
         }
 
@@ -958,16 +978,14 @@ namespace Biomes
 
                 int color = b.target switch
                 {
-                    BindingTarget.SimParam when b.simIndex >= 0 && b.simIndex < m_Simulations.Count
-                        => m_Simulations[b.simIndex] is PhysarumSim ? RGB_BLUE
-                         : m_Simulations[b.simIndex] is TermiteSim ? RGB_YELLOW
-                         : RGB_ORANGE,
+                    BindingTarget.SimParam        => GetSimParamColor(b),
                     BindingTarget.BiomeCrossField => RGB_GREEN,
-                    BindingTarget.Umwelt => RGB_CYAN,
-                    BindingTarget.Global => RGB_PURPLE,
+                    BindingTarget.Umwelt          => RGB_CYAN,
+                    BindingTarget.Global          => RGB_PURPLE,
                     _ => RGB_OFF,
                 };
                 SendCC(CH_RGB, cc, color);
+                SendCC(CH_ANIM, cc, ANIM_RGB_BRIGHT_MAX);
 
                 float norm = GetNormalizedValue(b);
                 if (norm >= 0f)
@@ -975,9 +993,33 @@ namespace Biomes
             }
         }
 
+        /// <summary>Flash bank identity: top row = softBank+1 knobs in bank color,
+        /// bottom row = hwBank+1 knobs in white. Update() restores after bankFlashDuration.</summary>
+        private void StartBankFlash()
+        {
+            if (!sendLEDFeedback || !_midiOutReady || _bankColors == null || bankFlashDuration <= 0f)
+            {
+                SendAllLEDs();
+                return;
+            }
+            _flashUntil = Time.unscaledTime + bankFlashDuration;
+            int ccBase = _hwBank * ENCODERS_PER_HW_BANK;
+            for (int i = 0; i < ENCODERS_PER_HW_BANK; i++)
+            {
+                int row = i / 4, col = i % 4;
+                int color = RGB_OFF;
+                if (row == 0 && col <= _softBank) color = _bankColors[_softBank];
+                else if (row == 3 && col <= _hwBank) color = RGB_WHITE;
+                SendCC(CH_RGB, ccBase + i, color);
+                SendCC(CH_ANIM, ccBase + i, color == RGB_OFF ? ANIM_NONE : ANIM_RGB_BRIGHT_MAX);
+                SendCC(CH_ENCODER, ccBase + i, 0); // ring off during flash
+            }
+        }
+
         /// <summary>Updates ring positions only (called periodically from Update).</summary>
         private void SendEncoderRingPositions()
         {
+            if (FlashActive) return;
             if (!sendLEDFeedback || !_midiOutReady || _bankBindings == null) return;
 
             for (int i = 0; i < ENCODERS_PER_HW_BANK; i++)
@@ -989,6 +1031,23 @@ namespace Biomes
                 if (norm >= 0f)
                     SendCC(CH_ENCODER, cc, Mathf.RoundToInt(norm * 127f));
             }
+        }
+
+        /// <summary>Hue-wheel CC for a SimParam binding: family range interpolated by type index.
+        /// Single-type sims land on the range midpoint (≈ legacy family anchor).</summary>
+        private int GetSimParamColor(EncoderBinding b)
+        {
+            if (b.simIndex < 0 || b.simIndex >= m_Simulations.Count) return RGB_OFF;
+            var sim = m_Simulations[b.simIndex];
+            (int start, int end) = sim switch
+            {
+                PhysarumSim => (physarumHueStart, physarumHueEnd),
+                TermiteSim  => (termiteHueStart, termiteHueEnd),
+                _           => (boidHueStart, boidHueEnd),
+            };
+            int typeCount = Mathf.Max(1, GetTypeCount(sim));
+            float t = typeCount <= 1 ? 0.5f : (float)b.typeIndex / (typeCount - 1);
+            return Mathf.RoundToInt(Mathf.Lerp(start, end, t));
         }
 
         private float GetNormalizedValue(EncoderBinding b)
@@ -1143,7 +1202,7 @@ namespace Biomes
                     {
                         case BindingTarget.SimParam when b.simIndex >= 0 && b.simIndex < m_Simulations.Count:
                             string sn = m_Simulations[b.simIndex]?.SimName ?? "?";
-                            cell = $"{sn[0]}{b.typeIndex}.{b.paramName}";
+                            cell = $"{GetSimParamColor(b),3}|{sn[0]}{b.typeIndex}.{b.paramName}";
                             break;
                         case BindingTarget.BiomeCrossField:
                         case BindingTarget.Umwelt:
