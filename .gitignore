@@ -13,6 +13,9 @@ tools/.venv/
 # Biome channel PNG exports (output artifacts)
 /Exports/
 
+# Git worktrees
+/.worktrees/
+
 # ==========================================
 # Unity Generated Files and Folders
 # ==========================================
