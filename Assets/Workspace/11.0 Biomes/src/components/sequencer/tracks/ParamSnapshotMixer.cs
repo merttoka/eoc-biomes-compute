@@ -13,7 +13,11 @@ namespace Biomes
     /// garbage-collected with it. If the graph tears down or pauses mid-clip, the live
     /// param values simply stay at their last-written state — the same "no restore on
     /// stop" convention <see cref="ParameterInterpolator"/> already uses — so no
-    /// OnPlayableDestroy/OnBehaviourPause teardown is required here.</summary>
+    /// OnPlayableDestroy/OnBehaviourPause teardown is required here.
+    /// Overlapping clips on this track compose last-writer-wins (highest input index),
+    /// not as a weighted blend of both targets: the later clip captures "from" at the
+    /// already-blended live state, so values stay continuous, but only its own target
+    /// shapes the result while it has weight. Author crossfades accordingly.</summary>
     public class ParamSnapshotMixer : PlayableBehaviour
     {
         /// <inheritdoc/>
