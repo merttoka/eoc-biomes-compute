@@ -75,14 +75,17 @@ is the engine smoke-test scene. The active build scene (EditorBuildSettings) is
 ```
 src/
   components/
-    core/     SimulationManager, SimulationBase, Biome, BiomeFieldConfig,
-              UmweltMapping, ExternalInputProvider, GPUResourceManager
-    Sim/      BoidSim, PhysarumSim, TermiteSim (concrete SimulationBase subclasses)
-    network/  MidiFighterTwister, MIDIMapping, OSCMapping, BiomeInjector,
-              NeuronFiringSource, ExternalTexture* (control surfaces + external inputs)
-    utils/    ParameterRecorder, ParameterInterpolator, ScreenLayout
+    core/       SimulationManager, SimulationBase, Biome, BiomeFieldConfig,
+                UmweltMapping, ExternalInputProvider, GPUResourceManager
+    Sim/        BoidSim, PhysarumSim, TermiteSim (concrete SimulationBase subclasses)
+    network/    MidiFighterTwister, MIDIMapping, OSCMapping, BiomeInjector,
+                NeuronFiringSource, ExternalTexture* (control surfaces + external inputs)
+    utils/      ParameterRecorder, ParameterInterpolator, ScreenLayout
+    sequencer/  CompositeSequencer, BiomeCellRig, tracks/ (Timeline tracks — §3.9)
+  sequencer_core/ Biomes.Sequencer.Core — engine-free patch-scheduling logic (§3.9)
   params/     BoidParams, PhysarumParams, TermiteParams, ParamRange, ColorPalette, IParamSet
-  Editor/     custom inspectors (ParamsEditor, MFT/MIDI editors, ScreenLayoutPreview)
+  Editor/     custom inspectors (ParamsEditor, MFT/MIDI editors, ScreenLayoutPreview,
+              sequencer/BiomePaletteWindow — §3.9)
 ```
 
 ---
@@ -306,6 +309,91 @@ packages compile on every platform; availability is gated at runtime
   and `SimulationBase` holds its own instance. Instances **persist across resets**
   (clear-in-place — [[adr/0008-clear-in-place-reset]]); `ReleaseAll()` runs only on a
   resolution/structural realloc, disable, or destroy.
+
+### 3.9 Temporal Composer — show sequencer (`11.2 SIGGRAPH Scene`)
+
+A Unity Timeline-driven show sequencer choreographs the SIGGRAPH show — sim
+visibility, param snapshots, resets, network routing, 2–4 live "biome cells," and
+scattered diffusion-return patches — all composited into a dedicated `composerOutTex`,
+separate from the sim `compositeOutTex`:
+
+```
+SimulationManager ──compositeOutTex──┐
+BiomeCellRig ×N ──cell outTex────────┤
+ExternalTextureReceiver #2 ──────────┤   (StreamDiffusion return, "TD_Diffusion")
+                                      ▼
+PlayableDirector(ShowSequence) → CompositeSequencer → composerOutTex → ExternalTextureSender / ScreenLayout
+        ▲                                                   │
+  track mixers push per-frame state              sent out → TD StreamDiffusion → back in (loop)
+```
+
+- **`CompositeSequencer`** (`components/sequencer/`) owns `composerOutTex` — `ARGBHalf`,
+  resolution independent of sim rez (default = sim composite rez × `composerResScale`),
+  allocated once and cleared in place, reallocated only on a resolution change — the
+  same stable-RT rule as [[adr/0008-clear-in-place-reset|ADR-0008]], so
+  `ExternalTextureSender`'s `SendSource.ComposerOutput` (default stream `EoC/Composer`)
+  and `ScreenLayout` keep a stable native handle for the whole show. `LateUpdate` (after
+  `SimulationManager.Render()`) dispatches `SequencerComposite.compute`: a base pass
+  always runs, copying the sim composite weighted by `_baseWeight` (`SetBaseWeight`,
+  clamped to [0,1], reset to 1 each frame) — a `Replace`-mode cell with `duckBase` sets
+  it to `1 - w` for that frame, so full cell coverage (`w = 1`) dims the base pass
+  toward 0 rather than skipping the dispatch — then one `RectBlendKernel` dispatch per
+  active cell/patch rect (≤4 cells, ≤128 active patch draws/frame), then an optional
+  debug-outline pass (`debugOutlines`, off for the show).
+- **`BiomeCellRig`** (prefab, ≤4 in scene) — a trimmed, self-paced `SimulationManager` +
+  `Biome` + sims at reduced rez (default 1024²) with `ownsGlobalTiming = false` /
+  `stepsPerTick = 0` so a `BiomeCellTrack` clip alone drives its `Running` flag via
+  `BiomeCellMixer`; own preset assets, own tick rate (`cellRate`, 1–60 Hz) independent of
+  the main sim. Its `CompositeOutputTexture` is a cell source alongside `MainComposite`
+  and `DiffusionReturn` (`CompositeSequencer.ResolveSource`).
+- **Tracks** (`components/sequencer/tracks/`; each a Timeline `TrackAsset` +
+  `PlayableBehaviour` + `PlayableMixer` bound to `CompositeSequencer` or
+  `SimulationManager`): `BiomeCellTrack` (source + `dstRect` + `Overlay`/`Replace` mode,
+  weight from clip ease curves), `PatchScatterTrack` (Anadol-style scattered patches,
+  `sourceA`/`sourceB` crossfade), `ParamSnapshotTrack` (eased live-param morph to a
+  snapshot asset via `IParamSet`/`ParameterInterpolator.LerpHue01`), `RoutingTrack`
+  (sets `SimulationManager.influenceOverride` for the clip's duration). Plus reset
+  `SignalEmitter`s → `SignalReceiver` → `ResetSimsOnly`/`ResetPhysarum`/`ResetBoids`/
+  `ResetTermites`. `BiomeCellMixer` and `RoutingMixer` both clear their external
+  stateful resource (`rig.Running`, `influenceOverride`) from `OnPlayableDestroy`/
+  `OnBehaviourPause`, not just per-frame `w<=0`, so a director Stop mid-clip can't leave
+  a rig running or a routing override stuck on.
+- **Patch grammar + determinism** (`Biomes.Sequencer.Core`, `sequencer_core/`) —
+  `PatchEventScheduler` is a pure-logic, engine-free assembly (no Unity playmode
+  dependency), unit-tested by `Biomes.Sequencer.Tests` (`Assets/Tests/EditMode/`):
+  rejection-sampled non-overlapping `PatchEvent[]` generated deterministically from
+  `(clip params, seed)`, size→hold inversion (large patches flash, small linger),
+  asymmetric lead/trail stagger + jitter, sweep-line `PatchSweep.Collect` for O(active)
+  per-frame activation. Same seed always reproduces the same schedule, and `PatchSweep`
+  is rewind-safe, so scrubbing the Timeline reproduces identical patch layouts. Test
+  coverage: determinism, non-overlap invariant, size→hold mapping, sigmoid crossfade
+  distribution.
+- **StreamDiffusion loop** — `composerOutTex` sends out via Spout/Syphon
+  (`ExternalTextureSender`, `SendSource.ComposerOutput`) → TouchDesigner runs
+  StreamDiffusion (same show machine, RTX 5080) → returns via Spout into a second
+  `ExternalTextureReceiver` (`streamName = "TD_Diffusion"`) bound to
+  `CompositeSequencer.diffusionReturn`, feeding `PatchScatterTrack`'s `DiffusionReturn`
+  source and, via `RoutingTrack`, sim external influence. Patch hold times (0.2–1.5s)
+  make diffusion fps nearly irrelevant — a 5–10fps return reads identically to 30fps.
+  Spout both directions locally (same-GPU zero-copy); Syphon covers mac dev without the
+  diffusion leg; NDI only for cross-machine sources.
+- **Deviations from the design spec** (agreed rationale, see the plan's Global
+  Constraints): one `RectBlendKernel` dispatched per rect replaces the spec's separate
+  `CellKernel`/`PatchKernel` pair with a 512-wide `StructuredBuffer` loop — same
+  underlying math (sample a source sub-rect, blend into a dest rect) and strictly
+  cheaper, since each dispatch covers only its own rect's pixels and no buffer is
+  needed. Rate caps live where they already existed
+  (`SimulationManager.targetFPS`/`simRate`, `BiomeCellRig.cellRate`) rather than being
+  duplicated onto `CompositeSequencer`, which exposes only `composerResScale` — one
+  source of truth for frame-rate/tick-rate caps.
+- **Biome Palette** (`Editor/sequencer/BiomePaletteWindow.cs`, menu
+  `Biomes → Biome Palette`) — grid of `IParamSet` snapshot/preset assets with cached PNG
+  thumbnails (`SnapshotThumbnailCache`, captured from the live composer output on
+  demand, stored next to the asset); drag onto the Timeline or Insert-at-playhead to
+  create a `ParamSnapshotClip`. Follows the `ScreenLayoutPreview` editor idiom.
+
+Design: [[superpowers/specs/2026-07-19-temporal-composer-design]]; manual scene-wiring
+and perf-gate checklist: [[superpowers/2026-07-19-temporal-composer-manual-setup]].
 
 ---
 

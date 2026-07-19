@@ -1,0 +1,69 @@
+// Temporal Composer: base copy of the sim composite + per-rect blended draws
+// (biome cells and scattered patches share RectBlendKernel — same math, one
+// small dispatch per rect covering only that rect's pixels).
+
+#pragma kernel BaseKernel
+#pragma kernel RectBlendKernel
+#pragma kernel DebugRectKernel
+
+uint composerRezX;
+uint composerRezY;
+
+SamplerState sampler_linear_clamp;
+
+RWTexture2D<float4> composerOut;
+
+// ── BaseKernel ──
+Texture2D<float4> baseTex;
+float baseWeight;   // 0 = black base (a Replace cell owns the frame)
+
+[numthreads(8, 8, 1)]
+void BaseKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= composerRezX || id.y >= composerRezY) return;
+    float2 uv = (float2(id.xy) + 0.5) / float2((float)composerRezX, (float)composerRezY);
+    float4 c = baseTex.SampleLevel(sampler_linear_clamp, uv, 0);
+    composerOut[id.xy] = float4(c.rgb * baseWeight, 1.0);
+}
+
+// ── RectBlendKernel ── one dispatch per cell/patch; thread space = dst rect pixels
+Texture2D<float4> rectSrc;
+float4 dstRect;     // normalized x, y, w, h on the composer
+float4 srcRect;     // normalized sub-rect of rectSrc to sample
+float rectWeight;   // cell clip weight, or patch envelope alpha
+int blendMode;      // 0 = Overlay (additive), 1 = Replace (lerp)
+
+[numthreads(8, 8, 1)]
+void RectBlendKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    uint2 rectSize = uint2(max(1.0, ceil(dstRect.z * composerRezX)), max(1.0, ceil(dstRect.w * composerRezY)));
+    if (id.x >= rectSize.x || id.y >= rectSize.y) return;
+
+    uint2 p = uint2(dstRect.xy * float2((float)composerRezX, (float)composerRezY)) + id.xy;
+    if (p.x >= composerRezX || p.y >= composerRezY) return;
+
+    float2 localUV = (float2(id.xy) + 0.5) / float2(rectSize);
+    float2 uv = srcRect.xy + localUV * srcRect.zw;
+    float4 c = rectSrc.SampleLevel(sampler_linear_clamp, uv, 0);
+
+    float4 baseC = composerOut[p];
+    float3 outRGB = blendMode == 1
+        ? lerp(baseC.rgb, c.rgb, rectWeight)     // Replace / patch alpha
+        : baseC.rgb + c.rgb * rectWeight;        // Overlay additive
+    composerOut[p] = float4(saturate(outRGB), 1.0);
+}
+
+// ── DebugRectKernel ── thin outline around a rect (annotation overlay, off for show)
+float4 debugColor;
+
+[numthreads(8, 8, 1)]
+void DebugRectKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    uint2 rectSize = uint2(max(1.0, ceil(dstRect.z * composerRezX)), max(1.0, ceil(dstRect.w * composerRezY)));
+    if (id.x >= rectSize.x || id.y >= rectSize.y) return;
+    bool edge = id.x < 2 || id.y < 2 || id.x >= rectSize.x - 2 || id.y >= rectSize.y - 2;
+    if (!edge) return;
+    uint2 p = uint2(dstRect.xy * float2((float)composerRezX, (float)composerRezY)) + id.xy;
+    if (p.x >= composerRezX || p.y >= composerRezY) return;
+    composerOut[p] = float4(debugColor.rgb, 1.0);
+}

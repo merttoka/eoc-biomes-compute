@@ -31,6 +31,20 @@ namespace Biomes
         public bool limitFPS = true;
         [Range(24, 330)] public int targetFPS = 60;
 
+        [Tooltip("Untick on cell-rig (nested) managers: they must not write the global " +
+                 "Time.fixedDeltaTime / targetFrameRate settings the main manager owns.")]
+        /// <summary>
+        /// When true (default) this manager drives Time.fixedDeltaTime and Application.targetFrameRate. Disable on nested cell-rig managers so they never fight the scene's main manager for global timing.
+        /// </summary>
+        public bool ownsGlobalTiming = true;
+
+        [Tooltip("When set (by the Timeline RoutingTrack), overrides the external receiver " +
+                 "as the sims' influence texture. Null = normal externalInput path.")]
+        /// <summary>
+        /// When set, replaces the ExternalTextureReceiver output as the sims' external influence texture. Used by BiomeCellRig to pin a per-cell influence source. Runtime-only.
+        /// </summary>
+        [System.NonSerialized] public Texture influenceOverride;
+
         [Header("Biome")]
         public Biome biome;
 
@@ -134,8 +148,10 @@ namespace Biomes
         {
             // Fixed-timestep sim: Step() runs in FixedUpdate at simRate steps/sec,
             // independent of render FPS. maxAllowedTimestep is Unity's spiral-of-death
-            // guard (see field tooltips). Both are global Time settings, but nothing else
-            // in this project uses FixedUpdate/physics, so they're ours to own.
+            // guard (see field tooltips). Both are global Time settings owned by the MAIN
+            // manager only — cell rigs (ownsGlobalTiming = false) skip them.
+            if (!ownsGlobalTiming) return;
+
             ApplySimRate();
             Time.maximumDeltaTime = maxAllowedTimestep;
 
@@ -253,7 +269,9 @@ namespace Biomes
             externalInput?.UpdateInput();
 
             // Assign influence texture to sims
-            Texture influenceTex = externalInput != null ? externalInput.OutputTexture : null;
+            Texture influenceTex = influenceOverride != null
+                ? influenceOverride
+                : (externalInput != null ? externalInput.OutputTexture : null);
             foreach (var sim in simulations)
             {
                 if (sim != null)
