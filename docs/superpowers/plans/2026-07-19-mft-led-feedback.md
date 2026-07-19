@@ -14,7 +14,7 @@
 
 - No Unity test assembly exists — verification is `dotnet build Assembly-CSharp.csproj` (0 errors) + `LogBindingTable` output + on-device pass (deferred, hue endpoints serialized precisely so tuning is live).
 - csproj + `Library/` are gitignored → in a worktree, symlink `Library/` and copy `*.csproj` from the main checkout before building (Task 0).
-- Default hue CC values verbatim from spec: physarum 20→44, boid 78→98, termite 57→70; flash 0.7 s.
+- Default hue CC values verbatim from spec: physarum 20→40, boid 78→98, termite 57→70; flash 0.7 s.
 - Do not touch bindings, ordering, OSC, soft-takeover, or push actions.
 - Commit messages: concise, no attribution (user rule).
 
@@ -69,7 +69,7 @@ SendCC(CH_ANIM, cc, ANIM_RGB_BRIGHT_MAX);
 [Header("LED Colors")]
 [Tooltip("MFT hue-wheel CC values (1-125). Column color = Lerp(start, end, typeIndex/(typeCount-1)).")]
 [Range(1, 125)] public int physarumHueStart = 20;
-[Range(1, 125)] public int physarumHueEnd   = 44;
+[Range(1, 125)] public int physarumHueEnd   = 40;
 [Range(1, 125)] public int boidHueStart     = 78;
 [Range(1, 125)] public int boidHueEnd       = 98;
 [Range(1, 125)] public int termiteHueStart  = 57;
