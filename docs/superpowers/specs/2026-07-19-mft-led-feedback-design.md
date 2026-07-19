@@ -18,7 +18,7 @@ Setup: ColumnPerType layout, Physarum (8 types) + Boid (4) + Termite (N) active 
 ### 1. Per-family hue gradients
 
 - Serialized per-family CC-value pair, inspector-tunable (MFT hue wheel is nonlinear — verified anchors: red=1, blue=33, cyan=40, green=43, yellow=65, orange=83, purple=110):
-  - `physarumHueRange = (20, 44)` deep blue → cyan-ish
+  - `physarumHueRange = (20, 40)` deep blue → cyan-ish
   - `boidHueRange = (78, 98)` orange → red-ish
   - `termiteHueRange = (57, 70)` yellow band
 - Column color = `RoundToInt(Lerp(start, end, typeIndex / max(1, typeCount-1)))`.
