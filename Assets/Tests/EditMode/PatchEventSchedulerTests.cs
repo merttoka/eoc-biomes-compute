@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Biomes.Sequencer;
 
@@ -221,6 +222,79 @@ namespace Biomes.Sequencer.Tests
 
             for (int i = 0; i < n1; i++)
                 Assert.AreEqual(buf1[i].dst.x, buf2[i].dst.x, $"index {i} differs between calls");
+        }
+
+        [Test]
+        public void Sweep_RewindUnderCapSaturation_IsIdentical()
+        {
+            // Two non-overlapping "generations" of hand-built events:
+            //  - gen A: exactly MaxActive (128) events, staggered starts 0..127, all sharing
+            //    fadeEnd=300 so all 128 are simultaneously co-active (saturating the cap)
+            //    and expire together, well before gen B ever starts.
+            //  - gen B: 72 events, staggered starts 400..542 (long hold — fadeEnd=5000),
+            //    starting only after every gen A event has already expired.
+            // Total = 200 > MaxActive. At a frame F chosen after gen B has fully started but
+            // long before any gen B event fades, the only correct active set is all of gen B
+            // (gen A is entirely dead by F). A jump straight to F from a rewound cursor must
+            // not let gen A's already-dead events burn cap slots ahead of gen B.
+            const int genACount = PatchSweep.MaxActive; // 128
+            const int genBCount = 72;
+            const int total = genACount + genBCount;    // 200
+            const int F = 1000;
+
+            var events = new PatchEvent[total];
+            for (int i = 0; i < genACount; i++)
+            {
+                events[i] = new PatchEvent
+                {
+                    dst = new PatchRect(i, 0f, 0.001f, 0.001f),
+                    src = new PatchRect(0f, 0f, 0.001f, 0.001f),
+                    start = i,
+                    holdEnd = 290,
+                    fadeEnd = 300,
+                    crossfadeRoll = 0f,
+                    anchorT = 0f,
+                };
+            }
+            for (int j = 0; j < genBCount; j++)
+            {
+                int i = genACount + j;
+                events[i] = new PatchEvent
+                {
+                    dst = new PatchRect(i, 0f, 0.001f, 0.001f),
+                    src = new PatchRect(0f, 0f, 0.001f, 0.001f),
+                    start = 400 + j * 2,
+                    holdEnd = 4950,
+                    fadeEnd = 5000,
+                    crossfadeRoll = 0f,
+                    anchorT = 0f,
+                };
+            }
+
+            // Stepwise: walk every single frame from 0 up to F, recording the active set
+            // (identified by dst.x, unique per event) from the final Collect(F) call.
+            var stepwiseSweep = new PatchSweep(events);
+            var buf = new PatchEvent[total];
+            int nStepwise = 0;
+            for (int f = 0; f <= F; f++)
+                nStepwise = stepwiseSweep.Collect(f, buf);
+            var stepwiseIds = new HashSet<float>();
+            for (int i = 0; i < nStepwise; i++) stepwiseIds.Add(buf[i].dst.x);
+
+            // Scrub-then-play: Collect far ahead, rewind to 0, then jump directly to F in
+            // a single Collect call (skipping every intermediate frame).
+            var jumpSweep = new PatchSweep(events);
+            var jumpBuf = new PatchEvent[total];
+            jumpSweep.Collect(4000, jumpBuf);
+            jumpSweep.Collect(0, jumpBuf);
+            int nJump = jumpSweep.Collect(F, jumpBuf);
+            var jumpIds = new HashSet<float>();
+            for (int i = 0; i < nJump; i++) jumpIds.Add(jumpBuf[i].dst.x);
+
+            Assert.AreEqual(genBCount, nStepwise, "stepwise should land on exactly gen B");
+            Assert.AreEqual(nStepwise, nJump, "jump-to-F active count differs from stepwise");
+            Assert.IsTrue(stepwiseIds.SetEquals(jumpIds),
+                "jump-to-F active set differs from stepwise active set at the same frame");
         }
 
         [Test]

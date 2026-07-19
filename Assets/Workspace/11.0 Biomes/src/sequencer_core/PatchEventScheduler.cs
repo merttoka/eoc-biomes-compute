@@ -194,17 +194,36 @@ namespace Biomes.Sequencer
             if (frame < _lastFrame) { _cursor = 0; _active.Clear(); }  // backward scrub → rewind
             _lastFrame = frame;
 
+            // Expire before admitting: under cap saturation, admitting new activations
+            // before removing entries that have already expired as of `frame` lets those
+            // stale entries occupy MaxActive slots that should have freed up first. That
+            // makes the drop-set depend on whether `frame` was reached stepwise (expiring
+            // along the way) or via jump/rewind-then-replay (batching expiry with the new
+            // frame's activations) — expiring first keeps the two paths identical.
+            for (int i = _active.Count - 1; i >= 0; i--)
+            {
+                var e = _sorted[_active[i]];
+                if (frame >= e.fadeEnd) _active.RemoveAt(i);
+            }
+
+            // Admit newly-crossed events, but skip anything already dead-on-arrival
+            // (fadeEnd <= frame) — a large forward jump can cross many events whose
+            // entire lifetime already precedes `frame`. Counting those toward the cap
+            // (as the old admit-then-expire order did) burns MaxActive slots on events
+            // contributing nothing, permanently starving later, still-live events that
+            // stepwise per-frame play would have let in as earlier ones expired along
+            // the way.
             while (_cursor < _sorted.Length && _sorted[_cursor].start <= frame)
             {
-                if (_active.Count < MaxActive) _active.Add(_cursor);
+                if (frame < _sorted[_cursor].fadeEnd && _active.Count < MaxActive)
+                    _active.Add(_cursor);
                 _cursor++;
             }
 
             int n = 0;
-            for (int i = _active.Count - 1; i >= 0; i--)
+            for (int i = 0; i < _active.Count; i++)
             {
                 var e = _sorted[_active[i]];
-                if (frame >= e.fadeEnd) { _active.RemoveAt(i); continue; }
                 if (frame >= e.start) outBuf[n++] = e;
             }
             return n;
