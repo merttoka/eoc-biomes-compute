@@ -123,6 +123,10 @@ namespace Biomes
         private List<Minis.MidiDevice> _devices = new();
         private float _lastLEDUpdate;
 
+        // Bank-switch flash overlay: >0 while active; Update() restores LEDs on expiry.
+        private float _flashUntil = -1f;
+        private bool FlashActive => _flashUntil > 0f && Time.unscaledTime < _flashUntil;
+
         // After bank switch, ignore absolute encoder values until the knob moves.
         private bool[] _encoderPickedUp = new bool[ENCODERS_PER_HW_BANK];
 
@@ -215,6 +219,12 @@ namespace Biomes
 
         void Update()
         {
+            if (_flashUntil > 0f && !FlashActive)
+            {
+                _flashUntil = -1f;
+                SendAllLEDs();
+            }
+            if (FlashActive) return;
             if (sendLEDFeedback && Time.realtimeSinceStartup - _lastLEDUpdate > ledUpdateInterval)
             {
                 _lastLEDUpdate = Time.realtimeSinceStartup;
@@ -927,7 +937,7 @@ namespace Biomes
                 Debug.Log($"[MFT] === Soft Bank {bank}: {bankNames[bank]} | HW Bank {_hwBank} ===");
                 LogBindingTable(_softBank);
             }
-            SendAllLEDs();
+            StartBankFlash();
             onBankChanged?.Invoke();
         }
 
@@ -937,7 +947,7 @@ namespace Biomes
             for (int i = 0; i < ENCODERS_PER_HW_BANK; i++) _encoderPickedUp[i] = false;
             if (logMidi)
                 Debug.Log($"[MFT] HW Bank {bank} (Soft Bank {_softBank})");
-            SendAllLEDs();
+            StartBankFlash();
             onBankChanged?.Invoke();
         }
 
@@ -983,9 +993,33 @@ namespace Biomes
             }
         }
 
+        /// <summary>Flash bank identity: top row = softBank+1 knobs in bank color,
+        /// bottom row = hwBank+1 knobs in white. Update() restores after bankFlashDuration.</summary>
+        private void StartBankFlash()
+        {
+            if (!sendLEDFeedback || !_midiOutReady || _bankColors == null || bankFlashDuration <= 0f)
+            {
+                SendAllLEDs();
+                return;
+            }
+            _flashUntil = Time.unscaledTime + bankFlashDuration;
+            int ccBase = _hwBank * ENCODERS_PER_HW_BANK;
+            for (int i = 0; i < ENCODERS_PER_HW_BANK; i++)
+            {
+                int row = i / 4, col = i % 4;
+                int color = RGB_OFF;
+                if (row == 0 && col <= _softBank) color = _bankColors[_softBank];
+                else if (row == 3 && col <= _hwBank) color = RGB_WHITE;
+                SendCC(CH_RGB, ccBase + i, color);
+                SendCC(CH_ANIM, ccBase + i, color == RGB_OFF ? ANIM_NONE : ANIM_RGB_BRIGHT_MAX);
+                SendCC(CH_ENCODER, ccBase + i, 0); // ring off during flash
+            }
+        }
+
         /// <summary>Updates ring positions only (called periodically from Update).</summary>
         private void SendEncoderRingPositions()
         {
+            if (FlashActive) return;
             if (!sendLEDFeedback || !_midiOutReady || _bankBindings == null) return;
 
             for (int i = 0; i < ENCODERS_PER_HW_BANK; i++)
