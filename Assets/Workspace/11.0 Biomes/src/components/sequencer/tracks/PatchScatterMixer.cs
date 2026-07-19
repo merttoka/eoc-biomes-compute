@@ -11,7 +11,9 @@ namespace Biomes
     /// always-simulating resource (no rig to stop) — its schedule state
     /// (events/sweep/activeBuf) lives entirely on the PlayableBehaviour and is
     /// garbage-collected with the playable, so no OnPlayableDestroy/OnBehaviourPause
-    /// teardown is required here.</summary>
+    /// teardown is required here. With multiple simultaneous patch clips, note that
+    /// CompositeSequencer.PushPatch's global cap (<see cref="CompositeSequencer.MaxPatchDraws"/>)
+    /// wins in track evaluation order — later clips degrade to fewer patches, never black.</summary>
     public class PatchScatterMixer : PlayableBehaviour
     {
         /// <inheritdoc/>
@@ -31,6 +33,8 @@ namespace Biomes
                 if (b.clip == null) continue;
 
                 var composer = seq.ComposerOutputTexture;
+                // Fallback only lives until the composer RT exists (before the sequencer's
+                // first LateUpdate); EnsureBuilt rebuilds with the true aspect on that frame.
                 float aspect = composer != null ? (float)composer.width / composer.height : 5f;
                 b.EnsureBuilt(input.GetDuration(), aspect);
 

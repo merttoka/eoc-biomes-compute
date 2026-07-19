@@ -112,16 +112,23 @@ namespace Biomes
         /// <summary>Preallocated buffer for PatchSweep.Collect, sized to events.Length —
         /// reused every frame so Collect never allocates.</summary>
         public PatchEvent[] activeBuf;
+        /// <summary>Composer aspect used to build <see cref="events"/> — compared against
+        /// the incoming aspect each frame to detect the RT-not-yet-created fallback.</summary>
+        private float _builtAspect;
 
         /// <summary>Builds <see cref="events"/>/<see cref="sweep"/>/<see cref="activeBuf"/>
-        /// on first call; a no-op on every subsequent call. Regeneration only happens
-        /// when the playable itself is recreated (e.g. clip (re)start) — never per frame.</summary>
+        /// on first call, and rebuilds if the composer aspect has materially changed since
+        /// the last build (in practice at most once, when the composer RT first materializes
+        /// after the sequencer's first LateUpdate — a clip active at frame 0 otherwise locks
+        /// in the pre-RT fallback aspect for its whole run). Determinism is preserved because
+        /// the schedule is still a pure function of (params, seed, duration, aspect).</summary>
         public void EnsureBuilt(double duration, float aspect)
         {
-            if (events != null) return;
+            if (events != null && Mathf.Abs(aspect - _builtAspect) <= 0.01f) return;
             events = PatchEventScheduler.Generate(clip.BuildConfig(duration, aspect));
             sweep = new PatchSweep(events);
             activeBuf = new PatchEvent[events.Length];
+            _builtAspect = aspect;
         }
     }
 }
