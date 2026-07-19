@@ -20,6 +20,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-07-19-mft-led-legibility]] — MFT LEDs made readable: per-type hue gradients (family CC range lerped by type index, inspector-tunable), 0.7s bank-switch flash (top row = soft bank color-coded, bottom row = HW bank white), full brightness on bound knobs; fixed mislabeled anim constants; merged to main
 - [[sessions/2026-07-15-permeability-mounds]] — termite-built permeability walls partition the field into habitats (Boids open / Physarum edges / Termites walls); wired the dead `preferredPermeabilityMin/Max` gate + firing-gated build kernel + `ResetTermites` melt + composite overlay; speed-floor freeze fix; merged to main ([[adr/0010-permeability-agent-built-topography|ADR-0010]])
 - [[sessions/2026-07-13-resolution-independent-params]] — spatial + trail-density params scale by `rezY/2160` on Reset (resolution-independent, grounded at 2160; no-op at reference); + 3-agent backlog audit + new ROADMAP
 - [[sessions/2026-07-11-diurnal-sun]] — diurnal sun: procedural `BiomeInjector` source sweeps Temperature L→R, phased off the neuron playhead (one blob playthrough = one day); kept indirect (no temp reads) — retuned temp diffuse/evap/Q10/flow + cut metabolic heat for headroom; OSC per-family resets
