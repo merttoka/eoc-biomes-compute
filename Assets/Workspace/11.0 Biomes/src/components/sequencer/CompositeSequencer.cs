@@ -3,7 +3,14 @@ using UnityEngine;
 
 namespace Biomes
 {
-    public enum CellBlendMode { Overlay = 0, Replace = 1 }
+    /// <summary>How a pushed cell rect combines with what's already in the composer.</summary>
+    public enum CellBlendMode
+    {
+        /// <summary>Additive: composerOut.rgb += src.rgb * weight (clamped 0-1 after).</summary>
+        Overlay = 0,
+        /// <summary>Alpha lerp: composerOut.rgb = lerp(composerOut.rgb, src.rgb, weight).</summary>
+        Replace = 1,
+    }
 
     /// <summary>
     /// Owns the show output texture (composerOutTex) and composites, every rendered
@@ -26,23 +33,33 @@ namespace Biomes
         }
 
         [Header("References")]
+        /// <summary>Sim owning the base composite (CompositeOutputTexture) this sequencer builds on.</summary>
         public SimulationManager simManager;
+        /// <summary>SequencerComposite.compute — provides BaseKernel/RectBlendKernel/DebugRectKernel.</summary>
         public ComputeShader sequencerCS;
         [Tooltip("Display material re-pointed at composerOutTex (HDRP Unlit _UnlitColorMap).")]
+        /// <summary>Optional. If set, its _UnlitColorMap is re-pointed at the composer output each frame.</summary>
         public Material composerOutMat;
         [Tooltip("Receiver #2: the StreamDiffusion return stream (Spout from TouchDesigner).")]
+        /// <summary>Optional external receiver reference; not sampled directly by this component.</summary>
         public ExternalTextureReceiver diffusionReturn;
 
         [Header("Composer")]
         [Tooltip("Composer rez = sim composite rez × this. 1 keeps ScreenLayout pixel rects valid.")]
+        /// <summary>Composer resolution as a fraction (0.25-1) of simManager's rez. Reallocates the composer texture on change.</summary>
         [Range(0.25f, 1f)] public float composerResScale = 1f;
 
         [Header("Debug overlay (annotation layer — OFF for show)")]
+        /// <summary>Draw a thin outline rect for every pushed cell/patch this frame. Annotation only — leave off for show.</summary>
         public bool debugOutlines = false;
+        /// <summary>Outline color for cell rects when debugOutlines is on.</summary>
         public Color debugCellColor = new(0f, 1f, 0.6f, 1f);
+        /// <summary>Outline color for patch rects when debugOutlines is on.</summary>
         public Color debugPatchColor = new(1f, 0.4f, 0f, 1f);
 
+        /// <summary>Max cell rects PushCell will accept per frame; extra calls are dropped.</summary>
         public const int MaxCells = 4;
+        /// <summary>Max patch rects PushPatch will accept per frame; extra calls are dropped.</summary>
         public const int MaxPatchDraws = 128;
 
         private readonly List<RectDraw> _cells = new(MaxCells);
@@ -75,6 +92,14 @@ namespace Biomes
         /// <summary>0 lets a Replace cell own the frame; default 1 restores each frame.</summary>
         public void SetBaseWeight(float w) => _baseWeight = Mathf.Clamp01(w);
 
+        /// <summary>
+        /// Queue one cell rect for this frame's composite. Cleared after LateUpdate; call again
+        /// every frame the cell should draw. Capped at MaxCells — calls past the cap are dropped.
+        /// </summary>
+        /// <param name="src">Source texture sampled full-frame (srcRect is implicitly 0,0,1,1).</param>
+        /// <param name="dstNorm">Destination rect in normalized 0-1 composer UV (x, y, w, h).</param>
+        /// <param name="weight">Clamped to 0-1. Overlay: additive strength. Replace: lerp alpha. Values <= 0 are dropped (no-op).</param>
+        /// <param name="mode">Overlay = additive, Replace = alpha lerp.</param>
         public void PushCell(Texture src, Rect dstNorm, float weight, CellBlendMode mode)
         {
             if (src == null || weight <= 0f || _cells.Count >= MaxCells) return;
@@ -85,6 +110,16 @@ namespace Biomes
             });
         }
 
+        /// <summary>
+        /// Queue one scattered-patch rect for this frame's composite, drawn after all cells.
+        /// Cleared after LateUpdate; call again every frame the patch should draw. Capped at
+        /// MaxPatchDraws — calls past the cap are dropped. Always blends as alpha lerp
+        /// (CellBlendMode.Replace semantics), regardless of any cell's mode.
+        /// </summary>
+        /// <param name="src">Source texture, sampled through srcNorm.</param>
+        /// <param name="dstNorm">Destination rect in normalized 0-1 composer UV (x, y, w, h).</param>
+        /// <param name="srcNorm">Source sub-rect in normalized 0-1 UV of src to sample.</param>
+        /// <param name="alpha">Clamped to 0-1 lerp alpha. Values <= 0 are dropped (no-op).</param>
         public void PushPatch(Texture src, Rect dstNorm, Rect srcNorm, float alpha)
         {
             if (src == null || alpha <= 0f || _patches.Count >= MaxPatchDraws) return;
@@ -191,6 +226,7 @@ namespace Biomes
             _allocRezX = _rezX; _allocRezY = _rezY;
         }
 
+        /// <summary>Releases the composer RenderTexture and GPU resources. Safe to call repeatedly; re-allocates lazily on the next LateUpdate via EnsureAllocated.</summary>
         public void Release()
         {
             gpu?.ReleaseAll();

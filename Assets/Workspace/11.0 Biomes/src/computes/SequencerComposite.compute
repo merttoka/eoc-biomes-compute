@@ -36,7 +36,7 @@ int blendMode;      // 0 = Overlay (additive), 1 = Replace (lerp)
 [numthreads(8, 8, 1)]
 void RectBlendKernel(uint3 id : SV_DISPATCHTHREADID)
 {
-    uint2 rectSize = uint2(max(1.0, dstRect.z * composerRezX), max(1.0, dstRect.w * composerRezY));
+    uint2 rectSize = uint2(max(1.0, ceil(dstRect.z * composerRezX)), max(1.0, ceil(dstRect.w * composerRezY)));
     if (id.x >= rectSize.x || id.y >= rectSize.y) return;
 
     uint2 p = uint2(dstRect.xy * float2((float)composerRezX, (float)composerRezY)) + id.xy;
@@ -59,7 +59,7 @@ float4 debugColor;
 [numthreads(8, 8, 1)]
 void DebugRectKernel(uint3 id : SV_DISPATCHTHREADID)
 {
-    uint2 rectSize = uint2(max(1.0, dstRect.z * composerRezX), max(1.0, dstRect.w * composerRezY));
+    uint2 rectSize = uint2(max(1.0, ceil(dstRect.z * composerRezX)), max(1.0, ceil(dstRect.w * composerRezY)));
     if (id.x >= rectSize.x || id.y >= rectSize.y) return;
     bool edge = id.x < 2 || id.y < 2 || id.x >= rectSize.x - 2 || id.y >= rectSize.y - 2;
     if (!edge) return;
