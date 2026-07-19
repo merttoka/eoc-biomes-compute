@@ -18,6 +18,14 @@ namespace Biomes
     /// already-wired scene without duplicating GameObjects, components, tracks, clips,
     /// or assets. Hard-gated to Scene_SIGGRAPH_2 so the original Scene_SIGGRAPH can
     /// never be touched.
+    ///
+    /// Re-run contract for timeline clips: this tool only creates what's missing. A
+    /// pre-existing clip's start/duration/ease/payload fields are never rewritten, so
+    /// hand-tuning done in the Timeline window survives repeated runs. The one
+    /// exception is the BiomeCellClip rig ExposedReference: the director-side
+    /// reference value is always re-asserted (without touching the clip's exposedName
+    /// key or any other field), since a re-run after rig re-creation must re-link to
+    /// the new rig instance. Delete a clip to have it re-created with defaults.
     /// </summary>
     public static class TemporalComposerSceneSetup
     {
@@ -35,6 +43,7 @@ namespace Biomes
         private const string ParamMorphSnapshotPath = SnapshotsDir + "/Physarum_20260711_195316.asset";
 
         private static readonly List<string> s_Log = new();
+        private static int s_SkippedExistingClips;
 
         /// <summary>
         /// Runs the full Temporal Composer wiring pass against the active scene. Aborts
@@ -46,6 +55,7 @@ namespace Biomes
         public static void Run()
         {
             s_Log.Clear();
+            s_SkippedExistingClips = 0;
 
             if (EditorApplication.isPlaying)
             {
@@ -93,7 +103,10 @@ namespace Biomes
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
 
-            string summary = "Temporal Composer setup complete.\n\n" + string.Join("\n", s_Log);
+            string skippedLine = $"{s_SkippedExistingClips} existing clips left untouched " +
+                                  "(delete a clip to re-create it with defaults)";
+            string summary = "Temporal Composer setup complete.\n\n" + string.Join("\n", s_Log) +
+                              "\n" + skippedLine;
             Debug.Log("[TemporalComposerSceneSetup] " + summary);
             EditorUtility.DisplayDialog("Temporal Composer Setup", summary, "OK");
         }
@@ -447,14 +460,18 @@ namespace Biomes
             Log($"{track.name}: bound to {(bound != null ? bound.ToString() : "null")}");
         }
 
-        private static TimelineClip GetOrCreateClip<T>(TrackAsset track, string clipAssetName)
+        /// <summary>Finds an existing clip by asset name, or creates one. <paramref name="created"/>
+        /// tells the caller whether it's safe to (re)write timing/payload fields — those must only
+        /// be applied to freshly-created clips; a found clip's authored values are left untouched.</summary>
+        private static TimelineClip GetOrCreateClip<T>(TrackAsset track, string clipAssetName, out bool created)
             where T : ScriptableObject, IPlayableAsset
         {
             foreach (var c in track.GetClips())
             {
                 if (c.asset is T && c.asset.name == clipAssetName)
                 {
-                    Log($"{clipAssetName}: found on {track.name}");
+                    Log($"{clipAssetName}: found on {track.name} (authored values left untouched)");
+                    created = false;
                     return c;
                 }
             }
@@ -463,6 +480,7 @@ namespace Biomes
             ((ScriptableObject)clip.asset).name = clipAssetName;
             clip.displayName = clipAssetName;
             Log($"{clipAssetName}: created on {track.name}");
+            created = true;
             return clip;
         }
 
@@ -480,6 +498,20 @@ namespace Biomes
             EditorUtility.SetDirty(director);
         }
 
+        /// <summary>For a pre-existing clip: re-asserts the director-side ExposedReference value
+        /// for <paramref name="rig"/> under the clip's already-assigned exposedName key, without
+        /// touching that key or any other authored field. Needed because a re-run after the rig
+        /// GameObject was re-created must re-link the scene-side reference table to the new
+        /// instance — the reference table is scene-scoped and legitimate to refresh, unlike the
+        /// clip's authored timing/payload values.</summary>
+        private static void RebindRigReference(PlayableDirector director, BiomeCellClip clip, BiomeCellRig rig)
+        {
+            PropertyName existingKey = clip.rig.exposedName;
+            Undo.RecordObject(director, $"Rebind {clip.name} rig reference");
+            director.SetReferenceValue(existingKey, rig);
+            EditorUtility.SetDirty(director);
+        }
+
         // ── 4. BiomeCellTrack ×2 (rig A gets the overlay + full-frame replace,
         //       rig B gets the overlay — kept on separate tracks so the two rig-A
         //       clips at 15-45s/70-90s and the rig-B clip never share a track) ──
@@ -490,47 +522,71 @@ namespace Biomes
             var trackA = GetOrCreateTrack<BiomeCellTrack>(timeline, "BiomeCellTrack A");
             BindTrack(director, trackA, sequencer);
 
-            TimelineClip cellAOverlay = GetOrCreateClip<BiomeCellClip>(trackA, "CellA_Overlay");
-            cellAOverlay.start = 15;
-            cellAOverlay.duration = 30; // 15-45s
-            cellAOverlay.easeInDuration = 3;
-            cellAOverlay.easeOutDuration = 3;
+            TimelineClip cellAOverlay = GetOrCreateClip<BiomeCellClip>(trackA, "CellA_Overlay", out bool cellAOverlayCreated);
             var cellAOverlayAsset = (BiomeCellClip)cellAOverlay.asset;
-            cellAOverlayAsset.source = CellSource.Rig;
-            cellAOverlayAsset.dstRect = new Rect(0f, 0f, 0.5f, 1f); // left band
-            cellAOverlayAsset.mode = CellBlendMode.Overlay;
-            cellAOverlayAsset.duckBase = false;
-            BindRigReference(director, cellAOverlayAsset, rigA);
-            EditorUtility.SetDirty(cellAOverlayAsset);
+            if (cellAOverlayCreated)
+            {
+                cellAOverlay.start = 15;
+                cellAOverlay.duration = 30; // 15-45s
+                cellAOverlay.easeInDuration = 3;
+                cellAOverlay.easeOutDuration = 3;
+                cellAOverlayAsset.source = CellSource.Rig;
+                cellAOverlayAsset.dstRect = new Rect(0f, 0f, 0.5f, 1f); // left band
+                cellAOverlayAsset.mode = CellBlendMode.Overlay;
+                cellAOverlayAsset.duckBase = false;
+                BindRigReference(director, cellAOverlayAsset, rigA);
+                EditorUtility.SetDirty(cellAOverlayAsset);
+            }
+            else
+            {
+                RebindRigReference(director, cellAOverlayAsset, rigA);
+                s_SkippedExistingClips++;
+            }
 
-            TimelineClip cellAReplace = GetOrCreateClip<BiomeCellClip>(trackA, "CellA_ReplaceFull");
-            cellAReplace.start = 70;
-            cellAReplace.duration = 20; // 70-90s
-            cellAReplace.easeInDuration = 3;
-            cellAReplace.easeOutDuration = 5; // "then fades back" — no exact value in doc
+            TimelineClip cellAReplace = GetOrCreateClip<BiomeCellClip>(trackA, "CellA_ReplaceFull", out bool cellAReplaceCreated);
             var cellAReplaceAsset = (BiomeCellClip)cellAReplace.asset;
-            cellAReplaceAsset.source = CellSource.Rig;
-            cellAReplaceAsset.dstRect = new Rect(0f, 0f, 1f, 1f); // full-frame
-            cellAReplaceAsset.mode = CellBlendMode.Replace;
-            cellAReplaceAsset.duckBase = true;
-            BindRigReference(director, cellAReplaceAsset, rigA);
-            EditorUtility.SetDirty(cellAReplaceAsset);
+            if (cellAReplaceCreated)
+            {
+                cellAReplace.start = 70;
+                cellAReplace.duration = 20; // 70-90s
+                cellAReplace.easeInDuration = 3;
+                cellAReplace.easeOutDuration = 5; // "then fades back" — no exact value in doc
+                cellAReplaceAsset.source = CellSource.Rig;
+                cellAReplaceAsset.dstRect = new Rect(0f, 0f, 1f, 1f); // full-frame
+                cellAReplaceAsset.mode = CellBlendMode.Replace;
+                cellAReplaceAsset.duckBase = true;
+                BindRigReference(director, cellAReplaceAsset, rigA);
+                EditorUtility.SetDirty(cellAReplaceAsset);
+            }
+            else
+            {
+                RebindRigReference(director, cellAReplaceAsset, rigA);
+                s_SkippedExistingClips++;
+            }
 
             var trackB = GetOrCreateTrack<BiomeCellTrack>(timeline, "BiomeCellTrack B");
             BindTrack(director, trackB, sequencer);
 
-            TimelineClip cellBOverlay = GetOrCreateClip<BiomeCellClip>(trackB, "CellB_Overlay");
-            cellBOverlay.start = 15;
-            cellBOverlay.duration = 30; // 15-45s
-            cellBOverlay.easeInDuration = 3;
-            cellBOverlay.easeOutDuration = 3;
+            TimelineClip cellBOverlay = GetOrCreateClip<BiomeCellClip>(trackB, "CellB_Overlay", out bool cellBOverlayCreated);
             var cellBOverlayAsset = (BiomeCellClip)cellBOverlay.asset;
-            cellBOverlayAsset.source = CellSource.Rig;
-            cellBOverlayAsset.dstRect = new Rect(0.5f, 0f, 0.5f, 1f); // right band
-            cellBOverlayAsset.mode = CellBlendMode.Overlay;
-            cellBOverlayAsset.duckBase = false;
-            BindRigReference(director, cellBOverlayAsset, rigB);
-            EditorUtility.SetDirty(cellBOverlayAsset);
+            if (cellBOverlayCreated)
+            {
+                cellBOverlay.start = 15;
+                cellBOverlay.duration = 30; // 15-45s
+                cellBOverlay.easeInDuration = 3;
+                cellBOverlay.easeOutDuration = 3;
+                cellBOverlayAsset.source = CellSource.Rig;
+                cellBOverlayAsset.dstRect = new Rect(0.5f, 0f, 0.5f, 1f); // right band
+                cellBOverlayAsset.mode = CellBlendMode.Overlay;
+                cellBOverlayAsset.duckBase = false;
+                BindRigReference(director, cellBOverlayAsset, rigB);
+                EditorUtility.SetDirty(cellBOverlayAsset);
+            }
+            else
+            {
+                RebindRigReference(director, cellBOverlayAsset, rigB);
+                s_SkippedExistingClips++;
+            }
         }
 
         // ── 5. PatchScatterTrack ─────────────────────────────────────────
@@ -541,14 +597,21 @@ namespace Biomes
             var track = GetOrCreateTrack<PatchScatterTrack>(timeline, "PatchScatterTrack");
             BindTrack(director, track, sequencer);
 
-            TimelineClip clip = GetOrCreateClip<PatchScatterClip>(track, "PatchScatter_MainToDiffusion");
-            clip.start = 40;
-            clip.duration = 30; // 40-70s
-            var asset = (PatchScatterClip)clip.asset;
-            asset.sourceA = CellSource.MainComposite;
-            asset.sourceB = CellSource.DiffusionReturn;
-            asset.crossfadeCenter = 0.5f;
-            EditorUtility.SetDirty(asset);
+            TimelineClip clip = GetOrCreateClip<PatchScatterClip>(track, "PatchScatter_MainToDiffusion", out bool created);
+            if (created)
+            {
+                clip.start = 40;
+                clip.duration = 30; // 40-70s
+                var asset = (PatchScatterClip)clip.asset;
+                asset.sourceA = CellSource.MainComposite;
+                asset.sourceB = CellSource.DiffusionReturn;
+                asset.crossfadeCenter = 0.5f;
+                EditorUtility.SetDirty(asset);
+            }
+            else
+            {
+                s_SkippedExistingClips++;
+            }
         }
 
         // ── 6. ParamSnapshotTrack ────────────────────────────────────────
@@ -572,14 +635,21 @@ namespace Biomes
                 Debug.LogWarning($"[TemporalComposerSceneSetup] Snapshot asset not found at " +
                                   $"{ParamMorphSnapshotPath} — ParamSnapshotClip.snapshot left unassigned.");
 
-            TimelineClip clip = GetOrCreateClip<ParamSnapshotClip>(track, "ParamSnapshot_PhysarumMorph");
-            clip.start = 0;
-            clip.duration = 20; // 0-20s
-            clip.easeInDuration = 10; // 10s ease per doc
-            var asset = (ParamSnapshotClip)clip.asset;
-            asset.snapshot = snapshot;
-            asset.simIndex = simIndex;
-            EditorUtility.SetDirty(asset);
+            TimelineClip clip = GetOrCreateClip<ParamSnapshotClip>(track, "ParamSnapshot_PhysarumMorph", out bool created);
+            if (created)
+            {
+                clip.start = 0;
+                clip.duration = 20; // 0-20s
+                clip.easeInDuration = 10; // 10s ease per doc
+                var asset = (ParamSnapshotClip)clip.asset;
+                asset.snapshot = snapshot;
+                asset.simIndex = simIndex;
+                EditorUtility.SetDirty(asset);
+            }
+            else
+            {
+                s_SkippedExistingClips++;
+            }
         }
 
         // ── 7. RoutingTrack ──────────────────────────────────────────────
@@ -590,12 +660,19 @@ namespace Biomes
             var track = GetOrCreateTrack<RoutingTrack>(timeline, "RoutingTrack");
             BindTrack(director, track, sequencer);
 
-            TimelineClip clip = GetOrCreateClip<RoutingClip>(track, "Routing_DiffusionReturn");
-            clip.start = 55;
-            clip.duration = 10; // 55-65s
-            var asset = (RoutingClip)clip.asset;
-            asset.influenceSource = CellSource.DiffusionReturn;
-            EditorUtility.SetDirty(asset);
+            TimelineClip clip = GetOrCreateClip<RoutingClip>(track, "Routing_DiffusionReturn", out bool created);
+            if (created)
+            {
+                clip.start = 55;
+                clip.duration = 10; // 55-65s
+                var asset = (RoutingClip)clip.asset;
+                asset.influenceSource = CellSource.DiffusionReturn;
+                EditorUtility.SetDirty(asset);
+            }
+            else
+            {
+                s_SkippedExistingClips++;
+            }
         }
 
         // ── 8. Reset signals ─────────────────────────────────────────────
