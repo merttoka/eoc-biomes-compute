@@ -5,7 +5,7 @@ using EasyButtons;
 
 namespace Biomes
 {
-    public enum SendSource { CompositeOutput, SimOutput, BiomeLayer }
+    public enum SendSource { CompositeOutput, SimOutput, BiomeLayer, ComposerOutput }
 
     [Serializable]
     public class SendStream
@@ -24,6 +24,9 @@ namespace Biomes
     {
         [Header("References")]
         public SimulationManager simManager;
+        /// <summary>For SendSource.ComposerOutput — the Temporal Composer's output.</summary>
+        [Tooltip("For SendSource.ComposerOutput — the Temporal Composer's output.")]
+        public CompositeSequencer sequencer;
         public ShareResources resources = new();
 
         [Header("Streams")]
@@ -120,6 +123,9 @@ namespace Biomes
                     simManager.biome.RenderChannelTo(s.index, live.extractRT);
                     return live.extractRT;
 
+                case SendSource.ComposerOutput:
+                    return sequencer != null ? sequencer.ComposerOutputTexture : null;
+
                 default: return null;
             }
         }
@@ -158,6 +164,7 @@ namespace Biomes
             SendSource.CompositeOutput => "EoC/Composite",
             SendSource.SimOutput => $"EoC/{SimNameOrFallback(s.index)}",
             SendSource.BiomeLayer => $"EoC/{(s.index >= 0 && s.index < ChannelNames.Length ? ChannelNames[s.index] : "Ch" + s.index)}",
+            SendSource.ComposerOutput => "EoC/Composer",
             _ => "EoC/Stream",
         };
 
