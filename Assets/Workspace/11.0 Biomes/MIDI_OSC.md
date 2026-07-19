@@ -99,11 +99,11 @@ HW bank switches are detected automatically via Note On (Ch 3, notes 0-3). The i
 | ---------------- | ------------------------------------------------------------------------------ | ----------- |
 | 0: Core          | moveSpeed, senseAngle, turnAngle, senseDist / maxSpeed, maxForce, ranges       | Blue/Orange |
 | 1: Secondary     | depositAmount, eatAmount, diffuseRate, foodSeek                                | Blue/Orange |
-| 2: Visual+Biome  | hue, saturation, diffuseRate per type + biome cross-field (col 3 of HW bank 1) | Green       |
+| 2: Visual+Biome  | hue, saturation, diffuseRate per type + biome cross-field (col 3 of HW bank 4) | Green       |
 | 3: Umwelt+Global | metabolicHeat, O2, permeability per sim + globals (col 3 of HW bank 1)         | Purple/Cyan |
 
 
-Banks 2 and 3 reserve column 3 of HW bank 1 for biome/global params. Type columns shift accordingly.
+Bank 2: type columns fill contiguously from col 0 (families never split mid-page); biome cross-field lives in the last column of HW bank 4. Bank 3 reserves col 3 of HW bank 1 for globals (≤3 sims fit before it).
 
 ### LED Feedback
 
@@ -204,7 +204,7 @@ moveSpeed, senseAngle, turnAngle, senseDistance, depositAmount, eatAmount, diffu
 
 maxSpeed, maxForce, separateRange, alignRange, attractRange, depositAmount, eatAmount, foodSeek, hue, saturation, diffuseRate
 
-### Biome Cross-Field (Soft Bank 2, col 3 of HW bank 1)
+### Biome Cross-Field (Soft Bank 2, col 3 of HW bank 4)
 
 wasteToNutrientRate, temperatureToFlowStrength, temperatureToPermeability, noiseScale
 

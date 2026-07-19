@@ -13,6 +13,7 @@ related: [[../../docs/superpowers/specs/2026-07-19-mft-led-feedback-design]]
 - `LogBindingTable` cells prefix computed color CC (no-device verification).
 - Docs: `MIDI_OSC.md` LED Feedback section, README bullet, spec + plan under `docs/superpowers/`.
 - Merged to main `7be27c2` (branch `worktree-mft-led-feedback`, 0-error `dotnet build Assembly-CSharp.csproj` per commit).
+- Follow-up (same day): bank 2 biome cross-field column moved HW1 col 3 → HW4 col 3; type columns now contiguous from col 0 (8-physarum block no longer split around the biome column).
 
 ## Decided
 - Hue gradient over brightness ramp / screen-hue mirror (family recognizable, order visible; dim knobs bad on stage).

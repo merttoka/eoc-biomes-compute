@@ -178,6 +178,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ExternalTextureSender
   simManager: {fileID: 2000144461}
+  sequencer: {fileID: 0}
   resources:
     spout: {fileID: 11400000, guid: f449ebbe2051c2e4d993eaa773a410de, type: 2}
     ndi: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
@@ -348,7 +349,7 @@ GameObject:
   - component: {fileID: 417804413}
   - component: {fileID: 417804411}
   m_Layer: 0
-  m_Name: Params
+  m_Name: ParamsIO
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -397,6 +398,13 @@ MonoBehaviour:
   rightBot: 15
   sendLEDFeedback: 1
   ledUpdateInterval: 0.3
+  physarumHueStart: 20
+  physarumHueEnd: 40
+  boidHueStart: 78
+  boidHueEnd: 98
+  termiteHueStart: 57
+  termiteHueEnd: 70
+  bankFlashDuration: 0.7
   logMidi: 0
   ccSideL1: 8
   ccSideL2: 9
@@ -429,7 +437,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 417804407}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 96eedfd67d2c849ac8d7899ecfe91d37, type: 3}
   m_Name: 
@@ -2183,8 +2191,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 2560
-  rezY: 1440
+  rezX: 3840
+  rezY: 2160
   simResolutionScale: 1
   perceptionResScale: 0.75
   referenceHeight: 2160
@@ -2195,6 +2203,7 @@ MonoBehaviour:
   stepsPerTick: 1
   limitFPS: 1
   targetFPS: 90
+  ownsGlobalTiming: 1
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1

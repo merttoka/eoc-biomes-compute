@@ -289,37 +289,37 @@ namespace Biomes
             _bankColors[2] = RGB_GREEN;
             var bindings = _bankBindings[2];
 
-            // Types span across HW banks, last column of HW bank 0 = biome cross-field
+            // Types fill columns contiguously from col 0 (no split within a family);
+            // biome cross-field lives in the last column of the last HW bank.
             var columns = CollectTypeColumns();
-            int maxTypeCols = 4 * HW_BANK_COUNT - 1; // reserve last col of bank 0 for biome
+            int maxTypeCols = 4 * HW_BANK_COUNT - 1; // reserve last col of last bank for biome
             int cols = Mathf.Min(columns.Count, maxTypeCols);
             for (int col = 0; col < cols; col++)
             {
                 var (simIdx, typeIdx) = columns[col];
-                // Skip col 3 of HW bank 0 (reserved for biome)
-                int globalCol = col < 3 ? col : col + 1;
-                int e0 = ColRowToEncoderIdx(globalCol, 0);
-                int e1 = ColRowToEncoderIdx(globalCol, 1);
-                int e2 = ColRowToEncoderIdx(globalCol, 2);
-                int e3 = ColRowToEncoderIdx(globalCol, 3);
+                int e0 = ColRowToEncoderIdx(col, 0);
+                int e1 = ColRowToEncoderIdx(col, 1);
+                int e2 = ColRowToEncoderIdx(col, 2);
+                int e3 = ColRowToEncoderIdx(col, 3);
                 if (e0 < TOTAL_ENCODERS) bindings[e0] = MakeSimParamBinding(simIdx, "hue", typeIdx);
                 if (e1 < TOTAL_ENCODERS) bindings[e1] = MakeSimParamBinding(simIdx, "saturation", typeIdx);
                 if (e2 < TOTAL_ENCODERS) bindings[e2] = MakeSimParamBinding(simIdx, "diffuseRate", typeIdx);
                 if (e3 < TOTAL_ENCODERS) bindings[e3] = MakeSimParamBinding(simIdx, "depositAmount", typeIdx);
             }
 
-            // Column 3 of HW bank 0: Biome cross-field interactions
+            // Last column of last HW bank: Biome cross-field interactions
+            int biomeCol = 4 * HW_BANK_COUNT - 1;
             var biome = m_SimManager?.biome;
             var config = biome?.fieldConfig;
             if (config != null)
             {
-                bindings[ColRowToEncoderIdx(3, 0)] = MakeBiomeCrossFieldBinding("wasteToNutrient",
+                bindings[ColRowToEncoderIdx(biomeCol, 0)] = MakeBiomeCrossFieldBinding("wasteToNutrient",
                     v => config.wasteToNutrientRate = v, () => config.wasteToNutrientRate, 0f, 0.1f);
-                bindings[ColRowToEncoderIdx(3, 1)] = MakeBiomeCrossFieldBinding("temp→Flow",
+                bindings[ColRowToEncoderIdx(biomeCol, 1)] = MakeBiomeCrossFieldBinding("temp→Flow",
                     v => config.temperatureToFlowStrength = v, () => config.temperatureToFlowStrength, 0f, 1f);
-                bindings[ColRowToEncoderIdx(3, 2)] = MakeBiomeCrossFieldBinding("temp→Perm",
+                bindings[ColRowToEncoderIdx(biomeCol, 2)] = MakeBiomeCrossFieldBinding("temp→Perm",
                     v => config.temperatureToPermeability = v, () => config.temperatureToPermeability, 0f, 1f);
-                bindings[ColRowToEncoderIdx(3, 3)] = MakeBiomeCrossFieldBinding("noiseScale",
+                bindings[ColRowToEncoderIdx(biomeCol, 3)] = MakeBiomeCrossFieldBinding("noiseScale",
                     v => config.noiseScale = v, () => config.noiseScale, 0f, 10f);
             }
         }
