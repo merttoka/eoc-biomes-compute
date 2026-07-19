@@ -52,9 +52,15 @@ namespace Biomes.Sequencer
     }
 
     /// <summary>Anadol-grammar patch scheduling, ported from SimAesthetics
-    /// render_overlay_video.py. Pure C# — deterministic from (config.seed), no engine refs.</summary>
+    /// render_overlay_video.py. Pure C# — deterministic from (config.seed), no engine refs.
+    /// Determinism assumes System.Random's algorithm (stable within a given Unity runtime,
+    /// not guaranteed across .NET versions). Hold/fade windows may intentionally extend
+    /// past durationFrames (trailing fade).</summary>
     public static class PatchEventScheduler
     {
+        /// <summary>Hard cap on events returned by Generate, regardless of cfg.count.</summary>
+        public const int MaxEventsPerClip = 512;
+
         /// <summary>Reversed size→duration mapping: sizeNorm01=1 (largest) → holdMin
         /// (flash and vanish), sizeNorm01=0 (smallest) → holdMax (linger).</summary>
         public static int SizeToHoldFrames(float sizeNorm01, int holdMin, int holdMax)
@@ -84,14 +90,15 @@ namespace Biomes.Sequencer
 
         public static PatchEvent[] Generate(PatchScatterConfig cfg)
         {
+            int count = Math.Min(cfg.count, MaxEventsPerClip);
             var rng = new Random(cfg.seed);
-            var events = new List<PatchEvent>(cfg.count);
+            var events = new List<PatchEvent>(count);
 
-            for (int i = 0; i < cfg.count; i++)
+            for (int i = 0; i < count; i++)
             {
                 // Anchor spreads patches uniformly across the clip; the actual start is
                 // offset asymmetrically (lead/trail) + jitter so appearances cascade.
-                float anchorT = (i + 0.5f) / cfg.count;
+                float anchorT = (i + 0.5f) / count;
                 int anchor = (int)(anchorT * cfg.durationFrames);
 
                 float sizeH = Lerp(cfg.minSize, cfg.maxSize, (float)rng.NextDouble());
@@ -158,8 +165,16 @@ namespace Biomes.Sequencer
     /// forward frame. A backward frame (scrub) rewinds and replays — still deterministic.</summary>
     public class PatchSweep
     {
+        /// <summary>Hard cap on simultaneously active (drawn) events. Once reached,
+        /// newly-activated events are dropped permanently (not deferred/queued) — since
+        /// activation is processed in ascending start order off the sorted cursor, the
+        /// drop set is a deterministic function of the event array and frame sequence.
+        /// This bound also fixes _active's capacity so it never regrows past its initial
+        /// allocation, keeping the Collect hot path allocation-free.</summary>
+        public const int MaxActive = 128;
+
         private readonly PatchEvent[] _sorted;   // by start ascending
-        private readonly List<int> _active = new List<int>(128);
+        private readonly List<int> _active = new List<int>(MaxActive);
         private int _cursor;
         private int _lastFrame = int.MinValue;
 
@@ -171,7 +186,9 @@ namespace Biomes.Sequencer
 
         /// <summary>Copies events active at <paramref name="frame"/> into
         /// <paramref name="outBuf"/>; returns the count. outBuf must be at least
-        /// as long as the event array.</summary>
+        /// as long as the event array. Active count is capped at <see cref="MaxActive"/>;
+        /// events activated beyond the cap are permanently skipped (deterministic drop,
+        /// see MaxActive doc).</summary>
         public int Collect(int frame, PatchEvent[] outBuf)
         {
             if (frame < _lastFrame) { _cursor = 0; _active.Clear(); }  // backward scrub → rewind
@@ -179,7 +196,7 @@ namespace Biomes.Sequencer
 
             while (_cursor < _sorted.Length && _sorted[_cursor].start <= frame)
             {
-                _active.Add(_cursor);
+                if (_active.Count < MaxActive) _active.Add(_cursor);
                 _cursor++;
             }
 

@@ -129,6 +129,101 @@ namespace Biomes.Sequencer.Tests
         }
 
         [Test]
+        public void Generate_CountClampedToMaxEventsPerClip()
+        {
+            var cfg = Cfg();
+            cfg.count = 600;
+            cfg.minSize = 0.01f;
+            cfg.maxSize = 0.02f;
+            cfg.durationFrames = 20000;
+            cfg.holdMinFrames = 5;
+            cfg.holdMaxFrames = 20;
+            cfg.fadeFrames = 5;
+            cfg.leadFrames = 10;
+            cfg.trailFrames = 10;
+            cfg.staggerJitterFrames = 2;
+
+            var events = PatchEventScheduler.Generate(cfg);
+            Assert.LessOrEqual(events.Length, PatchEventScheduler.MaxEventsPerClip);
+        }
+
+        [Test]
+        public void Generate_DenseConfig_RejectsSomePatchesButStaysValid()
+        {
+            var cfg = new PatchScatterConfig
+            {
+                seed = 7,
+                count = 64,
+                minSize = 0.4f,
+                maxSize = 0.6f,
+                aspect = 1f,
+                holdMinFrames = 80,
+                holdMaxFrames = 95,
+                fadeFrames = 5,
+                leadFrames = 0,
+                trailFrames = 0,
+                staggerJitterFrames = 0,
+                crossfadeCenter = 0.5f,
+                crossfadeWidth = 0.15f,
+                durationFrames = 100,
+                maxRejects = 40,
+            };
+            var events = PatchEventScheduler.Generate(cfg);
+
+            Assert.Less(events.Length, cfg.count);
+            Assert.GreaterOrEqual(events.Length, 1);
+
+            for (int i = 0; i < events.Length; i++)
+            {
+                Assert.GreaterOrEqual(events[i].dst.x, 0f);
+                Assert.GreaterOrEqual(events[i].dst.y, 0f);
+                Assert.LessOrEqual(events[i].dst.x + events[i].dst.w, 1f + 1e-4f);
+                Assert.LessOrEqual(events[i].dst.y + events[i].dst.h, 1f + 1e-4f);
+
+                for (int j = i + 1; j < events.Length; j++)
+                {
+                    bool timeOverlap = events[i].start < events[j].fadeEnd &&
+                                       events[j].start < events[i].fadeEnd;
+                    if (timeOverlap)
+                        Assert.IsFalse(events[i].dst.Overlaps(events[j].dst),
+                            $"events {i} and {j} are co-active and overlap spatially");
+                }
+            }
+        }
+
+        [Test]
+        public void Sweep_ActiveCap_LimitsTo128AndIsDeterministic()
+        {
+            const int total = 200;
+            var events = new PatchEvent[total];
+            for (int i = 0; i < total; i++)
+            {
+                events[i] = new PatchEvent
+                {
+                    dst = new PatchRect(i * 0.001f, 0f, 0.0005f, 0.0005f),
+                    src = new PatchRect(0f, 0f, 0.0005f, 0.0005f),
+                    start = 0,
+                    holdEnd = 100,
+                    fadeEnd = 200,
+                    crossfadeRoll = 0f,
+                    anchorT = 0f,
+                };
+            }
+            var sweep = new PatchSweep(events);
+
+            var buf1 = new PatchEvent[total];
+            int n1 = sweep.Collect(50, buf1);
+            Assert.AreEqual(PatchSweep.MaxActive, n1);
+
+            var buf2 = new PatchEvent[total];
+            int n2 = sweep.Collect(50, buf2);
+            Assert.AreEqual(PatchSweep.MaxActive, n2);
+
+            for (int i = 0; i < n1; i++)
+                Assert.AreEqual(buf1[i].dst.x, buf2[i].dst.x, $"index {i} differs between calls");
+        }
+
+        [Test]
         public void Sweep_MatchesBruteForce_IncludingBackwardScrub()
         {
             var events = PatchEventScheduler.Generate(Cfg());
