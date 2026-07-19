@@ -43,6 +43,9 @@ namespace Biomes
         [Tooltip("Receiver #2: the StreamDiffusion return stream (Spout from TouchDesigner).")]
         /// <summary>Optional external receiver reference; not sampled directly by this component.</summary>
         public ExternalTextureReceiver diffusionReturn;
+        [Tooltip("Receiver #1: the general external input (same one SimulationManager uses).")]
+        /// <summary>Optional external receiver reference; resolved by ResolveSource for CellSource.InputReceiver.</summary>
+        public ExternalTextureReceiver inputReceiver;
 
         [Header("Composer")]
         [Tooltip("Composer rez = sim composite rez × this. 1 keeps ScreenLayout pixel rects valid.")]
@@ -128,6 +131,20 @@ namespace Biomes
                 src = src, dst = dstNorm, srcRect = srcNorm,
                 weight = Mathf.Clamp01(alpha), mode = 1,   // patches always alpha-lerp
             });
+        }
+
+        /// <summary>Resolves a clip's source kind to a live texture; null = draw skipped
+        /// (graceful degradation, never black).</summary>
+        public Texture ResolveSource(CellSource kind, BiomeCellRig rig)
+        {
+            switch (kind)
+            {
+                case CellSource.Rig: return rig != null ? rig.OutputTexture : null;
+                case CellSource.MainComposite: return simManager != null ? simManager.CompositeOutputTexture : null;
+                case CellSource.InputReceiver: return inputReceiver != null ? inputReceiver.OutputTexture : null;
+                case CellSource.DiffusionReturn: return diffusionReturn != null ? diffusionReturn.OutputTexture : null;
+                default: return null;
+            }
         }
 
         // ── Render ──
