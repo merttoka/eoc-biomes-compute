@@ -107,15 +107,9 @@ Bank 2: type columns fill contiguously from col 0 (families never split mid-page
 
 ### LED Feedback
 
-**Per-type hue gradients** — SimParam knob color = family hue range interpolated by type index, so columns read left→right as a gradient (inspector-tunable, MFT hue-wheel CC values 1-125):
+**Per-type brightness ramp** — SimParam knob color = flat family hue (Physarum=blue 33, Boid=orange 83, Termite=yellow 65); type identity = RGB brightness ramping `typeBrightnessMid` (default 32 ≈ 50%) at type 0 → 47 (max) at the last type. Columns read left→right dim→bright within each family. Single-type sims stay at max. (Hue-gradient variant tried first, confusing on device.)
 
-| Family   | Default range | Reads as         |
-| -------- | ------------- | ---------------- |
-| Physarum | 20 → 40       | deep blue → cyan |
-| Termite  | 57 → 70       | yellow band      |
-| Boid     | 78 → 98       | orange → red     |
-
-Fixed: Biome=green(43), Umwelt=cyan(40), Global=purple(110). Single-type sims sit at range midpoint. Bound knobs full RGB brightness; unbound off.
+Fixed: Biome=green(43), Umwelt=cyan(40), Global=purple(110), full brightness. Unbound knobs off.
 
 **Bank-switch flash** — on any soft/HW bank change, `bankFlashDuration` (default 0.7s) overlay:
 

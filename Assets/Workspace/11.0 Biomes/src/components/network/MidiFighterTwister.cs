@@ -58,13 +58,8 @@ namespace Biomes
         [Range(0f, 2f)] public float ledUpdateInterval = 0.1f;
 
         [Header("LED Colors")]
-        [Tooltip("MFT hue-wheel CC values (1-125). Column color = Lerp(start, end, typeIndex/(typeCount-1)).")]
-        [Range(1, 125)] public int physarumHueStart = 20;
-        [Range(1, 125)] public int physarumHueEnd   = 40;
-        [Range(1, 125)] public int boidHueStart     = 78;
-        [Range(1, 125)] public int boidHueEnd       = 98;
-        [Range(1, 125)] public int termiteHueStart  = 57;
-        [Range(1, 125)] public int termiteHueEnd    = 70;
+        [Tooltip("Type 0 starts at this brightness, ramping to 47 (max) at the last type. MFT anim CC 17-47 = RGB brightness.")]
+        [Range(17, 47)] public int typeBrightnessMid = 32;
         [Tooltip("Bank-switch flash: top row = soft bank, bottom row = HW bank. 0 disables.")]
         [Range(0f, 2f)] public float bankFlashDuration = 0.7f;
 
@@ -985,7 +980,8 @@ namespace Biomes
                     _ => RGB_OFF,
                 };
                 SendCC(CH_RGB, cc, color);
-                SendCC(CH_ANIM, cc, ANIM_RGB_BRIGHT_MAX);
+                SendCC(CH_ANIM, cc, b.target == BindingTarget.SimParam
+                    ? GetSimParamBrightness(b) : ANIM_RGB_BRIGHT_MAX);
 
                 float norm = GetNormalizedValue(b);
                 if (norm >= 0f)
@@ -1033,21 +1029,26 @@ namespace Biomes
             }
         }
 
-        /// <summary>Hue-wheel CC for a SimParam binding: family range interpolated by type index.
-        /// Single-type sims land on the range midpoint (≈ legacy family anchor).</summary>
+        /// <summary>Flat family hue per SimParam binding; type identity comes from brightness.</summary>
         private int GetSimParamColor(EncoderBinding b)
         {
             if (b.simIndex < 0 || b.simIndex >= m_Simulations.Count) return RGB_OFF;
-            var sim = m_Simulations[b.simIndex];
-            (int start, int end) = sim switch
+            return m_Simulations[b.simIndex] switch
             {
-                PhysarumSim => (physarumHueStart, physarumHueEnd),
-                TermiteSim  => (termiteHueStart, termiteHueEnd),
-                _           => (boidHueStart, boidHueEnd),
+                PhysarumSim => RGB_BLUE,
+                TermiteSim  => RGB_YELLOW,
+                _           => RGB_ORANGE,
             };
-            int typeCount = Mathf.Max(1, GetTypeCount(sim));
-            float t = typeCount <= 1 ? 0.5f : (float)b.typeIndex / (typeCount - 1);
-            return Mathf.RoundToInt(Mathf.Lerp(start, end, t));
+        }
+
+        /// <summary>Anim-channel brightness for a SimParam binding: typeBrightnessMid at type 0,
+        /// ramping to max (47) at the last type. Single-type sims stay at max.</summary>
+        private int GetSimParamBrightness(EncoderBinding b)
+        {
+            if (b.simIndex < 0 || b.simIndex >= m_Simulations.Count) return ANIM_RGB_BRIGHT_MAX;
+            int typeCount = Mathf.Max(1, GetTypeCount(m_Simulations[b.simIndex]));
+            float t = typeCount <= 1 ? 1f : (float)b.typeIndex / (typeCount - 1);
+            return Mathf.RoundToInt(Mathf.Lerp(typeBrightnessMid, ANIM_RGB_BRIGHT_MAX, t));
         }
 
         private float GetNormalizedValue(EncoderBinding b)
@@ -1202,7 +1203,7 @@ namespace Biomes
                     {
                         case BindingTarget.SimParam when b.simIndex >= 0 && b.simIndex < m_Simulations.Count:
                             string sn = m_Simulations[b.simIndex]?.SimName ?? "?";
-                            cell = $"{GetSimParamColor(b),3}|{sn[0]}{b.typeIndex}.{b.paramName}";
+                            cell = $"{GetSimParamBrightness(b),2}|{sn[0]}{b.typeIndex}.{b.paramName}";
                             break;
                         case BindingTarget.BiomeCrossField:
                         case BindingTarget.Umwelt:

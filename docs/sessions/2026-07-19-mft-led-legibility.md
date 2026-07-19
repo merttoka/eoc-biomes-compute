@@ -14,6 +14,7 @@ related: [[../../docs/superpowers/specs/2026-07-19-mft-led-feedback-design]]
 - Docs: `MIDI_OSC.md` LED Feedback section, README bullet, spec + plan under `docs/superpowers/`.
 - Merged to main `7be27c2` (branch `worktree-mft-led-feedback`, 0-error `dotnet build Assembly-CSharp.csproj` per commit).
 - Follow-up (same day): bank 2 biome cross-field column moved HW1 col 3 → HW4 col 3; type columns now contiguous from col 0 (8-physarum block no longer split around the biome column).
+- Follow-up 2 (device test): hue gradients confusing on hardware → replaced with **per-type brightness ramp** (flat family hue, anim-channel brightness `typeBrightnessMid` 32 → 47 across type index; single-type = max). Six hue fields removed, one brightness field added.
 
 ## Decided
 - Hue gradient over brightness ramp / screen-hue mirror (family recognizable, order visible; dim knobs bad on stage).
