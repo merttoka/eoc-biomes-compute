@@ -58,12 +58,16 @@ totalTrail  ───┤
 - Two dispatches per frame; the dispatch boundary is the sync barrier (a single kernel
   reading neighbor texels it also writes would race).
 - **`BakeHeight`** — threads over field res. Reads biome read-buffer slice
-  `CH_PERMEABILITY` and `totalTrail` (bilinear, texel-center UVs `(id+0.5)/rez` per
-  existing convention). `target = permGain * perm + trailGain * trail`; temporal
-  smoothing `h = lerp(prevH, target, smoothK)` (own-texel read-modify-write only —
-  safe, no ping-pong). Writes `.a` of `_HeightNormalTex` (RGBA16F).
-- **`BakeNormal`** — central differences over the fully-updated `.a` heights of the
-  4 neighbors, writes `normal.xyz * 0.5 + 0.5` to `.rgb` (own-texel RMW preserves `.a`).
+  `CH_PERMEABILITY` (via public `Biome.FieldReadArray`) and **composite luminance**
+  as the trail term (the per-sim trail textures have no public accessor; the composite
+  is the graded sum of all trails anyway). Bilinear, texel-center UVs `(id+0.5)/rez`.
+  `target = permGain * perm + trailGain * lum(composite)`; temporal smoothing
+  `h = lerp(prevH, target, smoothK)` (own-texel read-modify-write only — safe, no
+  ping-pong). Writes `_HeightTex` (R16F) — separate from normals because HDRP/Lit
+  samples `_HeightMap.r` for vertex displacement.
+- **`BakeNormal`** — central differences over the fully-updated heights of the 4
+  neighbors, writes tangent-space `n.xy * 0.5 + 0.5` to `_NormalTex` (RGBA16F,
+  `UnpackNormalmapRGorAG` convention).
 
 ### 2. `components/render3d/HeightfieldForm.cs` (MonoBehaviour)
 - References: `SimulationManager` (for `Biome`, total trail, `compositeOutTex`).
@@ -76,17 +80,19 @@ totalTrail  ───┤
   `heightScale`, `emissionGain`. OSC wired through the existing `OSCMapping` pattern.
 - Missing refs → component disables itself with a single warning (no per-frame spam).
 
-### 3. `M_BioForm` — HDRP Lit Shader Graph + diffusion profile
-- Material type **Subsurface Scattering**; new diffusion profile asset
-  `DP_BioFlesh` (warm scatter radius, red-shifted transmission — flesh preset tuned
-  toward the show's warm tones, cf. `moundColor` `(0.25, 0.18, 0.12)`).
-- Vertex stage: sample `_HeightNormalTex.a` → displace along object Y by `heightScale`.
-- Fragment: normal from `_HeightNormalTex.rgb` (world-space remap), base color = dark
-  warm flesh tone, **emission = `compositeOutTex` sample × `emissionGain`** (subdermal
-  glow, palette-matched by construction), smoothness modest (~0.35).
-- Mesh: static dense grid plane (~512×512 verts, aspect-matched to field). Generated
-  once in `HeightfieldForm.Allocate()` (procedural mesh, 32-bit indices) — avoids HDRP
-  tessellation-stage texture-sampling headaches.
+### 3. `M_BioForm` — stock **HDRP/Lit** material + diffusion profile (no shader graph)
+- HDRP/Lit natively supports everything needed (verified against installed 17.3.0):
+  Material Type **Subsurface Scattering** (`_MaterialID=0`), **vertex displacement**
+  from `_HeightMap.r` (`_DisplacementMode=1`, Amplitude parametrization,
+  `_HeightAmplitude` in meters), tangent-space `_NormalMap`, `_EmissiveColorMap`.
+- New diffusion profile asset `DP_BioFlesh` (warm scatter, red-shifted transmission —
+  tuned toward the show's warm tones, cf. `moundColor` `(0.25, 0.18, 0.12)`).
+- **Emission = `compositeOutTex` × `emissionGain`** (subdermal glow, palette-matched
+  by construction); base color dark warm flesh; smoothness ~0.35.
+- Assets created by an editor menu utility (`Biomes ▸ Create BioForm Assets`), not by
+  hand — keywords + diffusion-profile GUID/hash set in code, `HDMaterial.ValidateMaterial`.
+- Mesh: procedural dense grid plane (~384², 32-bit indices, padded bounds), generated
+  in `HeightfieldForm.Allocate()` — avoids HDRP tessellation-stage sampling headaches.
 
 ### 4. Scene rig (prefab `BioForm3D`)
 - Plane + `HeightfieldForm` + `M_BioForm`.
