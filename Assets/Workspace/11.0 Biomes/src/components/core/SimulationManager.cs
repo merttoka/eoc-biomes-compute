@@ -33,10 +33,16 @@ namespace Biomes
 
         [Tooltip("Untick on cell-rig (nested) managers: they must not write the global " +
                  "Time.fixedDeltaTime / targetFrameRate settings the main manager owns.")]
+        /// <summary>
+        /// When true (default) this manager drives Time.fixedDeltaTime and Application.targetFrameRate. Disable on nested cell-rig managers so they never fight the scene's main manager for global timing.
+        /// </summary>
         public bool ownsGlobalTiming = true;
 
         [Tooltip("When set (by the Timeline RoutingTrack), overrides the external receiver " +
                  "as the sims' influence texture. Null = normal externalInput path.")]
+        /// <summary>
+        /// When set, replaces the ExternalTextureReceiver output as the sims' external influence texture. Used by BiomeCellRig to pin a per-cell influence source. Runtime-only.
+        /// </summary>
         [System.NonSerialized] public Texture influenceOverride;
 
         [Header("Biome")]

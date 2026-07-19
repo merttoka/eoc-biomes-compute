@@ -11,19 +11,20 @@ namespace Biomes
     /// </summary>
     public class BiomeCellRig : MonoBehaviour
     {
-        [Tooltip("Nested manager: ownsGlobalTiming OFF, stepsPerTick 0, rez ~1024.")]
         /// <summary>The nested SimulationManager this rig steps. Must have ownsGlobalTiming = false and stepsPerTick = 0.</summary>
+        [Tooltip("Nested manager: ownsGlobalTiming OFF, stepsPerTick 0, rez ~1024.")]
         public SimulationManager manager;
 
-        [Tooltip("Rig's own step rate (Hz), independent of the main sim's simRate.")]
         /// <summary>Cell step rate in Hz, clamped 1-60. Independent of the main manager's simRate.</summary>
+        [Tooltip("Rig's own step rate (Hz), independent of the main sim's simRate.")]
         [Range(1f, 60f)] public float cellRate = 20f;
 
-        [Tooltip("Set by the Timeline mixer while a cell clip is active. Manual for testing.")]
         /// <summary>True while a Timeline clip has this cell active. Manager only steps while true.</summary>
+        [Tooltip("Set by the Timeline mixer while a cell clip is active. Manual for testing.")]
         public bool Running;
 
         private float _accum;
+        private bool _warnedStepsPerTick;
 
         /// <summary>Cell source texture for the composer (null until manager Reset).</summary>
         public RenderTexture OutputTexture => manager != null ? manager.CompositeOutputTexture : null;
@@ -36,6 +37,11 @@ namespace Biomes
             int guard = 0;                      // spiral-of-death guard, mirrors main sim
             while (_accum >= dt && guard++ < 4)
             {
+                if (!_warnedStepsPerTick && manager != null && manager.stepsPerTick != 0)
+                {
+                    Debug.LogWarning($"[BiomeCellRig] {name}: nested manager stepsPerTick={manager.stepsPerTick} != 0 — it will ALSO step from FixedUpdate, double-stepping the cell. Set stepsPerTick to 0 on cell-rig managers.", this);
+                    _warnedStepsPerTick = true;
+                }
                 manager.Step();
                 _accum -= dt;
             }
