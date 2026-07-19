@@ -111,7 +111,7 @@ Banks 2 and 3 reserve column 3 of HW bank 1 for biome/global params. Type column
 
 | Family   | Default range | Reads as         |
 | -------- | ------------- | ---------------- |
-| Physarum | 20 → 44       | deep blue → cyan |
+| Physarum | 20 → 40       | deep blue → cyan |
 | Termite  | 57 → 70       | yellow band      |
 | Boid     | 78 → 98       | orange → red     |
 

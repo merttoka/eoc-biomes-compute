@@ -60,7 +60,7 @@ namespace Biomes
         [Header("LED Colors")]
         [Tooltip("MFT hue-wheel CC values (1-125). Column color = Lerp(start, end, typeIndex/(typeCount-1)).")]
         [Range(1, 125)] public int physarumHueStart = 20;
-        [Range(1, 125)] public int physarumHueEnd   = 44;
+        [Range(1, 125)] public int physarumHueEnd   = 40;
         [Range(1, 125)] public int boidHueStart     = 78;
         [Range(1, 125)] public int boidHueEnd       = 98;
         [Range(1, 125)] public int termiteHueStart  = 57;
