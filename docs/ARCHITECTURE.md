@@ -334,9 +334,12 @@ PlayableDirector(ShowSequence) → CompositeSequencer → composerOutTex → Ext
   `ExternalTextureSender`'s `SendSource.ComposerOutput` (default stream `EoC/Composer`)
   and `ScreenLayout` keep a stable native handle for the whole show. `LateUpdate` (after
   `SimulationManager.Render()`) dispatches `SequencerComposite.compute`: a base pass
-  copies the sim composite (skipped when a `Replace`-mode cell owns the frame), then one
-  `RectBlendKernel` dispatch per active cell/patch rect (≤4 cells, ≤128 active patch
-  draws/frame), then an optional debug-outline pass (`debugOutlines`, off for the show).
+  always runs, copying the sim composite weighted by `_baseWeight` (`SetBaseWeight`,
+  clamped to [0,1], reset to 1 each frame) — a `Replace`-mode cell with `duckBase` sets
+  it to `1 - w` for that frame, so full cell coverage (`w = 1`) dims the base pass
+  toward 0 rather than skipping the dispatch — then one `RectBlendKernel` dispatch per
+  active cell/patch rect (≤4 cells, ≤128 active patch draws/frame), then an optional
+  debug-outline pass (`debugOutlines`, off for the show).
 - **`BiomeCellRig`** (prefab, ≤4 in scene) — a trimmed, self-paced `SimulationManager` +
   `Biome` + sims at reduced rez (default 1024²) with `ownsGlobalTiming = false` /
   `stepsPerTick = 0` so a `BiomeCellTrack` clip alone drives its `Running` flag via
