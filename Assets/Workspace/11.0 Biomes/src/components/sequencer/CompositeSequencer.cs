@@ -243,13 +243,19 @@ namespace Biomes
             _allocRezX = _rezX; _allocRezY = _rezY;
         }
 
-        /// <summary>Releases the composer RenderTexture and GPU resources. Safe to call repeatedly; re-allocates lazily on the next LateUpdate via EnsureAllocated.</summary>
+        /// <summary>Releases the composer RenderTexture and GPU resources. Safe to call repeatedly; re-allocates lazily on the next LateUpdate via EnsureAllocated.
+        /// If a display material was pointed at the released texture, re-points it at
+        /// simManager's raw CompositeOutputTexture so the display falls back to the base
+        /// sim composite instead of showing black/magenta against a destroyed RT.</summary>
         public void Release()
         {
             gpu?.ReleaseAll();
             gpu = null;
             _composerTex = null;
             _allocRezX = _allocRezY = -1;
+
+            if (composerOutMat != null && simManager != null && simManager.CompositeOutputTexture != null)
+                composerOutMat.SetTexture("_UnlitColorMap", simManager.CompositeOutputTexture);
         }
 
         void OnDestroy() => Release();

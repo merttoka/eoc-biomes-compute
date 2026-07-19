@@ -92,6 +92,22 @@ namespace Biomes
             }
         }
 
+        /// <summary>Finds the scene's global-timing SimulationManager for auto-binding a new
+        /// track, not just any SimulationManager — a naive FindFirstObjectByType can pick a
+        /// cell rig's nested manager instead of the composite scene's driving one. Prefers the
+        /// manager wired to a CompositeSequencer; falls back to scanning for one flagged
+        /// ownsGlobalTiming; falls back to any manager if neither is found.</summary>
+        private static SimulationManager FindGlobalSimManager()
+        {
+            var composer = FindFirstObjectByType<CompositeSequencer>();
+            if (composer != null && composer.simManager != null) return composer.simManager;
+
+            foreach (var mgr in FindObjectsByType<SimulationManager>(FindObjectsSortMode.None))
+                if (mgr.ownsGlobalTiming) return mgr;
+
+            return FindFirstObjectByType<SimulationManager>();
+        }
+
         private void InsertClip(ScriptableObject asset)
         {
             var director = TimelineEditor.inspectedDirector;
@@ -104,8 +120,7 @@ namespace Biomes
             if (track == null)
             {
                 track = timeline.CreateTrack<ParamSnapshotTrack>(null, "Param Snapshots");
-                director.SetGenericBinding(track,
-                    FindFirstObjectByType<SimulationManager>());
+                director.SetGenericBinding(track, FindGlobalSimManager());
             }
 
             var clip = track.CreateClip<ParamSnapshotClip>();
