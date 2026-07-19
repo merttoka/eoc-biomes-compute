@@ -507,6 +507,17 @@ namespace Biomes
         private static void RebindRigReference(PlayableDirector director, BiomeCellClip clip, BiomeCellRig rig)
         {
             PropertyName existingKey = clip.rig.exposedName;
+            // A never-bound clip (hand-added in the Timeline window) still carries the
+            // default empty PropertyName; every such clip shares that sentinel, so binding
+            // through it would let the last rebind steal earlier clips' rigs. Assign the
+            // deterministic per-clip key first (one-time write, same scheme as BindRigReference).
+            if (PropertyName.IsNullOrEmpty(existingKey))
+            {
+                existingKey = new PropertyName($"{clip.name}.{clip.GetInstanceID()}.rig");
+                Undo.RecordObject(clip, $"Assign {clip.name} rig key");
+                clip.rig.exposedName = existingKey;
+                EditorUtility.SetDirty(clip);
+            }
             Undo.RecordObject(director, $"Rebind {clip.name} rig reference");
             director.SetReferenceValue(existingKey, rig);
             EditorUtility.SetDirty(director);
