@@ -7,7 +7,10 @@ namespace Biomes
     /// weight = Timeline input weight (clip ease curves). Rigs run while their clip has
     /// any weight (they keep evolving through the blend). Never disables a rig GameObject —
     /// only toggles <see cref="BiomeCellRig.Running"/>, so the rig's manager never tears
-    /// down the RenderTexture the composer may still be sampling.</summary>
+    /// down the RenderTexture the composer may still be sampling.
+    /// Rigs may be reused across clips on ONE track (ProcessFrame aggregates desired
+    /// Running state across all of that track's inputs before applying it). Sharing a
+    /// rig across two BiomeCellTracks is unsupported — the last-evaluated track wins.</summary>
     public class BiomeCellMixer : PlayableBehaviour
     {
         /// <inheritdoc/>
@@ -17,6 +20,21 @@ namespace Biomes
             if (seq == null) return;
 
             int n = playable.GetInputCount();
+
+            // Pass 1: default every referenced rig to stopped. A rig can be shared by
+            // several clips on this track (e.g. reused across cuts); any clip with w > 0
+            // in pass 2 re-enables it. Without this pass, an inactive clip evaluated after
+            // an active one sharing the same rig would stomp Running back to false — or,
+            // in the reverse order, leave a rig with no active clip stuck Running=true.
+            for (int i = 0; i < n; i++)
+            {
+                var input = (ScriptPlayable<BiomeCellBehaviour>)playable.GetInput(i);
+                var b = input.GetBehaviour();
+                if (b.clip == null || b.rig == null) continue;
+                b.rig.Running = false;
+            }
+
+            // Pass 2: activate rigs for clips with weight and push cells.
             for (int i = 0; i < n; i++)
             {
                 float w = playable.GetInputWeight(i);
@@ -24,7 +42,7 @@ namespace Biomes
                 var b = input.GetBehaviour();
                 if (b.clip == null) continue;
 
-                if (b.rig != null) b.rig.Running = w > 0f;
+                if (w > 0f && b.rig != null) b.rig.Running = true;
                 if (w <= 0f) continue;
 
                 Texture src = seq.ResolveSource(b.clip.source, b.rig);
