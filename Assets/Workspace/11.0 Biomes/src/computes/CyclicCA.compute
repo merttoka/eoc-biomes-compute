@@ -1,0 +1,131 @@
+// Cyclic (Griffeath) cellular automaton — an excitable medium.
+//
+// Rule: a cell in state s advances to (s+1) % nstates when at least `threshold` of its
+// neighbours are ALREADY in that next state. Nothing else happens. That one line produces
+// the whole family of behaviours — from static noise through travelling demon fronts to
+// locked spiral cores — as range/threshold/nstates move across the edge of chaos.
+//
+// Ported from the predecessor repo's 1.1 CCA/CCACompute.compute. The port keeps the rule
+// and replaces the plumbing: state binding, coupling and ignition all come from
+// includes/cellular_common.hlsl, so this file contains the rule and nothing else.
+
+#pragma kernel ResetStateKernel
+#pragma kernel StepRuleKernel
+#pragma kernel RenderStateKernel
+#pragma kernel SecondaryNoiseKernel
+
+// --- Output ---
+RWTexture2D<float4> outTex;
+
+// --- Rule params ---
+uint  ccaRange;       // neighbourhood radius in cells
+uint  ccaThreshold;   // neighbours in the next state required to advance
+uint  ccaMoore;       // 1 = Moore (square), 0 = von Neumann (diamond)
+uint  ruleSeed;
+float noiseAmount;    // SecondaryNoiseKernel: fraction of cells re-randomised
+
+// --- Look ---
+float ccaHue;         // base hue
+float ccaHueSpread;   // how much of the colour wheel the state cycle spans
+float ccaSaturation;
+float ccaBrightness;
+
+#include "includes/random.hlsl"
+#include "includes/cellular_common.hlsl"
+#include "includes/color.hlsl"
+
+
+[numthreads(8, 8, 1)]
+void ResetStateKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    // Deterministic from cell index + seed + the WRAPPED SIM STEP (never Time.frameCount),
+    // so a reset that lands on a catch-up step reproduces exactly under Recorder.
+    uint idx = id.y * cellRezX + id.x;
+    float r = Hash1u(idx * 747796405u + ruleSeed * 2891336453u + time);
+
+    // min() guards the r == 1.0 corner, which would otherwise produce an out-of-range state.
+    stateWrite[id.xy] = floor(min(r * (float)nstates, (float)nstates - 1.0));
+}
+
+
+[numthreads(8, 8, 1)]
+void StepRuleKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    int2 c = int2(id.xy);
+    uint s = ReadCellState(c);
+    uint next = (s + 1) % max(1u, nstates);
+
+    // Count neighbours already holding the next state. Moore is O((2r+1)^2) per cell per
+    // step — the dominant cost of this rule, and why field sims default to half resolution.
+    int r = (int)ccaRange;
+    uint count = 0;
+    for (int dy = -r; dy <= r; dy++)
+    {
+        for (int dx = -r; dx <= r; dx++)
+        {
+            if (dx == 0 && dy == 0) continue;
+            if (ccaMoore == 0 && (abs(dx) + abs(dy)) > r) continue;   // von Neumann diamond
+            if (ReadCellState(c + int2(dx, dy)) == next) count++;
+        }
+    }
+
+    uint outState = (count >= ccaThreshold) ? next : s;
+
+    // CA-CA coupling. Applied stochastically rather than as a hard cut so couplingStrength
+    // fades smoothly under arc automation: at 0.5 half the cells freeze each step, which
+    // reads as the wave slowing inside the lattice rather than snapping to a halt.
+    // Hashed on the sim step, so it stays deterministic across re-renders.
+    float gate = CouplingGate(id.xy);
+    if (gate < 1.0)
+    {
+        uint idx = id.y * cellRezX + id.x;
+        float rnd = Hash1u(idx * 2246822519u + time * 3266489917u);
+        if (rnd > gate) outState = s;      // frozen this step
+    }
+
+    // A firing neuron plants the next state directly, igniting a wavefront at its position.
+    if (NeuronIgnition(id.xy) > 0.5) outState = next;
+
+    stateWrite[id.xy] = (float)outState;
+}
+
+
+// MIDI/OSC-triggerable perturbation: re-randomise a fraction of cells in place. Kicks a
+// locked spiral field back into transient motion without a full reset (which would clear
+// the composite and flash).
+[numthreads(8, 8, 1)]
+void SecondaryNoiseKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    uint idx = id.y * cellRezX + id.x;
+    float pick = Hash1u(idx * 2654435761u + time * 40503u + ruleSeed);
+    float draw = Hash1u(idx * 1013904223u + time * 1664525u);
+
+    stateWrite[id.xy] = (draw < noiseAmount)
+        ? floor(min(pick * (float)nstates, (float)nstates - 1.0))
+        : stateRead[id.xy];
+}
+
+
+[numthreads(8, 8, 1)]
+void RenderStateKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    // Phase around the state cycle. Hue-cycling on phase is what makes the spiral arms
+    // legible — a brightness-only mapping collapses the cycle into a flicker.
+    float phase = stateRead[id.xy] / max(1.0, (float)nstates);
+    float hue = frac(ccaHue + phase * ccaHueSpread);
+
+    // Written at CELL resolution and left crisp. Display smoothing is not this kernel's
+    // job: SimulationManager's composite UV-samples every layer through a linear-clamp
+    // sampler, so the upscale smooths for display without any smoothed value ever
+    // re-entering the rule.
+    float keep = CentreKeepOutWeight(id.xy);
+    outTex[id.xy] = hsb2rgb(float3(hue, ccaSaturation, ccaBrightness * keep), 1.0);
+}

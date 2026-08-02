@@ -240,7 +240,9 @@ namespace Biomes
         // True when the live resolution/scale/counts differ from what GPU resources were
         // last allocated for (or nothing is allocated yet). Drives clear-in-place: a normal
         // reset keeps the same instances; only a genuine size change reallocates.
-        protected bool NeedsAllocation() =>
+        // Virtual so a subclass with extra allocation keys (FieldSimulationBase's cell
+        // resolution) can widen the test without duplicating the agent-side signature.
+        protected virtual bool NeedsAllocation() =>
             gpu == null
             || rezX != _allocRezX || rezY != _allocRezY
             || TypeCount != _allocTypeCount
@@ -320,6 +322,20 @@ namespace Biomes
             InitSimKernels();
             InitBuffers();
 
+            MarkAllocated();
+        }
+
+        /// <summary>
+        /// Stamp the clear-in-place allocation signature, recording what the GPU resources
+        /// were just built for. MUST be called at the end of every Allocate() override —
+        /// a subclass that allocates without stamping leaves NeedsAllocation() permanently
+        /// true, so every Reset() reallocates, the outTex instance changes, and downstream
+        /// Syphon servers tear down and re-announce on each reset (the failure ADR-0008
+        /// exists to prevent). The fields themselves stay private so the signature can only
+        /// be written here, in one place.
+        /// </summary>
+        protected void MarkAllocated()
+        {
             _allocRezX = rezX; _allocRezY = rezY;
             _allocTypeCount = TypeCount; _allocAgentCount = GetAgentCount();
             _allocPerceptionScale = perceptionResScale;

@@ -1,0 +1,141 @@
+// Multi-state totalistic LOOKUP-TABLE cellular automaton — a standing lattice.
+//
+// Rule: the 5-cell von Neumann neighbourhood (self, up, right, down, left) is read as a
+// base-`nstates` number and used to index a precomputed transition table of nstates^5
+// entries. The table IS the rule, so there is no arithmetic to tune — the knobs are the
+// seed that generates it and Langton's lambda, which controls what fraction of entries are
+// non-quiescent. Lambda is the edge-of-chaos dial: near 0 everything dies, near 1 it boils,
+// and the interesting structure lives in a narrow band between.
+//
+// nstates = 2 gives binary Life-like behaviour; higher values give generative multi-state
+// structure. Visually this is the crisp counterpart to the cyclic CA's smooth waves, which
+// is why running both at once is the intended configuration rather than an either/or.
+//
+// Ported from 5.5o 3D Edge of Chaos/CA2DCompute.compute — with the port's central defect
+// removed. The original bound a single simTex as BOTH read and write, so threads read
+// neighbours that other threads had already overwritten: a data race, and not a synchronous
+// CA at all. The read/write pair comes from includes/cellular_common.hlsl and is not
+// optional here; stateRead is read-only and stateWrite is write-only, so the race is
+// inexpressible rather than merely avoided.
+//
+// The table is ANISOTROPIC (neighbour order matters — up and left index different digits).
+// An isotropic/Moore table is a deliberate non-goal, flagged as a TODO in the source too.
+
+#pragma kernel ResetStateKernel
+#pragma kernel StepRuleKernel
+#pragma kernel RenderStateKernel
+
+// --- Output ---
+RWTexture2D<float4> outTex;
+
+// --- Rule ---
+// Generated CPU-side in LookupCASim.Reset from (seed, lambda, nstates) and uploaded.
+// ParameterInterpolator cannot morph a buffer, so CA evolution across a show arc is a
+// sequence of discrete regenerations, not a continuous morph.
+StructuredBuffer<uint> transitionTable;
+uint tableSize;
+
+uint  initMode;    // 0 = line, 1 = rect, 2 = circle, 3 = random
+float initSize;    // normalized extent of the seed figure
+uint  ruleSeed;
+
+// --- Look ---
+float caHue;
+float caHueSpread;
+float caSaturation;
+float caBrightness;
+
+#include "includes/random.hlsl"
+#include "includes/cellular_common.hlsl"
+#include "includes/color.hlsl"
+
+
+[numthreads(8, 8, 1)]
+void ResetStateKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    float2 uv = (float2(id.xy) + 0.5) / float2((float)cellRezX, (float)cellRezY);
+    float2 d = uv - 0.5;
+    // Correct for aspect so the circle seed stays round on an 11.84:1 canvas, where an
+    // uncorrected disc would be a full-width band.
+    d.x *= (float)cellRezX / max(1.0, (float)cellRezY);
+
+    uint idx = id.y * cellRezX + id.x;
+    float pick = Hash1u(idx * 747796405u + ruleSeed * 2891336453u + time);
+    uint live = (uint)floor(min(pick * (float)nstates, (float)nstates - 1.0));
+    // A seeded cell must not be quiescent, or the figure is invisible to the rule. nstates is
+    // at least 2, so state 1 is always a valid non-quiescent choice.
+    if (live == 0) live = 1u;
+
+    bool inside = false;
+    if (initMode == 0)                     // line: a single horizontal filament
+        inside = abs(d.y) < (initSize * 0.02);
+    else if (initMode == 1)                // rect
+        inside = (abs(d.x) < initSize * 0.5) && (abs(d.y) < initSize * 0.5);
+    else if (initMode == 2)                // circle
+        inside = length(d) < (initSize * 0.5);
+    else                                   // random field
+        inside = pick < initSize;
+
+    stateWrite[id.xy] = inside ? (float)live : 0.0;
+}
+
+
+[numthreads(8, 8, 1)]
+void StepRuleKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    int2 c = int2(id.xy);
+
+    // Base-nstates digits, most significant first. Read through ReadCellState so every
+    // lookup is rounded from the authoritative float texture and wraps toroidally.
+    uint self  = ReadCellState(c);
+    uint up    = ReadCellState(c + int2( 0,  1));
+    uint right = ReadCellState(c + int2( 1,  0));
+    uint down  = ReadCellState(c + int2( 0, -1));
+    uint left  = ReadCellState(c + int2(-1,  0));
+
+    uint n = max(1u, nstates);
+    uint index = (((self * n + up) * n + right) * n + down) * n + left;
+
+    // Bounds-check rather than trust: nstates can be edited live while the table still
+    // holds the previous generation's size, and an out-of-range StructuredBuffer read is
+    // undefined behaviour, not a clamp.
+    uint outState = (index < tableSize) ? transitionTable[index] : self;
+
+    // CA-CA coupling, stochastic so couplingStrength fades smoothly under arc automation.
+    float gate = CouplingGate(id.xy);
+    if (gate < 1.0)
+    {
+        uint idx = id.y * cellRezX + id.x;
+        float rnd = Hash1u(idx * 2246822519u + time * 3266489917u);
+        if (rnd > gate) outState = self;
+    }
+
+    // Cross-ignition: a firing neuron plants life, so excitation can seed structure.
+    if (NeuronIgnition(id.xy) > 0.5)
+        outState = max(1u, min(outState + 1u, n - 1u));
+
+    stateWrite[id.xy] = (float)outState;
+}
+
+
+[numthreads(8, 8, 1)]
+void RenderStateKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= cellRezX || id.y >= cellRezY) return;
+
+    float s = stateRead[id.xy];
+    float phase = s / max(1.0, (float)nstates);
+
+    // Quiescent cells render black so the lattice reads as structure on emptiness rather
+    // than as a tinted full-frame wash — it has to survive additive compositing under
+    // physarum without lifting the black level of the whole canvas.
+    float alive = step(0.5, s);
+    float hue = frac(caHue + phase * caHueSpread);
+
+    float keep = CentreKeepOutWeight(id.xy);
+    outTex[id.xy] = hsb2rgb(float3(hue, caSaturation, caBrightness * alive * keep), 1.0);
+}

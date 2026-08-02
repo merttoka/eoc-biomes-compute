@@ -585,6 +585,9 @@ namespace Biomes
         [Button("Reset Physarum Only")] public void ResetPhysarum() => ResetSimsOfType<PhysarumSim>();
         [Button("Reset Boids Only")]    public void ResetBoids()    => ResetSimsOfType<BoidSim>();
         [Button("Reset Termites Only")] public void ResetTermites() { ResetSimsOfType<TermiteSim>(); biome?.ClearPermeability(); }
+        // Re-seeds every field sim (both CA rules) in one go. Typed on the shared base rather
+        // than on each rule so a future field sim is covered without touching this line.
+        [Button("Reset Cellular Only")] public void ResetCellular() => ResetSimsOfType<FieldSimulationBase>();
 
         private void ResetSimsOfType<T>() where T : SimulationBase
         {
