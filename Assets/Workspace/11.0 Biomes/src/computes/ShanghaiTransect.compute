@@ -1,0 +1,59 @@
+// Shanghai built-up transect -> permeability OPENNESS map.
+//
+// Crossfades two adjacent GHSL epochs and converts built-up density into the value the
+// biome's Permeability channel should be capped at. Output is "openness" (1 = freely
+// passable) rather than built-up, so Biome.SeedChannelFromTexture can apply it directly
+// with MinToward and get the design's closure floor with no further arithmetic:
+//
+//     perm = min(perm, openness)      <=>      perm = min(perm, 1 - shanghai(t))
+//
+// The min is what lets termite-built mounds survive: they have already closed further than
+// the city has, so the floor leaves them untouched (ADR-0010).
+
+#pragma kernel BlendEpochsKernel
+
+Texture2D<float> epochA;
+Texture2D<float> epochB;
+SamplerState sampler_linear_clamp;
+
+RWTexture2D<float> opennessOut;
+
+uint  outRezX;
+uint  outRezY;
+float epochT;           // 0..1 crossfade between epochA and epochB
+float srcMipLevel;      // log2(srcHeight / outHeight); see note below
+
+// Response curve. GHSL stores built-up SURFACE AREA in m2 per cell, normalized linearly
+// against a shared global max of 7368 m2 — a physical measure, not a perceptual one. Read
+// raw it is far too dark to drive anything: across this transect the 2030 mean is 0.144, so
+// a direct 1 - v would move permeability from 0.90 to about 0.86 over the whole piece and
+// read as nothing at all. What matters here is not how much material is in a cell but
+// whether an agent can cross it, which saturates much sooner than area does — hence a
+// concave curve rather than a linear scale.
+float builtUpGamma;     // 0.45 measured to give a legible open->closed arc
+float builtUpGain;
+
+// 0 = no closure whatsoever (field entirely open), 1 = full closure. The show ramps this
+// from 0 so the opening "empty" state is genuinely an unseeded field, and so the loop can
+// release the city rather than cutting it.
+float closureStrength;
+
+[numthreads(8, 8, 1)]
+void BlendEpochsKernel(uint3 id : SV_DISPATCHTHREADID)
+{
+    if (id.x >= outRezX || id.y >= outRezY) return;
+
+    float2 uv = (float2(id.xy) + 0.5) / float2((float)outRezX, (float)outRezY);
+
+    // Sampled at an explicit mip level rather than level 0. The transect is 2048 px wide and
+    // the biome field is far coarser, so a level-0 tap would point-sample one source pixel in
+    // every N and alias the city into noise. Permeability has diffuseRate 0 by design, so the
+    // PDE will never smooth that away afterwards — the filtering has to happen here.
+    float a = epochA.SampleLevel(sampler_linear_clamp, uv, srcMipLevel);
+    float b = epochB.SampleLevel(sampler_linear_clamp, uv, srcMipLevel);
+
+    float builtUp = saturate(lerp(a, b, saturate(epochT)));
+    float closed = saturate(pow(builtUp, builtUpGamma) * builtUpGain);
+
+    opennessOut[id.xy] = lerp(1.0, 1.0 - closed, saturate(closureStrength));
+}

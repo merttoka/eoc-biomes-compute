@@ -20,7 +20,14 @@ namespace Biomes
         public const int Dispersal  = 10;  // transient agitation: scatters all sims
         public const int Humidity   = 11;  // renewable moisture: agent-consumed, evaporated by Temperature
         public const int HumidityGrad = 12;  // |∇Humidity| magnitude: precomputed moisture-edge (termite build cue)
-        public const int Count      = 13;
+        // CA-published substrate channels. Written by a FieldSimulationBase each step and read
+        // by agent sims through UmweltMapping, so a species responds to a cellular automaton
+        // with no change to its shader — only its mapping asset. Both are CA-OWNED: leave
+        // diffuseRate/relaxRate at 0 unless you deliberately want the pattern to bleed or
+        // advect through the flow field.
+        public const int Excitability = 13;  // cyclic CA state: smooth spiral/demon waves (a medium to follow)
+        public const int Substrate    = 14;  // lookup CA state: crisp lattice (a structure to avoid)
+        public const int Count      = 15;
 
         /// <summary>Display names, index-aligned with the constants above. Single source of
         /// truth for the inspector channel dropdown — keep in sync if channels change.</summary>
@@ -28,7 +35,7 @@ namespace Biomes
         {
             "Nutrient", "Pheromone_0", "Pheromone_1", "Pheromone_2", "Oxygen",
             "Temperature", "Waste", "Permeability", "Flow_X", "Flow_Y", "Dispersal", "Humidity",
-            "Humidity_Grad",
+            "Humidity_Grad", "Excitability", "Substrate",
         };
     }
 
@@ -74,6 +81,10 @@ namespace Biomes
             new() { name = "Dispersal",      diffuseRate = 0.9f,   decayRate = 0.12f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Humidity",       diffuseRate = 0.97f,  decayRate = 0.001f, advectedByFlow = true,  initialValue = 0.5f, relaxRate = 0.01f },
             new() { name = "Humidity_Grad",  diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
+            // CA-owned: the automaton rewrites these every step, so the PDE must not touch
+            // them. Any diffusion here would blur the rule's own output back over itself.
+            new() { name = "Excitability",   diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
+            new() { name = "Substrate",      diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
         };
 
         // Cross-field interaction rates

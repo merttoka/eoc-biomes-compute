@@ -84,6 +84,7 @@ namespace Biomes
         private int injectStampKernel;
         private int readFieldKernel;
         private int buildPermeabilityKernel;
+        private int seedChannelKernel = -1;
         private ComputeBuffer _buildDummyFiring;   // 1-elem dummy bound when no firing source
 
         // GPU data: per-channel settings uploaded as structured buffer
@@ -123,6 +124,10 @@ namespace Biomes
         private static readonly int s_HumidityGradientGainID = Shader.PropertyToID("humidityGradientGain");
         private static readonly int s_NoiseScaleID = Shader.PropertyToID("noiseScale");
         private static readonly int s_NoiseThresholdID = Shader.PropertyToID("noiseThreshold");
+        private static readonly int s_SeedTexID = Shader.PropertyToID("seedTex");
+        private static readonly int s_SeedChannelID = Shader.PropertyToID("seedChannel");
+        private static readonly int s_SeedGainID = Shader.PropertyToID("seedGain");
+        private static readonly int s_SeedModeID = Shader.PropertyToID("seedMode");
 
         public RenderTexture FieldReadArray => fieldReadArray;
         public float OpenBaseline => fieldConfig != null ? fieldConfig.permeabilityOpenBaseline : 0.9f;
@@ -187,6 +192,11 @@ namespace Biomes
             injectStampKernel = cs.FindKernel("InjectStampKernel");
             readFieldKernel = cs.FindKernel("ReadFieldKernel");
             buildPermeabilityKernel = cs.FindKernel("BuildPermeabilityKernel");
+            // HasKernel-guarded: a project can carry an older Biome.compute (the shader is an
+            // authored asset, not generated), and a hard FindKernel would throw at Allocate
+            // and take the whole biome down rather than just disabling the seed path.
+            seedChannelKernel = cs.HasKernel("SeedChannelKernel")
+                ? cs.FindKernel("SeedChannelKernel") : -1;
         }
 
         // Allocate the per-channel settings buffers once (sizes are fixed by BiomeChannel.Count).
@@ -628,6 +638,48 @@ namespace Biomes
             cs.SetBuffer(injectStampKernel, "injectStamps", stamps);
             cs.SetTexture(injectStampKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(injectStampKernel, biomeRezX, biomeRezY, 1);
+        }
+
+        /// <summary>
+        /// Seed a channel from a raster. The biome's only texture-driven write path: every
+        /// other kernel writes from an agent-position buffer or stamps a radial blob from a
+        /// point + radius + falloff, so none of them can ingest an image.
+        ///
+        /// <para>Two consumers share it — the Shanghai built-up transect seeding Permeability,
+        /// and a <see cref="FieldSimulationBase"/> publishing cellular-automaton state into its
+        /// own channel — which is why it takes a <see cref="BiomeInjector.BlendMode"/> rather
+        /// than inventing a second blend vocabulary.</para>
+        ///
+        /// <para><b>Mode choice is load-bearing.</b> For a monotonic seed use
+        /// <see cref="BiomeInjector.BlendMode.MinToward"/>: it can only ever LOWER the channel,
+        /// so `perm = min(perm, 1 - builtUp)` closes the city without stomping termite-built
+        /// mounds — they have already closed further, so the min leaves them alone. That
+        /// preserves ADR-0010's agent-built topography, which a SetToward re-seed would erase
+        /// every step.</para>
+        ///
+        /// <para>Writes IN PLACE into fieldReadArray, the same pre-Step seam WriteField and
+        /// InjectSources use, so it rides the field ping-pong with no clobber risk. `src` may
+        /// be any resolution — the kernel samples by UV through a linear-clamp sampler.</para>
+        /// </summary>
+        /// <param name="channel">Target channel index (see BiomeChannel).</param>
+        /// <param name="src">Source raster; its RED channel carries the value.</param>
+        /// <param name="gain">Multiplies the sampled value before the blend (result saturated).</param>
+        /// <param name="mode">How the value combines with what is already in the channel.</param>
+        public void SeedChannelFromTexture(int channel, Texture src, float gain,
+            BiomeInjector.BlendMode mode)
+        {
+            if (gpu == null || cs == null || src == null || fieldReadArray == null) return;
+            if (seedChannelKernel < 0) return;
+            if (channel < 0 || channel >= BiomeChannel.Count) return;
+
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt(s_SeedChannelID, channel);
+            cs.SetFloat(s_SeedGainID, gain);
+            cs.SetInt(s_SeedModeID, (int)mode);
+            cs.SetTexture(seedChannelKernel, s_SeedTexID, src);
+            cs.SetTexture(seedChannelKernel, s_FieldWriteID, fieldReadArray);
+            Dispatch(seedChannelKernel, biomeRezX, biomeRezY, 1);
         }
 
         /// <summary>
