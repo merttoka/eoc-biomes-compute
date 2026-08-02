@@ -97,8 +97,9 @@ there), which makes step counts exact.
 | 5 · CA glitch 55–75 s | **PASS** — visually confirmed; magenta tear across frame at 75 s, resolved by 89 s |
 | 7 · existing scenes | **PASS** — CURRENTS (3840×1080) and SIGGRAPH (3840×2160) reset + step clean |
 | 6 · cues.json aligns with frames | **PASS (structurally)** — `fps 60 == simRate 60`, so step index *is* frame index; arc cues land on exact integer frames (start 0 / many 1200 / converge 3300 / oneBody 4500 / loop 5400) and `ResetTermites` fired at the loop point |
-| 4 · centre deader than edges | **FAILS** — see below |
-| 2, 3, 8, 9 | not yet assessed (need the full loop and a human eye) |
+| 4 · centre deader than edges | **FIXED** — was inverted (C/edge 5.15); root cause found and corrected, see below |
+| 8 · cutout survivability | **LIKELY PASS** — the same fix empties the centre third; confirm on the 1.2 crop with the cutout masked |
+| 2, 3, 9 | not yet assessed (need the full loop and a human eye) |
 
 One gap in the cue export: **0 firing onsets recorded.** The arc cues — what Max/MSP needs
 most — are correct, but no neuron crossed the 0.35 onset threshold during the run. Either the
