@@ -82,6 +82,51 @@ across the transect, so the `min()` closure floor is sound.
 - **Scene graph validated**: 84 documents, no duplicate fileIDs, every local fileID and every
   guid resolves, GameObject/component and Transform parent/child back-references agree.
 
+## It has now run (third pass, commit `23ec319` + this)
+
+Executed in a **batchmode Unity against an APFS copy-on-write clone**, so the author's Editor
+kept the real project's lock and the clone cost no disk. Metal / Apple M4 Max. The sim is driven
+from edit mode with ShowArc / ShanghaiTransect ticked explicitly (FixedUpdate does not fire
+there), which makes step counts exact.
+
+**Final run: 0 errors, 0 exceptions across all three scenes.**
+
+| Criterion | Result |
+|---|---|
+| 1 · master + crops | **PASS** — 9472×900; 9472×800 and 9000×900 both crop with no rescale |
+| 5 · CA glitch 55–75 s | **PASS** — visually confirmed; magenta tear across frame at 75 s, resolved by 89 s |
+| 7 · existing scenes | **PASS** — CURRENTS (3840×1080) and SIGGRAPH (3840×2160) reset + step clean |
+| 4 · centre deader than edges | **FAILS** — see below |
+| 2, 3, 6, 8, 9 | not yet assessed (need the full loop and a human eye) |
+
+**Performance is a non-issue.** GPU-synced: **9.26 ms/sim step, 10.10 ms/step+composite** at
+9472×900 with 1 M physarum plus two CA layers — 99 fps realtime-equivalent, comfortably inside
+the 16.7 ms budget. The 90 s loop is ~0.9 min of GPU work. (An earlier unsynced measurement read
+0.1 ms/step; that was enqueue cost, not GPU cost, and was discarded.)
+
+### Criterion 4 fails, and the mechanism is identified
+
+Centre/edge mean luminance sits at **C/edge ≈ 5.15** — the centre is five times *brighter* than
+the edges, the inverse of what the piece wants. Three measurements isolate the cause:
+
+1. **Not under-stepping.** Soaked at the t=55 s pose for 4000 steps: C/edge went 5.11 → 5.15 and
+   plateaued by step 500. More sim time will not fix it.
+2. **Not `spawnScale`.** Swept x over 0.15 / 0.50 / 0.90 / 1.00: C/edge moved only 5.10 → 3.69,
+   and the right edge stayed dead at every value. The `(0.15, 0.75)` anomaly is real but is *not*
+   load-bearing here.
+3. **It is the habitat bands + composite weights.** Termite prefers permeability **0.0–0.5**
+   (ADR-0010) and carries the scene's **heaviest composite weight, 1.5**. The transect drives the
+   centre to perm ≈ 0, so closing the centre actively *recruits the brightest layer into it*.
+   Meanwhile the right ~20 % is open water (built-up 0 → openness 1 → perm 0.9): outside
+   physarum's 0.3–0.7 band, inside boids' 0.6–1.0 — but boids flock rather than diffuse and never
+   migrate there, so it stays black.
+
+This is art direction, not a defect: every mechanism works as specified. Levers are termite
+`compositeWeight`, the per-species permeability bands, or `moundOverlayStrength`.
+
+**Caveat on the metric.** "Visibly deader" is about *motion*; mean luminance cannot see that. A
+bright but static centre may already read correctly on screen. Judge it on the render.
+
 ## Open / next session
 
 1. **Retune is expected at the new resolution.** 675 → 900 px tall moves `ResolutionScale`
