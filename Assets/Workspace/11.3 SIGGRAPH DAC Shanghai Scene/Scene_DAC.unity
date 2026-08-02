@@ -2455,7 +2455,11 @@ MonoBehaviour:
   - {fileID: 71000013}
   - {fileID: 71000003}
   injector: {fileID: 1919109756}
+  firingSource: {fileID: 2000144462}
   interpolators: []
+  driveFiringPlayhead: 1
+  firingFrameStart: 0
+  firingFrameSpan: 5400
   loopSeconds: 90
   manySeconds: 20
   convergeSeconds: 55

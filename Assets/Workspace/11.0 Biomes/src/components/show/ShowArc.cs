@@ -53,6 +53,11 @@ namespace Biomes
         [Tooltip("Field sims (the CAs) whose composite weight carries the 55-75s glitch.")]
         public List<FieldSimulationBase> cellularSims = new();
         public BiomeInjector injector;
+        [Tooltip("Optional but required for an offline render. The firing playhead is normally " +
+                 "scrubbed by an external patch over OSC /index; a pre-rendered show has no OSC, " +
+                 "so nothing advances it and no neuron ever fires. Assign this and the arc drives " +
+                 "the playhead itself.")]
+        public NeuronFiringSource firingSource;
         [Tooltip("Optional. Driven alongside the arc for genuinely multi-parameter moves; " +
                  "the hue spread does not need it.")]
         public List<ParameterInterpolator> interpolators = new();
@@ -94,6 +99,19 @@ namespace Biomes
                  "survives 1.2's central cutout. Biases density; it must never leave a hard-edged " +
                  "empty band, because 2.6 has no cutout and shows the same master.")]
         [Range(0f, 0.6f)] public float centreKeepOut = 0.33f;
+
+        [Header("Firing playhead (offline render)")]
+        [Tooltip("Advance the organoid blob's playhead from the arc clock. Off = the playhead " +
+                 "stays external (OSC /index), which is correct for a live show and silent for " +
+                 "a pre-rendered one.")]
+        public bool driveFiringPlayhead = true;
+        [Tooltip("First blob frame of the loop. The blob holds 180000 frames; the loop reads a " +
+                 "window of it and returns to this frame at the seam, so firing loops with picture.")]
+        [Min(0)] public int firingFrameStart = 0;
+        [Tooltip("How many blob frames one 90 s loop traverses. At the default 5400 the blob " +
+                 "advances 1:1 with rendered frames, which keeps firing reproducible across " +
+                 "re-renders — the same property the 1:1 sim-to-frame ratio buys everywhere else.")]
+        [Min(1)] public int firingFrameSpan = 5400;
 
         [Header("Playback")]
         public bool autoRun = true;
@@ -204,6 +222,19 @@ namespace Biomes
                 if (ca == null) continue;
                 ca.compositeWeight = Mathf.Lerp(glitchBaseWeight, glitchPeakWeight, glitch);
                 ca.centreKeepOut = centreKeepOut;
+            }
+
+            // ── Firing playhead ───────────────────────────────────────────────────────
+            // Without this the organoid blob never advances in an offline render and no neuron
+            // ever fires, so the arc's firing row drives nothing — measured over 10800 steps,
+            // peak firing was exactly 0. Wrapped on the loop so firing returns to its starting
+            // frame at the seam and repeats with picture.
+            if (driveFiringPlayhead && firingSource != null && firingSource.FrameCount > 0)
+            {
+                float phase = loopSeconds > 0f ? Mathf.Clamp01(seconds / loopSeconds) : 0f;
+                int span = Mathf.Max(1, firingFrameSpan);
+                int frame = firingFrameStart + Mathf.FloorToInt(phase * span);
+                firingSource.SetFrame(frame % firingSource.FrameCount);
             }
 
             // ── Firing density: sparse -> dense -> peak -> sparse ─────────────────────
