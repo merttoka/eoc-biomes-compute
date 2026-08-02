@@ -63,25 +63,46 @@ Decoding all 12 epochs confirmed the site reading the show rests on: the venue c
 (1016, 1077) reads **0.3384 → 0.3393 across 1975–2030** — flat. And growth is strictly monotonic
 across the transect, so the `min()` closure floor is sound.
 
+## Also shipped (second pass, commit `6566928`)
+
+- **`.meta` files authored by hand.** Unity accepts pre-existing `.meta`, so the GUIDs were
+  minted rather than waiting on an editor import — that was the only thing blocking scene wiring.
+  17 GUIDs, each verified declared exactly once.
+- **`Scene_DAC` wired.** Master 6750×675 → **9472×900**; biome field 675×68 → **1024×97**; both
+  CA sims added to `simulations` (3 → 5) with `CyclicCA.couplingSource → LookupCA`; a `Show`
+  object carrying `ShanghaiTransect` / `ShowArc` / `CueExporter`. Scene folder brought under
+  version control — it had been entirely untracked.
+- **Execution-order defect caught and fixed.** `ShowArc` was `-90`, i.e. *after*
+  `ShanghaiTransect` (`-100`), so the transect would have seeded with the previous step's arc
+  values every frame. Now `-110 → -105 → -100 → 0`.
+- **Shaders verified.** 12/12 compute kernels compile through Unity's own `libdxcompiler` at
+  `cs_6_0`, driven via a small dlopen harness (no `dxc` CLI ships with Unity). The harness was
+  negative-controlled against a missing entry point, a syntax error, a type error and an
+  undeclared identifier, so the passes are real.
+- **Scene graph validated**: 84 documents, no duplicate fileIDs, every local fileID and every
+  guid resolves, GameObject/component and Transform parent/child back-references agree.
+
 ## Open / next session
 
-1. **Unity must import the new files** — none have `.meta` yet, so nothing can reference them
-   from a scene. Focus the Editor first.
-2. **Shader compilation is unverified.** The three new computes have never been through Unity's
-   compiler. C# is verified (81-file `Assembly-CSharp` closure, 217 Unity reference assemblies,
-   clean); HLSL is not.
-3. **`Scene_DAC` `NeuronFiringSource.spawnScale` is `(0.15, 0.75)`** — matches neither the value
-   the neuron spec recorded for DAC (`0.5, 0.6`) nor the stale ring value (`0.4, 0.75`). No drift
-   any more (everything reads the one owner), but confirm the layout is intended before authoring
-   the arc against it.
-4. **`Scene_DAC` is 6750×675 (10.000:1), not the spec's 9472×900 (10.524:1).** Changing it moves
-   `ResolutionScale` from 0.3125 to 0.4167 — a 33 % shift in every pixel-unit param, so it forces
-   a retune. Not edited here: the Editor has the project open and the scene is untracked.
-5. `biomeRezX/Y` does **not** need its `[Range(32, 1024)]` raised — 1024×97 fits 10.524:1. The
+1. **Retune is expected at the new resolution.** 675 → 900 px tall moves `ResolutionScale`
+   0.3125 → 0.4167; every pixel-unit param shifts ~33 %. This is a consequence of hitting the
+   spec's aspect, not a regression.
+2. **`Scene_DAC` `NeuronFiringSource.spawnScale` is `(0.15, 0.75)`** — matches neither the value
+   the neuron spec recorded for DAC (`0.5, 0.6`) nor the stale ring value. No drift any more
+   (everything reads the one owner), but confirm the layout is intended. Left as authored.
+3. `biomeRezX/Y` does **not** need its `[Range(32, 1024)]` raised — 1024×97 fits 10.524:1. The
    spec listed that as a risk; it is not one.
-6. Bake the transect (`Biomes > Bake Shanghai Transect`), then wire Scene_DAC: add both CA sims
-   to `simulations` (3 → 5, under the composite's 8 cap), `ShanghaiTransect`, `ShowArc`,
-   `CueExporter`.
-7. Play-mode criteria still unverified: neuron spec 4–5, CA spec all, DAC spec 1–9.
+4. **Baked transect is on disk but uncommitted** —
+   `Assets/StreamingAssets/biomes11/shanghai_transect.bytes` (9.1 MB, round-trip verified).
+   Regenerable via `Biomes > Bake Shanghai Transect`; left out of git to keep a 9 MB binary out
+   of history. Decide whether to track it.
+5. **Play-mode is the whole remaining risk surface**: neuron spec criteria 4–5, CA spec all, DAC
+   spec 1–9. Nothing has ever executed. Performance at 9472×900 with 1 M physarum agents plus two
+   CA layers is entirely unmeasured.
+6. **Not merged to main.** Everything mechanically checkable is green, but `main` is required to
+   be production-ready and this has not run once. `BiomeChannel.Count` 13 → 15 touches *every*
+   scene (handled by the existing zero-fill + warning, but unverified) — that is DAC spec
+   criterion 7. Merge after a play-mode pass on 11.1 CURRENTS and 11.2 SIGGRAPH.
+7. `Scene_DAC.unity.bak-preCA` is the pre-edit backup; delete once the scene opens cleanly.
 8. `README` / `ARCHITECTURE` / `ROADMAP` deliberately **not** updated — the CA spec says those
    track shipped pillars and this has not run yet.
