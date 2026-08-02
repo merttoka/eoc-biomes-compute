@@ -38,6 +38,7 @@ float persistence;   // per-frame retention of outTex (set from SimulationBase.r
 
 #include "includes/random.hlsl"
 #include "includes/physarum_type_params.hlsl"
+#include "includes/neuron_layout.hlsl"
 #include "includes/neuron_firing.hlsl"
 #include "includes/dispersal_speed_response.hlsl"
 
@@ -61,7 +62,7 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     if (neuronCount > 0) {
         uint idx = id.x % neuronCount;
-        float2 p = neuronPositions[idx] * neuronScale + float2(rezX * (1.0 - neuronScale.x) * 0.5, rezY * (1.0 - neuronScale.y) * 0.5);
+        float2 p = NeuronPxToFieldPx(neuronPositions[idx], neuronScale, float2(rezX, rezY));
         p.x = clamp(p.x, 0.0, (float)rezX - 1.0);
         p.y = clamp(p.y, 0.0, (float)rezY - 1.0);
         a.position = p;

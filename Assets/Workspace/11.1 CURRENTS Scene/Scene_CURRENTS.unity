@@ -2163,6 +2163,7 @@ MonoBehaviour:
   firingDecaySeconds: 0.5
   debugLog: 1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  spawnScale: {x: 0.4, y: 0.75}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

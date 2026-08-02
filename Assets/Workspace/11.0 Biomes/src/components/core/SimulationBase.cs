@@ -64,8 +64,11 @@ namespace Biomes
         [Header("Neuron Positions (optional CSV seeding)")]
         public TextAsset labelsPositionsCsv;
         public bool csvCoordinatesAreNormalized = false;
-        [Tooltip("How much of the canvas agents fill (0-1). (1,1)=full canvas")]
-        public Vector2 spawnScale = new Vector2(0.8f, 0.9f);
+        // Neuron layout scale, pushed by SimulationManager from NeuronFiringSource.spawnScale
+        // (the single authored copy). Not serialized and not authored per sim: three
+        // independent copies of this value silently desynced in 11.2 and 11.3.
+        // Falls back to the old default when no NeuronFiringSource is wired.
+        [NonSerialized] public Vector2 neuronSpawnScale = NeuronLayout.DefaultScale;
         protected ComputeBuffer neuronPositionsBuffer;
         protected ComputeBuffer dummyNeuronBuffer;
 
@@ -440,7 +443,7 @@ namespace Biomes
             cs.SetBuffer(resetKernel, s_NeuronPositionsID,
                 _neuronPositionsCount > 0 ? neuronPositionsBuffer : dummyNeuronBuffer);
             cs.SetInt(s_NeuronCountID, _neuronPositionsCount);
-            cs.SetVector(s_NeuronScaleID, new Vector4(spawnScale.x, spawnScale.y, 0, 0));
+            cs.SetVector(s_NeuronScaleID, new Vector4(neuronSpawnScale.x, neuronSpawnScale.y, 0, 0));
             return _neuronPositionsCount;
         }
 
