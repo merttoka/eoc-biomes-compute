@@ -11,6 +11,9 @@ audit). Build-sequence tiers map to [[../Assets/Workspace/11.0 Biomes/docs/INTEG
 Guiding lesson from the audit: *configured ≠ executing* — several features are declared,
 inspector-visible, even MIDI-mapped, yet read by no kernel (see Dead Code below).
 
+**Scope:** this file owns the *code* backlog. Non-code work (strategy, admin, website,
+cross-project) lives in Todoist. Cross-link between the two; never copy items either direction.
+
 ## ✅ Shipped — Tier-1 "make it alive" complete
 Q10 ignition + decay sinks · relax-to-baseline · Humidity channel (+ build cue wired both
 shows) · **diurnal sun** (procedural injector, neuron-playhead-phased) · fixed-timestep sim ·

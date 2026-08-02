@@ -1,133 +1,44 @@
 ---
 name: eoc-docs
-description: Use when starting/ending a working session on eoc-biomes-compute, when an architectural decision is made, or when updating files in docs/. Maintains session logs (docs/sessions/), ADRs (docs/adr/), INDEX.md, and Obsidian-flavored frontmatter per repo conventions. Trigger on phrases like "log this session", "ADR for X", "update docs", "write up what we did", or after finishing a substantive change.
+description: Repo bindings for documenting eoc-biomes-compute. Use when starting/ending a working session on this repo, when an architectural decision is made, or when updating files in docs/. Trigger on "log this session", "ADR for X", "update docs", "write up what we did", or after finishing a substantive change.
 ---
 # eoc-docs
 
-Maintain documentation for `eoc-biomes-compute`. Append-only, Obsidian-flavored markdown.
+Repo-specific bindings for `eoc-biomes-compute`. **Invoke the `docs-log` skill first** — it owns
+the method (frontmatter schema, session/ADR templates, sequential numbering, append-only and
+supersede rules, `[[wikilinks]]`, the pre-commit checklist). This file only says where things live
+here and which conventions differ.
 
-## Layout
+## Path bindings
 
-```
-docs/
-├── INDEX.md                    handcrafted table of contents (≤30 lines)
-├── migration.md                living architecture doc
-├── adr/
-│   └── NNNN-slug.md            one decision per file, sequential numbering
-└── sessions/
-    └── YYYY-MM-DD-slug.md      one per working session
-```
+| `docs-log` concept | This repo |
+|---|---|
+| INDEX | `docs/INDEX.md` |
+| Session logs | `docs/sessions/YYYY-MM-DD-slug.md` |
+| ADRs | `docs/adr/NNNN-slug.md` |
+| Living architecture doc | `docs/ARCHITECTURE.md` — Unity runtime + memory system reference |
+| Living migration doc | `docs/migration.md` — memory architecture plan, carries the "Unresolved" question list |
+| Living backlog | `docs/ROADMAP.md` |
+| Specs / plans | `docs/superpowers/specs/`, `docs/superpowers/plans/` |
 
-`README.md` at repo root has **no frontmatter** (GitHub renders it literally).
+Engine-level design docs live beside the code, not in `docs/`:
+`Assets/Workspace/11.0 Biomes/docs/` (`INTEGRATION_DESIGN`, `INTERACTION_DESIGN_II`).
 
-## Frontmatter (all docs in `docs/`)
+## Local conventions
 
-```yaml
----
-status: draft | accepted | open | living | closed | superseded
-date: YYYY-MM-DD
-tags: [...]
-related: [[wikilink]], [[wikilink]]
----
-```
-
-Status conventions:
-- ADRs: `accepted` once decided. If overridden later: new ADR has `supersedes: ADR-NNNN`, old gets `status: superseded` and `superseded-by: ADR-NNNN`.
-- Sessions: `closed` after writing.
-- Architecture docs (e.g. `migration.md`): `living`.
-- INDEX: `living`.
-
-## When to act
-
-### End of substantive session
-Write `docs/sessions/YYYY-MM-DD-<slug>.md`:
-
-```markdown
----
-status: closed
-date: YYYY-MM-DD
-tags: [session, ...]
-related: [[../migration]], [[../adr/NNNN-...]]
----
-# <session title>
-
-## Shipped
-- bullets of what was committed (file paths welcome)
-
-## Decided
-- bullets; promote architecturally significant ones to ADRs and link
-- non-architectural decisions stay inline
-
-## Open / next session
-1. concrete handoff items, numbered
-```
-
-Then update `INDEX.md` to add the session entry (one line).
-
-### Architectural decision made
-Create `docs/adr/NNNN-<slug>.md` (NNNN = next sequential, four digits):
-
-```markdown
----
-status: accepted
-date: YYYY-MM-DD
-tags: [adr, ...]
-related: [[../migration]], [[../adr/NNNN-...]]
----
-# ADR-NNNN: <decision in one line>
-
-## Context
-What's the problem. What options were on the table.
-
-## Decision
-What was chosen.
-
-## Consequences
-Tradeoffs. What's now true. Outgrowth points.
-
-## Related
-[[wikilinks]] to other ADRs / sessions / code paths.
-```
-
-Then update `INDEX.md`.
-
-### Updating top-level `README.md`
-
-Review on every substantive session. Keep current — README is what a stranger (or future-you) reads first.
-
-Update when any of these change:
-- **Layout** (new top-level dirs, new major modules in `memory/`, new Unity workspaces)
-- **Getting started** (new install steps, new entry-point scripts, new env vars)
-- **Concepts** (new architectural pillars worth surfacing — e.g. when feedback mechanisms ship, when a new modality is wired)
-- **Status** (anything that flips from "planned" to "shipped")
-
-Rules:
-- **No frontmatter** (GitHub renders it as literal text on the repo home page)
-- Keep concise — README is a landing page, not full docs. Link to `docs/` for depth
-- Don't duplicate ADR rationale in the README — link instead
-- Strip out v0/scaffolding-era language once features mature
-
-### Updating `migration.md`
-Keep it the *current* architecture doc. When an open question gets resolved:
-1. Create the ADR
-2. Strike through the question in `migration.md`'s "Unresolved" list with the resolution: `~~Q?~~ → **answer** ([[adr/NNNN-...]])`
-
-Past decisions live in ADRs. `migration.md` references them; doesn't duplicate the rationale.
-
-## Conventions
-
-- **Append-only** for sessions and ADRs. Never rewrite history; supersede with new entries.
-- **`[[wikilinks]]`** for cross-references (Obsidian-friendly, plain-text otherwise). Path-relative from the file's location.
-- **Slug**: kebab-case, ≤6 words, descriptive.
-- **Date**: `YYYY-MM-DD`. No time.
-- **Style**: see global CLAUDE.md — concise, sacrifice grammar. Bullets over prose.
-- **INDEX.md** is handcrafted (so summaries stay useful), not auto-generated. Update it the same commit as the new session/ADR.
-
-## Sanity checks before commit
-
-- [ ] New session/ADR has frontmatter with required keys
-- [ ] INDEX.md updated with the new entry
-- [ ] Cross-links use `[[...]]` syntax with correct relative paths
-- [ ] If an ADR resolves a `migration.md` open question, the question is struck through with link
-- [ ] ADR number is sequential (`ls docs/adr/ | tail -1` to confirm)
-- [ ] README.md reviewed; updated if layout / install / concepts / status changed
+- **Two living docs, different jobs.** `ARCHITECTURE.md` describes the system as built.
+  `migration.md` tracks the memory-architecture plan and owns the open-questions list — resolve
+  questions there (strike through + link the ADR), not in `ARCHITECTURE.md`.
+- **`ROADMAP.md` is verified against code**, not aspirational. Its standing lesson is
+  *configured ≠ executing*: a feature is only "shipped" when a kernel actually reads it. When you
+  ship or kill something, move it between the Shipped / Backlog / Dead-code sections in the same
+  commit.
+- **`ROADMAP.md` owns the code backlog. Todoist owns everything else** (strategy, admin, website,
+  cross-project). Cross-link between them; never copy items in either direction.
+- **Specs and plans do not use YAML frontmatter** — unlike sessions and ADRs. They open with a
+  `# Title — Design` heading and bold `**Date:** / **Status:** / **Files touched:**` lines. Match
+  the existing files in `docs/superpowers/specs/`; `docs-log`'s frontmatter rule applies to
+  `docs/` proper (INDEX, ADRs, sessions, living docs), not here.
+- Specs get an INDEX entry under "Specs / plans", newest first, with the plan cross-linked once it
+  exists.
+- Backlog tiers map to `Assets/Workspace/11.0 Biomes/docs/INTEGRATION_DESIGN`.
