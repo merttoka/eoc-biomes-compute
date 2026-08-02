@@ -1,0 +1,22 @@
+{
+  "format": "eoc-biomes-cues/1",
+  "scene": "Scene_DAC",
+  "note": "Offline render at a 1:1 sim-step to frame ratio; frame index is authoritative.",
+  "fps": 60,
+  "simRate": 60,
+  "loopSeconds": 90,
+  "loopFrames": 5400,
+  "arc": [
+    { "name": "start", "seconds": 0, "frame": 0 },
+    { "name": "many", "seconds": 20, "frame": 1200 },
+    { "name": "converge", "seconds": 55, "frame": 3300 },
+    { "name": "oneBody", "seconds": 75, "frame": 4500 },
+    { "name": "loop", "seconds": 90, "frame": 5400 }
+  ],
+  "fired": [
+    { "name": "ResetTermites", "seconds": 75, "frame": 4500, "simStep": 1200 }
+  ],
+  "firingOnsetThreshold": 0.35,
+  "firing": [
+  ]
+}

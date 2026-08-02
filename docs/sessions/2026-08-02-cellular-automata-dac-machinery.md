@@ -96,45 +96,73 @@ there), which makes step counts exact.
 | 1 · master + crops | **PASS** — 9472×900; 9472×800 and 9000×900 both crop with no rescale |
 | 5 · CA glitch 55–75 s | **PASS** — visually confirmed; magenta tear across frame at 75 s, resolved by 89 s |
 | 7 · existing scenes | **PASS** — CURRENTS (3840×1080) and SIGGRAPH (3840×2160) reset + step clean |
+| 6 · cues.json aligns with frames | **PASS (structurally)** — `fps 60 == simRate 60`, so step index *is* frame index; arc cues land on exact integer frames (start 0 / many 1200 / converge 3300 / oneBody 4500 / loop 5400) and `ResetTermites` fired at the loop point |
 | 4 · centre deader than edges | **FAILS** — see below |
-| 2, 3, 6, 8, 9 | not yet assessed (need the full loop and a human eye) |
+| 2, 3, 8, 9 | not yet assessed (need the full loop and a human eye) |
+
+One gap in the cue export: **0 firing onsets recorded.** The arc cues — what Max/MSP needs
+most — are correct, but no neuron crossed the 0.35 onset threshold during the run. Either the
+organoid blob is not advancing its playhead in this edit-mode harness, or the threshold is too
+high for this material. Worth a look before sound is composed against it.
 
 **Performance is a non-issue.** GPU-synced: **9.26 ms/sim step, 10.10 ms/step+composite** at
 9472×900 with 1 M physarum plus two CA layers — 99 fps realtime-equivalent, comfortably inside
 the 16.7 ms budget. The 90 s loop is ~0.9 min of GPU work. (An earlier unsynced measurement read
 0.1 ms/step; that was enqueue cost, not GPU cost, and was discarded.)
 
-### Criterion 4 fails, and the mechanism is identified
+### Criterion 4: cause found, fixed — `spawnScale.x` 0.15 → 0.9
 
-Centre/edge mean luminance sits at **C/edge ≈ 5.15** — the centre is five times *brighter* than
-the edges, the inverse of what the piece wants. Three measurements isolate the cause:
+Centre/edge luminance started at **C/edge ≈ 5.15**, the inverse of what the piece wants. Four
+measurements, two of which refuted an earlier hypothesis recorded here:
 
-1. **Not under-stepping.** Soaked at the t=55 s pose for 4000 steps: C/edge went 5.11 → 5.15 and
-   plateaued by step 500. More sim time will not fix it.
-2. **Not `spawnScale`.** Swept x over 0.15 / 0.50 / 0.90 / 1.00: C/edge moved only 5.10 → 3.69,
-   and the right edge stayed dead at every value. The `(0.15, 0.75)` anomaly is real but is *not*
-   load-bearing here.
-3. **It is the habitat bands + composite weights.** Termite prefers permeability **0.0–0.5**
-   (ADR-0010) and carries the scene's **heaviest composite weight, 1.5**. The transect drives the
-   centre to perm ≈ 0, so closing the centre actively *recruits the brightest layer into it*.
-   Meanwhile the right ~20 % is open water (built-up 0 → openness 1 → perm 0.9): outside
-   physarum's 0.3–0.7 band, inside boids' 0.6–1.0 — but boids flock rather than diffuse and never
-   migrate there, so it stays black.
+1. **Not under-stepping.** Soaked 4000 steps at the t=55 s pose: C/edge 5.11 → 5.15, plateaued by
+   step 500.
+2. **Not the habitat bands.** Hypothesised that termite (band 0.0–0.5, the heaviest composite
+   weight at 1.5) was being recruited into the closing centre. **Refuted:** dropping termite
+   weight 1.5 → 0.0 moved C/edge 5.10 → 5.09. It contributes essentially nothing.
+3. **The metric was measuring the wrong thing.** At `moundOverlayStrength 0` the whole composite
+   collapses to L=0.0000 C=0.0337 R=0.0000 — the overlay painting the permeability raster is
+   ~95 % of all luminance, and it was drowning the agent layer. An earlier note here claiming
+   "`spawnScale` is exonerated" was an artefact of that masking and is **wrong**.
+4. **With the overlay off, `spawnScale.x` is decisive:**
 
-This is art direction, not a defect: every mechanism works as specified. Levers are termite
-`compositeWeight`, the per-species permeability bands, or `moundOverlayStrength`.
+   | `spawnScale.x` | whole-frame | L | C | R |
+   |---|---|---|---|---|
+   | 0.15 *(was authored)* | 0.0080 | 0.0000 | **0.0393** | 0.0000 |
+   | 0.50 | 0.0118 | 0.0001 | 0.0051 | 0.0002 |
+   | 0.90 | 0.0156 | 0.0220 | 0.0011 | 0.0328 |
+   | 1.00 | 0.0160 | 0.0249 | **0.0009** | 0.0368 |
 
-**Caveat on the metric.** "Visibly deader" is about *motion*; mean luminance cannot see that. A
-bright but static centre may already read correctly on screen. Judge it on the render.
+   At 0.15 every agent is crammed into a single blob at **dead centre** — the one region the
+   thesis says must be empty — with both edges at exactly zero. At 0.9–1.0 the agents fill the
+   frame and the closure carves a hole in the middle: C/edge ≈ **0.03** on the agent layer, which
+   satisfies criterion 4 *and* criterion 8 (nothing load-bearing inside the 1.2 cutout).
+
+**Changed `Scene_DAC` `NeuronFiringSource.spawnScale` x from 0.15 to 0.9** (y left at 0.75 — only
+x was swept). One scalar, trivially revertible. Result on the full composite:
+
+| t | before (x 0.15) | after (x 0.9) |
+|---|---|---|
+| 5 s | L 0.0004 C 0.0826 R 0.0000 — C/edge **401** | L 0.0310 C 0.0187 R 0.0430 — C/edge **0.51** |
+| 55 s | L 0.1648 C 0.4256 R **0.0000** | L 0.1833 C 0.4041 R **0.0338** |
+| 89 s | L 0.1850 C 0.3956 R 0.0086 | L 0.1978 C 0.3779 R 0.0320 |
+
+The right edge is now alive at every checkpoint where it was previously black throughout, so the
+frame finally uses its full 11.84:1 width. Mid-arc C/edge stays >1 because the mound overlay
+renders the city itself — that is the city being visible, and `moundOverlayStrength` (0.6) is the
+knob if it should recede.
+
+**Caveat on the metric.** "Visibly deader" is about *motion*; mean luminance cannot see that.
+Judge the final call on the render.
 
 ## Open / next session
 
 1. **Retune is expected at the new resolution.** 675 → 900 px tall moves `ResolutionScale`
    0.3125 → 0.4167; every pixel-unit param shifts ~33 %. This is a consequence of hitting the
    spec's aspect, not a regression.
-2. **`Scene_DAC` `NeuronFiringSource.spawnScale` is `(0.15, 0.75)`** — matches neither the value
-   the neuron spec recorded for DAC (`0.5, 0.6`) nor the stale ring value. No drift any more
-   (everything reads the one owner), but confirm the layout is intended. Left as authored.
+2. ~~`spawnScale` is `(0.15, 0.75)` — confirm the layout is intended.~~ → **Resolved: it was
+   wrong and is now `(0.9, 0.75)`** (measured, see above). The y component was never swept;
+   0.75 is still the authored guess.
 3. `biomeRezX/Y` does **not** need its `[Range(32, 1024)]` raised — 1024×97 fits 10.524:1. The
    spec listed that as a risk; it is not one.
 4. **Baked transect is on disk but uncommitted** —
