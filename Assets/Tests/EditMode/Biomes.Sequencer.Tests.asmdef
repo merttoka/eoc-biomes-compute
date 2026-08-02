@@ -4,7 +4,8 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Biomes.Sequencer.Core"
+        "Biomes.Sequencer.Core",
+        "Biomes.Core"
     ],
     "includePlatforms": [
         "Editor"

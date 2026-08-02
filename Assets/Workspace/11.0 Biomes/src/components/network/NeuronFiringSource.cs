@@ -25,6 +25,15 @@ namespace Biomes
         [Tooltip("Same labels_positions.csv as the sims — used to place firing-ring markers in the composite overlay")]
         public TextAsset labelsPositionsCsv;
 
+        [Tooltip("How much of the canvas the neuron layout fills (0-1). (1,1) = full canvas. " +
+                 "SINGLE SOURCE OF TRUTH: every sim's agent seeding, the composite firing-ring " +
+                 "overlay and BiomeInjector's dispersal stamps all read this. Do not re-declare it " +
+                 "elsewhere — that invariant was hand-maintained and silently broke in two scenes.")]
+        public Vector2 spawnScale = NeuronLayout.DefaultScale;
+
+        /// <summary>How much of the canvas the neuron layout fills. The one authored copy.</summary>
+        public Vector2 SpawnScale => spawnScale;
+
         // Blob (loaded once)
         private ushort[] _firingHalf;   // flat float16 bits: frame*_neuronCount + neuron
         private int _neuronCount;
@@ -60,6 +69,20 @@ namespace Biomes
         public int FrameCount => _frameCount;
         public int CurrentFrame => _currentFrame;
         public float Intensity => _intensity;
+
+        // ---- Neuron layout mapping -------------------------------------------------
+        // The math lives in NeuronLayout (Biomes.Core) so it can be unit-tested against the
+        // HLSL; this source owns the scale and binds it. See NeuronLayoutTests.
+
+        /// <summary>Normalized neuron position -> normalized field UV, using this source's scale.</summary>
+        public Vector2 NeuronToFieldUV(Vector2 npNorm) => NeuronLayout.ToFieldUV(npNorm, spawnScale);
+
+        /// <summary>Normalized neuron position -> field pixel space, using this source's scale.</summary>
+        public Vector2 NeuronToFieldPixels(Vector2 npNorm, float rezX, float rezY)
+        {
+            var uv = NeuronToFieldUV(npNorm);
+            return new Vector2(uv.x * rezX, uv.y * rezY);
+        }
 
         /// <summary>Thread-safe: called from the OSC receive thread.</summary>
         public void SetFrame(int frame)

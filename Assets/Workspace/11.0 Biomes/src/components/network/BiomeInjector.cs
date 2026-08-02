@@ -119,8 +119,8 @@ namespace Biomes
         public NeuronFiringSource firingSource;
         public bool firingDispersalEnabled = true;
         [BiomeChannelField] public int dispersalChannel = BiomeChannel.Dispersal;
-        [Tooltip("Match the sims' spawnScale so pulses land on agent clusters.")]
-        public Vector2 firingSpawnScale = new Vector2(0.8f, 0.9f);
+        // Neuron layout scale is read from firingSource.SpawnScale — the single authored copy.
+        // Was a separate serialized field here, which desynced from the sims in 11.2 and 11.3.
         [Range(0.001f, 0.5f)] public float dispersalRadius = 0.05f;
         [Tooltip("Radius grows by this fraction as the firing intensity fades.")]
         [Range(0f, 4f)] public float dispersalExpandGain = 1.5f;
@@ -384,7 +384,9 @@ namespace Biomes
             _scratch = grown;
         }
 
-        // Stamp dispersal at fixed neuron CSV positions (normalized * spawnScale, centered).
+        // Stamp dispersal at fixed neuron CSV positions, mapped through the shared neuron
+        // layout (NeuronFiringSource.NeuronToFieldUV — same transform the sims and the ring
+        // overlay use, so stamps land on the agents they excite).
         private int AppendNeuronPositionStamps(float[] scaled, int neuronCount, int k)
         {
             var posCPU = firingSource.PositionsCPU;
@@ -393,11 +395,7 @@ namespace Biomes
             {
                 float f = scaled[i];
                 if (f < dispersalFireThreshold) continue;
-                Vector2 np = posCPU[i];
-                Vector2 uv = new Vector2(
-                    np.x * firingSpawnScale.x + (1f - firingSpawnScale.x) * 0.5f,
-                    np.y * firingSpawnScale.y + (1f - firingSpawnScale.y) * 0.5f);
-                k = AddDispersalStamp(uv, Mathf.Clamp01(f), k);
+                k = AddDispersalStamp(firingSource.NeuronToFieldUV(posCPU[i]), Mathf.Clamp01(f), k);
             }
             return k;
         }
