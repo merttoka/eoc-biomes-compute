@@ -12,6 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[superpowers/specs/2026-08-02-neuron-layout-single-owner-design]] — `spawnScale` collapses to one owner (`NeuronFiringSource`) + one mapping function (`Includes/neuron_layout.hlsl`); fixes a live desync where 11.2/11.3 rings + dispersal stamps land ~474 px off the agents at 9472 px
 - [[superpowers/specs/2026-08-02-shanghai-dac-11-3-design]] — Scene_DAC (11.3) for SIGGRAPH DAC Shanghai: 90 s ultra-wide loop (9472×900 master → 2.6 + 1.2 crops); Shanghai built-up seeds Permeability as a horizontal transect, 8 physarum hues converge white→red (many organisms → one body); CA glitch on the composite layer; deadline 18 Aug 2026
 - [[superpowers/specs/2026-08-02-mft-package-extraction-design]] — split `MidiFighterTwister.cs` into an embedded UPM package (`midi-fighter-twister-unity`, device driver + LED protocol) and a Biomes binding layer; behavior-preserving; `10.0` fork frozen
 - [[superpowers/specs/2026-07-23-cellular-automata-sims-design]] — bring the CA lineage (CCA + 2D lookup CA) from the predecessor repo in as field-native sims on a new `FieldSimulationBase`; render as composite layers and/or publish state into a biome channel agents perceive via Umwelt (reuses the PBCCA coupling generically)

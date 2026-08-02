@@ -20,7 +20,7 @@ One master serves two near-identical ultra-wide screens:
 | **2.6** | Xinda Plaza | 9472×800 | 11.84:1 | no sound |
 | **1.2** | Jingyao Hongqiao sunken square | 9000×900 | 10:1 | sound; 30 s–2 min preferred; centre cutout |
 
-Master renders at **9472×900**; both deliverables are **pure crops, no rescale**.
+Master renders at **9472×900, 60 fps**; both deliverables are **pure crops, no rescale**.
 
 Deliverable is pre-rendered **MP4/H.264** — every DAC screen is video, not a live system. There is
 no "on site", which is why the Unity/TD split this show inherits costs nothing (see *Why Unity*).
@@ -87,6 +87,27 @@ Consequences, all of them the point:
   frame, but over the viewer's horizon in life.
 - 195 px upscaled to 900 px is a 4.6× stretch, acceptable because 70 m/px is already near GHSL's
   native 3-arcsec resolution and the seed is diffused by the PDE regardless. No invented detail.
+
+### Screen 1.2's centre cutout
+
+1.2 is a 190 m inward-facing glass curtain wall — 36.4 m centre with 26.8 m wings, 8.76 m panel
+height — and **has a cutout for the central screen area**. Composition must survive a hole in the
+middle, explicitly, not incidentally.
+
+Two things make this cheap rather than a constraint fought:
+
+- **The thesis already wants a dead centre.** Screen centre is the saturated, closed, agent-free
+  region. A cutout there removes the part of the image that carries the least motion by design.
+- **Keep-out is authored, not hoped for.** The transect gives the composition a symmetric structure
+  around row 1077, so a `centreKeepOut` normalized-width parameter on `ShowArc` biases three things
+  away from the middle third: dispersal stamp placement (`BiomeInjector` source `fieldUV`), CA
+  glitch seeding, and physarum spawn density.
+
+Verification is a criterion, not a hope: render a 1.2 crop with the cutout region masked black and
+confirm nothing load-bearing was inside it (success criterion 8).
+
+Because 2.6 has **no** cutout, the same master must read as complete *without* the hole — so
+keep-out biases density, it never leaves a hard-edged empty band.
 
 Source layer: `shanghai_growth/shanghai_builtup_{00..11}.png` — GHSL GHS-BUILT-S R2023A, 12 epochs
 1975→2030 in 5-year steps, 16-bit, normalized linearly against a shared
@@ -181,10 +202,14 @@ Two constraints carried from that spec:
 
 ### 5 · Render + `CueExporter`
 
-Offline render via Unity Recorder — **not realtime capture**. Recorder drives `Time`
+Offline render via Unity Recorder at **60 fps** — **not realtime capture**. Recorder drives `Time`
 deterministically, so the Jul-11 fixed-60 Hz `FixedUpdate` sim steps stay in lockstep with recorded
 frames even at single-digit wall-clock fps. That work is precisely what makes an ultra-wide offline
 render viable on this machine.
+
+60 fps output against a 60 Hz sim is a **1:1 step-to-frame ratio** — no interpolation, no catch-up
+stepping, and 90 s = exactly 5400 sim steps. That makes the loop seam deterministic and reproducible
+across re-renders, which a non-integer ratio would not.
 
 `CueExporter` writes `cues.json` (firing indices + arc cue times) alongside the render, so **Max/MSP**
 composes sound against picture after lock. Screen 1.2 supports sound; 2.6 does not.
@@ -247,6 +272,14 @@ composes sound against picture after lock. Screen 1.2 supports sound; 2.6 does n
   multi-step catch-up frames stay deterministic under Recorder's driven clock.
 - **Loop seam.** Permeability resets 2030→1975 at the loop point. `ResetTermites` at 75 s should mask
   it; verify no pop at the actual seam, not just in theory.
+- **`spawnScale` is desynced in this very scene — fix before authoring.** Audited 2026-08-02:
+  `Scene_DAC` has sims at `(0.5, 0.6)` but `SimulationManager.m_RingSpawnScale` and
+  `BiomeInjector.firingSpawnScale` both still at `(0.4, 0.75)`. Firing rings and dispersal stamps
+  are displaced up to 5 % of canvas width / 7.5 % of height from the agents they target — **~474 px
+  horizontally at 9472 px**, worst at the edges, zero at centre. 11.2 SIGGRAPH has the same defect;
+  11.1 CURRENTS agrees only because it was never retuned. Blocked on
+  [[2026-08-02-neuron-layout-single-owner-design]]; authoring the arc against displaced stamps would
+  bake the error into tuning.
 
 ## Success criteria (play-mode; no automated tests for scene work)
 
@@ -258,6 +291,12 @@ composes sound against picture after lock. Screen 1.2 supports sound; 2.6 does n
 6. `cues.json` timings align with the rendered frames.
 7. Existing scenes (11.1 CURRENTS, 11.2 SIGGRAPH) still run — no regression from
    `SeedChannelFromTexture` or the `SimulationBase` change.
+8. **Cutout survivability** — the 1.2 crop rendered with the centre cutout masked black still reads
+   as complete, and the 2.6 crop (no cutout) shows no hard-edged empty band where the keep-out bias
+   was applied.
+9. Firing rings and dispersal stamps land on the agent clusters, at both the centre and the extreme
+   left/right edges of the 11.84:1 frame — the direct visual test that the `spawnScale` desync is
+   fixed.
 
 ## Follow-ups
 
