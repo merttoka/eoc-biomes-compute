@@ -21,7 +21,7 @@ namespace Biomes
     /// <para>Runs after ShowArc so a cue recorded this step is captured on the same step it
     /// fired.</para>
     /// </summary>
-    [DefaultExecutionOrder(-80)]
+    [DefaultExecutionOrder(-105)]   // after ShowArc (-110), so a cue fired this step is caught on it
     public class CueExporter : MonoBehaviour
     {
         [Header("Wiring")]

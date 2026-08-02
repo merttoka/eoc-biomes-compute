@@ -38,7 +38,10 @@ namespace Biomes
     /// re-tunable live, and no asset to fall out of sync. An interpolator can still be driven
     /// alongside for anything genuinely multi-parameter (see <see cref="interpolators"/>).</para>
     /// </summary>
-    [DefaultExecutionOrder(-90)]   // after ShanghaiTransect (-100), before SimulationManager (0)
+    // Ordering matters: ShowArc (-110) writes epochPhase/closureStrength, then
+    // ShanghaiTransect (-100) seeds with those values, then SimulationManager (0) steps.
+    // Running the arc second would seed with the PREVIOUS step's values every frame.
+    [DefaultExecutionOrder(-110)]
     public class ShowArc : MonoBehaviour
     {
         [Header("Wiring")]
