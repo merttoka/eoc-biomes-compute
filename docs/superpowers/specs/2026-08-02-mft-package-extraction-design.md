@@ -26,6 +26,7 @@ changes in this pass.
 
 | Region | ~Lines | Destination |
 |---|---|---|
+| Header block, lines 1–190 (usings, fields, enums, constants, `EncoderBinding`) | 190 | **split** — see below |
 | Lifecycle · MIDI Input · Encoder Apply · Device Management · Logging | 330 | package |
 | LED Feedback minus `GetSimParamColor`/`GetSimParamBrightness`/`GetParamRange` | 150 | package |
 | `SetSoftBank` · `SetHwBank` · `ColRowToEncoderIdx` | 30 | package |
@@ -37,6 +38,25 @@ changes in this pass.
 The `EncoderBinding` struct is already the correct seam — `label`, `min`, `max`,
 `Action<float> setter`, `Func<float> getter` are generic. Only `target`, `simIndex`, `paramName`,
 `typeIndex` are app-specific and get dropped.
+
+### Header block, lines 1–190
+
+Not a `#region`, so it needs splitting explicitly:
+
+| Member | Destination |
+|---|---|
+| `SOFT_BANK_COUNT`, `HW_BANK_COUNT`, `ENCODERS_PER_HW_BANK`, `TOTAL_ENCODERS` | package |
+| `EncoderBinding` struct (trimmed), `SoftBank`/`HwBank` props, `onBankChanged` | package |
+| `sendLEDFeedback`, `logMidi`, device/`_devices` state | package |
+| `m_SimManager`, `m_Simulations`, `m_ScreenLayout` `[SerializeField]`s | Biomes |
+| `BindingTarget` enum, `LayoutMode` enum, `layoutMode`, `pushMode` | Biomes |
+| `SideButtonAction` enum + the six assignment fields (`leftTop`…`rightBot`) | Biomes |
+
+**Two distinct side-button types.** The package defines `MftSideButton` — a *physical* id
+(`LeftTop`, `LeftMid`, `LeftBot`, `RightTop`, `RightMid`, `RightBot`) and nothing more. Biomes
+keeps `SideButtonAction` — the *semantic* action (`Reset`, `ResetSimsOnly`, `RandomizeColors`, …)
+— plus the six serialized fields mapping one to the other. `onSideButton(MftSideButton)` fires;
+Biomes looks up its own mapping and calls `ExecuteAction`.
 
 ### Two decisions that collapse the API
 
