@@ -12,6 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[superpowers/specs/2026-08-02-shanghai-dac-11-3-design]] — Scene_DAC (11.3) for SIGGRAPH DAC Shanghai: 90 s ultra-wide loop (9472×900 master → 2.6 + 1.2 crops); Shanghai built-up seeds Permeability as a horizontal transect, 8 physarum hues converge white→red (many organisms → one body); CA glitch on the composite layer; deadline 18 Aug 2026
 - [[superpowers/specs/2026-08-02-mft-package-extraction-design]] — split `MidiFighterTwister.cs` into an embedded UPM package (`midi-fighter-twister-unity`, device driver + LED protocol) and a Biomes binding layer; behavior-preserving; `10.0` fork frozen
 - [[superpowers/specs/2026-07-14-permeability-mounds-design]] — termite-built persistent mounds partition the field into habitats (reuse permeability ch7 + dead habitat gate); `ResetTermites` melts them ([[superpowers/plans/2026-07-14-permeability-mounds|plan]])
 - [[superpowers/specs/2026-07-11-fps-independent-sim-design]] — fixed 60 Hz timestep (`FixedUpdate`) + render decoupled to `LateUpdate`; FPS-independent sim ([[superpowers/plans/2026-07-11-fps-independent-sim|plan]])
