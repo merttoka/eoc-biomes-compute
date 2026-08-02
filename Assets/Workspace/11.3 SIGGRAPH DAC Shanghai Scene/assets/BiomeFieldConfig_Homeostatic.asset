@@ -91,6 +91,18 @@ MonoBehaviour:
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+  - name: Excitability
+    diffuseRate: 0
+    decayRate: 0
+    advectedByFlow: 0
+    initialValue: 0
+    relaxRate: 0
+  - name: Substrate
+    diffuseRate: 0
+    decayRate: 0
+    advectedByFlow: 0
+    initialValue: 0
+    relaxRate: 0
   wasteToNutrientRate: 0.02
   decompositionTempSpan: 3
   temperatureToFlowStrength: 0.8

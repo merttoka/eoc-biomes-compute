@@ -57,8 +57,19 @@ float ReadStateWrapped(int2 c)
 {
     int w = (int)cellRezX;
     int h = (int)cellRezY;
-    c.x = ((c.x % w) + w) % w;
-    c.y = ((c.y % h) + h) % h;
+
+    // Single-step wrap rather than the textbook ((c % n) + n) % n. Neighbour offsets are
+    // bounded by the rule's radius, so a coordinate can be at most one grid-width out and
+    // one conditional add or subtract always lands it back in range. Metal flagged the
+    // modulus form as slow, and this is the hottest line in the project: a Moore
+    // neighbourhood calls it (2r+1)^2 times per cell per step.
+    c.x = c.x < 0 ? c.x + w : (c.x >= w ? c.x - w : c.x);
+    c.y = c.y < 0 ? c.y + h : (c.y >= h ? c.y - h : c.y);
+
+    // Guard the degenerate case where the radius exceeds the grid (tiny grid, large range),
+    // which is the only way one wrap step is not enough. Clamping there beats reading
+    // out of bounds.
+    c = clamp(c, int2(0, 0), int2(w - 1, h - 1));
     return stateRead[uint2(c)];
 }
 

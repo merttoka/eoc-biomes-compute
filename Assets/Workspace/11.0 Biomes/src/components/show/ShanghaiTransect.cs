@@ -73,6 +73,8 @@ namespace Biomes
         private int _blendKernel = -1;
         private int _width, _height, _frameCount;
         private int _allocRezX = -1, _allocRezY = -1;
+        // Latches so a missing/!corrupt blob is reported once rather than every fixed step.
+        private bool _loadAttempted;
 
         public int EpochCount => _frameCount;
         public RenderTexture OpennessTexture => _opennessRT;
@@ -96,6 +98,7 @@ namespace Biomes
         public void Load()
         {
             Release();
+            _loadAttempted = true;
 
             string full = Path.Combine(Application.streamingAssetsPath, blobPath);
             if (!File.Exists(full))
@@ -170,6 +173,12 @@ namespace Biomes
         /// </summary>
         public void SeedNow()
         {
+            // Lazy load. OnEnable is the normal entry point, but it does not fire in edit mode
+            // (no [ExecuteAlways]), and a domain reload can clear the textures without another
+            // OnEnable. Without this the component silently seeds nothing, which looks exactly
+            // like "the transect has no effect" rather than "the transect never loaded".
+            if (!IsLoaded && !_loadAttempted) Load();
+
             if (!IsLoaded || biome == null || transectCS == null || _blendKernel < 0) return;
             if (biome.FieldReadArray == null) return;   // biome not allocated yet
 
