@@ -38,13 +38,15 @@ StructuredBuffer<float>  ringFiring;     // per-neuron intensity (decayed)
 StructuredBuffer<float2> ringPositions;  // normalized 0..1 (y-flipped), same CSV as sims
 int    ringCount;
 float  ringThreshold;
-float2 ringSpawnScale;   // match the sims' spawnScale so rings land on agent clusters
+float2 ringSpawnScale;   // pushed from NeuronFiringSource.spawnScale — never authored here
 float  ringRadius;       // pixels
 float  ringThickness;    // pixels (gaussian sigma of the ring band)
 float  ringStrength;
 float  ringExpandGain;   // radius grows by this fraction as firing intensity fades
 float  ringCoreStrength; // bright center flash at onset (strong only while intensity high)
 float4 ringColor;
+
+#include "includes/neuron_layout.hlsl"
 
 float4 SampleSim(uint index, float2 uv) {
     if (index == 0) return simInput0.SampleLevel(sampler_linear_clamp, uv, 0);
@@ -100,9 +102,8 @@ void NeuronRingKernel(uint3 id : SV_DISPATCHTHREADID) {
         float f = ringFiring[k];
         if (f < ringThreshold) continue;
         float fs = saturate(f);
-        // Same transform the sims use to place agents: normalized * spawnScale, centered.
-        float2 np = ringPositions[k] * ringSpawnScale + (1.0 - ringSpawnScale) * 0.5;
-        float2 npix = np * rez;
+        // Same transform the sims use to place agents (includes/neuron_layout.hlsl).
+        float2 npix = NeuronToFieldUV(ringPositions[k], ringSpawnScale) * rez;
         float d = distance(px, npix);
         // Expanding shockwave: radius grows as the firing intensity fades (1 - fs).
         float r = ringRadius * (1.0 + ringExpandGain * (1.0 - fs));

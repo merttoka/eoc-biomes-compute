@@ -12,6 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[superpowers/plans/2026-08-02-composer-bioform-validation]] — validation track for the 2026-07-19 merges that never ran (temporal composer, bioform 3D); deliberately non-blocking on the DAC show; observe-then-triage, no fixing on sight
 - [[superpowers/specs/2026-08-02-neuron-layout-single-owner-design]] — `spawnScale` collapses to one owner (`NeuronFiringSource`) + one mapping function (`Includes/neuron_layout.hlsl`); fixes a live desync where 11.2/11.3 rings + dispersal stamps land ~474 px off the agents at 9472 px
 - [[superpowers/specs/2026-08-02-shanghai-dac-11-3-design]] — Scene_DAC (11.3) for SIGGRAPH DAC Shanghai: 90 s ultra-wide loop (9472×900 master → 2.6 + 1.2 crops); Shanghai built-up seeds Permeability as a horizontal transect, 8 physarum hues converge white→red (many organisms → one body); CA glitch on the composite layer; deadline 18 Aug 2026
 - [[superpowers/specs/2026-08-02-mft-package-extraction-design]] — split `MidiFighterTwister.cs` into an embedded UPM package (`midi-fighter-twister-unity`, device driver + LED protocol) and a Biomes binding layer; behavior-preserving; `10.0` fork frozen

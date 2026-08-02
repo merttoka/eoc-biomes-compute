@@ -9,7 +9,7 @@ namespace Biomes
     public class SimulationManager : MonoBehaviour
     {
         [Header("Resolution & Timing")]
-        [Range(32, 4096)] public int rezX = 1024;
+        [Range(32, 12288)] public int rezX = 1024;
         [Range(32, 4096)] public int rezY = 1024;
         [Tooltip("Render each sim at this fraction of the manager resolution; the composite upsamples to full output. Aspect ratio is preserved (both dims scale equally). 1 = full res. Lowering this is roughly a 1/scale^2 lever on per-pixel work (diffuse/render/perception). Takes effect on Reset.")]
         [Range(0.1f, 1f)] public float simResolutionScale = 1f;
@@ -79,8 +79,13 @@ namespace Biomes
         [SerializeField, Range(0f, 6f)] private float m_RingExpandGain = 2f;
         [SerializeField, Range(0f, 4f)] private float m_RingCoreStrength = 1.5f;
         [SerializeField, Range(0f, 1f)] private float m_RingThreshold = 0.1f;
-        [Tooltip("Match the sims' spawnScale so rings land on agent clusters")]
-        [SerializeField] private Vector2 m_RingSpawnScale = new Vector2(0.8f, 0.9f);
+
+        // Neuron layout scale comes from NeuronFiringSource.spawnScale — the single authored
+        // copy, pushed to the sims in Reset() and to the ring overlay in Render(). Previously
+        // a separate serialized field here, which desynced from the sims in 11.2 SIGGRAPH and
+        // 11.3 DAC (rings landed ~5% of canvas width off at the edges).
+        private Vector2 NeuronLayoutScale =>
+            neuronFiring != null ? neuronFiring.SpawnScale : NeuronLayout.DefaultScale;
 
         [Header("Output")]
         public ComputeShader compositeCS;
@@ -206,6 +211,8 @@ namespace Biomes
                 sim.referenceHeight = referenceHeight;
                 sim.scaleSpatialToResolution = scaleSpatialToResolution;
                 sim.scaleDensityToResolution = scaleDensityToResolution;
+                // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
+                sim.neuronSpawnScale = NeuronLayoutScale;
                 sim.Reset();
             }
 
@@ -475,7 +482,8 @@ namespace Biomes
                     compositeCS.SetBuffer(neuronRingKernel, s_RingPositionsID, ringPosCompactBuffer);
                     compositeCS.SetInt(s_RingCountID, active);
                     compositeCS.SetFloat(s_RingThresholdID, m_RingThreshold);
-                    compositeCS.SetVector(s_RingSpawnScaleID, new Vector4(m_RingSpawnScale.x, m_RingSpawnScale.y, 0, 0));
+                    var ringScale = NeuronLayoutScale;
+                    compositeCS.SetVector(s_RingSpawnScaleID, new Vector4(ringScale.x, ringScale.y, 0, 0));
                     compositeCS.SetFloat(s_RingRadiusID, m_RingRadius);
                     compositeCS.SetFloat(s_RingThicknessID, m_RingThickness);
                     compositeCS.SetFloat(s_RingStrengthID, m_RingStrength);
@@ -564,6 +572,8 @@ namespace Biomes
                 sim.referenceHeight = referenceHeight;
                 sim.scaleSpatialToResolution = scaleSpatialToResolution;
                 sim.scaleDensityToResolution = scaleDensityToResolution;
+                // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
+                sim.neuronSpawnScale = NeuronLayoutScale;
                 sim.Reset();
             }
         }
@@ -588,6 +598,8 @@ namespace Biomes
                 sim.referenceHeight = referenceHeight;
                 sim.scaleSpatialToResolution = scaleSpatialToResolution;
                 sim.scaleDensityToResolution = scaleDensityToResolution;
+                // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
+                sim.neuronSpawnScale = NeuronLayoutScale;
                 sim.Reset();
             }
         }
