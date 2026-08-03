@@ -79,8 +79,14 @@ encode DAC_master_9472x900.mp4 "" \
 
 echo
 echo "== master 9472x900 (ProRes 422 HQ, handover — no width limits) =="
-encode DAC_master_9472x900_prores.mov "" \
-  -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le
+# VideoToolbox where available: measured 6x faster than prores_ks on Apple silicon
+# (1.2 min vs 7.2 min for 5400 frames at this size, same ~14 GB). That matters because a
+# long single encode is what gets interrupted; prores_ks stays as the portable fallback.
+if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q prores_videotoolbox; then
+  encode DAC_master_9472x900_prores.mov "" -c:v prores_videotoolbox -profile:v hq
+else
+  encode DAC_master_9472x900_prores.mov "" -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le
+fi
 
 echo
 echo "== result =="
