@@ -50,11 +50,26 @@ both. Re-rendering reproduces the same frames, and the loop seam lands in the sa
   MBs and ~1056 MBs of width, and libx264 encodes it (Level 6.0). But many **hardware**
   decoders cap at 4096 or 8192 px and will refuse the file. Confirm the venue's playback
   chain, or hand over the ProRes master and let them transcode.
-- **Screen 1.2 has a centre cutout.** Measured, the cutout band carries **1.90×** the mean
-  luminance of the rest of frame — because the mound overlay renders the built-up city right
-  there. By the piece's own logic the cutout is safe (the centre is where *motion* is absent:
-  agent-layer luminance there is 0.0011 against 0.022–0.033 at the edges). If brightness
-  matters more than motion, `SimulationManager.moundOverlayStrength` (0.6) is the lever.
+- **Screen 1.2's centre cutout — passes, with a caveat about how it was measured.** The
+  criterion is "the 1.2 crop with the cutout masked black still reads as complete", and it
+  does: the composition is *flanked*, with substantial content either side of the band.
+
+  A luminance ratio initially flagged this as a risk, and that reading was too mechanical —
+  it says the removed pixels are brighter than average, which is not the same as load-bearing.
+  Swept, the ratio is entirely a function of the mound overlay:
+
+  | `moundOverlayStrength` | inside/outside luma |
+  |---|---|
+  | 0.0 | 0.04 |
+  | 0.2 | 1.67 |
+  | 0.4 | 1.94 |
+  | **0.6 (shipped)** | **2.05** |
+  | 1.0 | 2.15 |
+
+  At 0 the agent layer alone leaves the centre **25× deader** than the edges — but that is
+  also where the visible city lives, so it is a trade between the piece's two registers
+  (space and colour), not a defect. 0.2 keeps the city legible while letting the agent
+  colonies carry more. A/B stills at `/private/tmp/eoc-render/mound_ab/`.
 - **Sound is composed against `cues.json`, post-lock.** `fps == simRate`, so every cue is an
   exact integer frame: `start 0 · many 1200 · converge 3300 · oneBody 4500 · loop 5400`.
 
