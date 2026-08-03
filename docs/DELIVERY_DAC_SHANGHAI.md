@@ -22,7 +22,16 @@ One master, two pure crops. **No rescale anywhere** — that is why the master i
 | `DAC_screen1.2_9000x900.mp4` | 1.2 | Jingyao Hongqiao sunken square | 9000×900 (10:1) | `x + 236` | 386 MB | yes |
 | `DAC_master_9472x900.mp4` | — | master, H.264 High preview | 9472×900 | — | 403 MB | — |
 | `DAC_master_9472x900_prores.mov` | — | master, ProRes 422 HQ handover | 9472×900 | — | 18.7 GB | — |
+| `DAC_submission_1920x1080.mp4` | 2.2–2.6 group | — | 1920×1080 letterboxed | — | 15 MB | — |
 | `cues.json` | — | timing for Max/MSP | — | — | 662 B | — |
+
+> **The 1920×1080 is the one the open call actually asks for on the 2.2–2.6 group.**
+> `TD_biomes/docs/EXHIBITION.md`: *"2.2–2.6 are judged together; submit one standard-ratio
+> video and note site preferences."* Screen 2.6 sits in that group, so `9472×800` is correct
+> for the **screen** but not for the **submission**. Screen 1.2 is a separate venue and takes
+> its own `9000×900` file. The preview is letterboxed rather than cropped — a 16:9 crop of a
+> 10.52:1 master keeps 1600 of 9472 px, 17% of the frame — and is Level 4.2, so unlike the
+> ultra-wide files it plays anywhere.
 
 All four independently verified: **5400 frames, 60/1 fps, 90.0 s** each.
 

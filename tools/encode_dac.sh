@@ -89,6 +89,19 @@ else
 fi
 
 echo
+echo "== submission preview 1920x1080 (standard ratio, for the 2.2-2.6 judging group) =="
+# EXHIBITION.md: "2.2-2.6 are judged together; submit one standard-ratio video and note site
+# preferences." Screen 2.6 is in that group, so the 9472x800 file is right for the SCREEN but
+# is not what the submission asks for.
+#
+# Letterboxed, not cropped. A 16:9 crop of a 10.52:1 master keeps 1600 of 9472 px — 17% of the
+# frame — which would hide the piece entirely; the whole composition is the point. Level 4.2
+# so it plays anywhere, unlike the 9472-wide files.
+encode DAC_submission_1920x1080.mp4 \
+  "scale=1920:-2:flags=lanczos,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black" \
+  -c:v libx264 -profile:v high -level:v 4.2 -pix_fmt yuv420p -crf 17 -preset slow -movflags +faststart
+
+echo
 echo "== result =="
 for f in "$OUT"/*.mp4 "$OUT"/*.mov; do
   [ -f "$f" ] || continue
