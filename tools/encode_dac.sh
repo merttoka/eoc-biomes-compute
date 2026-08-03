@@ -53,10 +53,13 @@ encode() {  # name, extra-filter (may be empty), codec-args...
   local vf="$1"; shift
   if done_already "$out"; then echo "  skip (already $count frames): $(basename "$out")"; return; fi
   echo "  encoding $(basename "$out") ..."
+  # ${arr[@]+"${arr[@]}"} — not plain "${arr[@]}". macOS ships bash 3.2, where expanding an
+  # EMPTY array under `set -u` is an unbound-variable error. The two crops have a filter and
+  # worked; both masters pass an empty one and died on exactly this.
   local filt=(); [ -n "$vf" ] && filt=(-vf "$vf")
   ffmpeg -hide_banner -loglevel warning -stats -y \
     -framerate "$FPS" -start_number 0 -i "$FRAMES/f%05d.png" \
-    "${filt[@]}" "$@" "$out"
+    ${filt[@]+"${filt[@]}"} "$@" "$out"
 }
 
 echo
