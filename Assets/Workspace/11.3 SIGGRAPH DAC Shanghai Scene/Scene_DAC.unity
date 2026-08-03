@@ -2240,7 +2240,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
   firingBlobFile: biomes11/organoid_firing.f16
   firingDecaySeconds: 0.5
-  debugLog: 1
+  debugLog: 0
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   spawnScale: {x: 0.9, y: 0.75}
 --- !u!1 &71000001
