@@ -9,20 +9,26 @@ related: [[superpowers/specs/2026-08-02-shanghai-dac-11-3-design]], [[sessions/2
 3rd Shanghai International Light Festival, Changning District, 24 Sept – 8 Oct 2026.
 Curated by Victoria Szabo and Wei He. **Submissions close 18 Aug 2026.**
 
-## Deliverables
+## Deliverables — RENDERED 2026-08-02
+
+`Recordings/DAC_Shanghai_2026-08-02/` (gitignored; 19 GB)
 
 One master, two pure crops. **No rescale anywhere** — that is why the master is 9472×900
 (10.524:1), sized so both screens fall out of it by cropping alone.
 
-| File | Screen | Venue | Resolution | Crop from master | Sound |
-|---|---|---|---|---|---|
-| `DAC_screen2.6_9472x800.mp4` | 2.6 | Xinda Plaza | 9472×800 (11.84:1) | `y + 50` | no |
-| `DAC_screen1.2_9000x900.mp4` | 1.2 | Jingyao Hongqiao sunken square | 9000×900 (10:1) | `x + 236` | yes |
-| `DAC_master_9472x900.mp4` | — | master, H.264 preview | 9472×900 | — | — |
-| `DAC_master_9472x900_prores.mov` | — | master, ProRes 422 HQ handover | 9472×900 | — | — |
-| `cues.json` | — | timing for Max/MSP | — | — | — |
+| File | Screen | Venue | Resolution | Crop | Size | Sound |
+|---|---|---|---|---|---|---|
+| `DAC_screen2.6_9472x800.mp4` | 2.6 | Xinda Plaza | 9472×800 (11.84:1) | `y + 50` | 359 MB | no |
+| `DAC_screen1.2_9000x900.mp4` | 1.2 | Jingyao Hongqiao sunken square | 9000×900 (10:1) | `x + 236` | 386 MB | yes |
+| `DAC_master_9472x900.mp4` | — | master, H.264 High preview | 9472×900 | — | 403 MB | — |
+| `DAC_master_9472x900_prores.mov` | — | master, ProRes 422 HQ handover | 9472×900 | — | 18.7 GB | — |
+| `cues.json` | — | timing for Max/MSP | — | — | 662 B | — |
 
-90 s, 60 fps, 5400 frames.
+All four independently verified: **5400 frames, 60/1 fps, 90.0 s** each.
+
+Rendered in 3 resumed passes (~30 min total) plus ~4 min of encoding. The intermediate PNG
+sequence (5400 frames, 54 GB) is at `/private/tmp/eoc-render/frames` — **not durable**; keep
+it if you want to re-encode without re-rendering, otherwise the render reproduces it exactly.
 
 ## Reproducing the render
 
