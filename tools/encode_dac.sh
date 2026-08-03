@@ -30,25 +30,54 @@ count=$(find "$FRAMES" -name 'f*.png' | wc -l | tr -d ' ')
 echo "frames: $count in $FRAMES  ->  $OUT"
 [ "$count" -gt 0 ] || { echo "no frames found"; exit 1; }
 
-# ONE decode pass, four outputs. The frame sequence is ~26 GB of 8.5 Mpx PNGs; running four
-# separate ffmpeg invocations would decode all of it four times, and PNG decode — not x264 —
-# is the bottleneck at this resolution. `split` fans the decoded frames out instead.
+# One output per invocation, deliverables FIRST, each skipped if already complete.
+#
+# A single split=4 pass decodes the sequence once and is faster in the abstract — but it is
+# all-or-nothing, and this sequence is 54 GB / 5400 frames, long enough that an interrupted
+# run loses everything. Per-output means an interruption costs one file, and re-running
+# resumes. The two screen crops are produced before either master so the ship-critical
+# artefacts exist earliest.
+#
+# `done_already` treats an output as complete only if it decodes to the full frame count —
+# a truncated file from a killed run must not be mistaken for a finished one.
+done_already() {
+  [ -f "$1" ] || return 1
+  local got
+  got=$(ffprobe -v error -select_streams v:0 -count_packets \
+        -show_entries stream=nb_read_packets -of csv=p=0 "$1" 2>/dev/null || echo 0)
+  [ "$got" = "$count" ]
+}
+
+encode() {  # name, extra-filter (may be empty), codec-args...
+  local out="$OUT/$1"; shift
+  local vf="$1"; shift
+  if done_already "$out"; then echo "  skip (already $count frames): $(basename "$out")"; return; fi
+  echo "  encoding $(basename "$out") ..."
+  local filt=(); [ -n "$vf" ] && filt=(-vf "$vf")
+  ffmpeg -hide_banner -loglevel warning -stats -y \
+    -framerate "$FPS" -start_number 0 -i "$FRAMES/f%05d.png" \
+    "${filt[@]}" "$@" "$out"
+}
+
 echo
-echo "== single-pass encode: ProRes master + 3x H.264 =="
-ffmpeg -hide_banner -loglevel warning -stats \
-  -y -framerate "$FPS" -start_number 0 -i "$FRAMES/f%05d.png" \
-  -filter_complex "[0:v]split=4[m1][m2][a][b];[a]crop=9472:800:0:50[c26];[b]crop=9000:900:236:0[c12]" \
-  -map "[m1]" -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le \
-      "$OUT/DAC_master_9472x900_prores.mov" \
-  -map "[m2]" -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
-      -crf "$CRF" -preset medium -movflags +faststart \
-      "$OUT/DAC_master_9472x900.mp4" \
-  -map "[c26]" -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
-      -crf "$CRF" -preset medium -movflags +faststart \
-      "$OUT/DAC_screen2.6_9472x800.mp4" \
-  -map "[c12]" -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
-      -crf "$CRF" -preset medium -movflags +faststart \
-      "$OUT/DAC_screen1.2_9000x900.mp4"
+echo "== screen 1.2 — Jingyao Hongqiao 9000x900 (crop, no rescale) =="
+encode DAC_screen1.2_9000x900.mp4 "crop=9000:900:236:0" \
+  -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p -crf "$CRF" -preset medium -movflags +faststart
+
+echo
+echo "== screen 2.6 — Xinda Plaza 9472x800 (crop, no rescale) =="
+encode DAC_screen2.6_9472x800.mp4 "crop=9472:800:0:50" \
+  -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p -crf "$CRF" -preset medium -movflags +faststart
+
+echo
+echo "== master 9472x900 (H.264 High, preview/submission) =="
+encode DAC_master_9472x900.mp4 "" \
+  -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p -crf "$CRF" -preset medium -movflags +faststart
+
+echo
+echo "== master 9472x900 (ProRes 422 HQ, handover — no width limits) =="
+encode DAC_master_9472x900_prores.mov "" \
+  -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le
 
 echo
 echo "== result =="
