@@ -167,7 +167,14 @@ ShowArc on its own `SimStepCount` clock, twice, so the wrap could be compared ag
 - **Criterion 3 · hue spread — PASS.** Physarum-layer hue **circular variance** (the correct
   statistic — hue wraps, so a plain σ is meaningless) goes `0.556 → 0.000`, mean hue `0.000`,
   i.e. exactly red. "Many organisms → one body" is now a measurement.
-- **Criterion 9 · firing — was impossible, now unblocked.** Peak firing over 10 800 steps was
+- **Criterion 9 · rings land on the agents — PASS (verified numerically).** Sampling agent
+  density in a 28 px disc at each neuron's mapped position: **8.03x** random enrichment at the
+  frame EDGES (4.18x at centre). The edge figure is the discriminator — the old desync was
+  zero-error at centre and worst at the edges, so a centre-only check would have passed even
+  before the fix. Counterfactual: sampling the same edge neurons at the stale `(0.4, 0.75)`
+  scale gives **0.46x** random, i.e. emptier than chance — rings would have been drawn on bare
+  canvas. Correct/stale ratio at the edges: **17.5x**.
+- **Criterion 9 groundwork · firing — was impossible, now unblocked.** Peak firing over 10 800 steps was
   **0.0000**. The organoid playhead is scrubbed by an external patch over OSC `/index`, and a
   pre-rendered show has no OSC — so the arc's "firing sparse → dense → peak → sparse" row drove
   nothing, and rings and dispersal stamps could never have appeared. `ShowArc` now advances the
