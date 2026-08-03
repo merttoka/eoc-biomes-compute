@@ -156,6 +156,38 @@ knob if it should recede.
 **Caveat on the metric.** "Visibly deader" is about *motion*; mean luminance cannot see that.
 Judge the final call on the render.
 
+## Full loop + render (fourth pass)
+
+Ran the **real** loop — 5400 continuous steps at the shipping 1:1 step-to-frame ratio with
+ShowArc on its own `SimStepCount` clock, twice, so the wrap could be compared against lap 1.
+
+- **Criterion 2 · seam — PASS.** Seam delta `0.00209` against `0.01401` for 59 ordinary frames
+  (ratio 0.149). The wrap moves *less* than normal playback does; `ResetTermites` at 75 s masks
+  the permeability reset exactly as designed.
+- **Criterion 3 · hue spread — PASS.** Physarum-layer hue **circular variance** (the correct
+  statistic — hue wraps, so a plain σ is meaningless) goes `0.556 → 0.000`, mean hue `0.000`,
+  i.e. exactly red. "Many organisms → one body" is now a measurement.
+- **Criterion 9 · firing — was impossible, now unblocked.** Peak firing over 10 800 steps was
+  **0.0000**. The organoid playhead is scrubbed by an external patch over OSC `/index`, and a
+  pre-rendered show has no OSC — so the arc's "firing sparse → dense → peak → sparse" row drove
+  nothing, and rings and dispersal stamps could never have appeared. `ShowArc` now advances the
+  playhead itself (`driveFiringPlayhead`, 5400 blob frames per loop, wrapped at the seam).
+  Peak firing is now `1.0000` with 6932/10 800 steps above threshold.
+- **Criterion 8 · cutout — art call.** Inside the 1.2 cutout, luma is **1.90×** the rest of
+  frame. Two readings: by the spec's own argument (*motion*) it is safe, because the agent layer
+  at centre is near-empty (0.0011 vs 0.022–0.033 at the edges); by *brightness* it is not,
+  because the mound overlay renders the city there. `moundOverlayStrength` (0.6, and ~95 % of
+  all luminance in frame) is the lever.
+
+**Render.** 5400 frames at 9472×900 written as a PNG sequence from batchmode at **312 ms/frame**
+(~28 min, ~32 GB), then `tools/encode_dac.sh` produces the ProRes handover master and three
+H.264s in a **single decode pass** (`split=4` — PNG decode, not x264, is the bottleneck at
+8.5 Mpx/frame).
+
+> **Delivery caveat.** 9472 px is 592 macroblocks wide. That is legal H.264 — Level 6.2 allows
+> 139 264 MBs and ~1056 MBs of width, and libx264 encodes it at Level 6.0 — but many *hardware*
+> decoders cap at 4096 or 8192 px. Verify the venue's player, or hand over the ProRes.
+
 ## Open / next session
 
 1. **Retune is expected at the new resolution.** 675 → 900 px tall moves `ResolutionScale`
