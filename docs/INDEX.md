@@ -11,6 +11,9 @@ tags: [meta, index]
 - [[ROADMAP]] — backlog + deeper-biology roadmap (shipped / in design / below), verified against code
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
+## Delivery
+- [[DELIVERY_DAC_SHANGHAI]] — Urban Digital Canvas Shanghai submission: what ships, how to reproduce the render, the 9472 px H.264 width caveat, and the two measured constraints (1.2 cutout brightness, cues.json frame alignment)
+
 ## Specs / plans
 - [[superpowers/plans/2026-08-02-composer-bioform-validation]] — validation track for the 2026-07-19 merges that never ran (temporal composer, bioform 3D); deliberately non-blocking on the DAC show; observe-then-triage, no fixing on sight
 - [[superpowers/specs/2026-08-02-neuron-layout-single-owner-design]] — `spawnScale` collapses to one owner (`NeuronFiringSource`) + one mapping function (`Includes/neuron_layout.hlsl`); fixes a live desync where 11.2/11.3 rings + dispersal stamps land ~474 px off the agents at 9472 px
