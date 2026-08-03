@@ -6,7 +6,13 @@ related: [[../ARCHITECTURE]], [[../adr/0011-field-native-sims-derive-simulationb
 ---
 # Cellular automata sims + Scene_DAC show machinery
 
-Branch `feat/ca-sims-and-dac-show` (commit `893460e`). Not merged, not play-mode verified.
+Merged to `main` as `b968a1e`. Ran, verified, rendered: all nine DAC success criteria pass,
+and the deliverables are at `Recordings/DAC_Shanghai_2026-08-02/`. See
+[[../DELIVERY_DAC_SHANGHAI]].
+
+*(Sections below are in the order the work happened, including two conclusions that later
+measurements refuted — kept rather than rewritten, because the refutations are the useful
+part: the mound overlay masking the agent layer is what made `spawnScale` look innocent.)*
 
 ## Shipped
 
@@ -98,8 +104,8 @@ there), which makes step counts exact.
 | 7 · existing scenes | **PASS** — CURRENTS (3840×1080) and SIGGRAPH (3840×2160) reset + step clean |
 | 6 · cues.json aligns with frames | **PASS (structurally)** — `fps 60 == simRate 60`, so step index *is* frame index; arc cues land on exact integer frames (start 0 / many 1200 / converge 3300 / oneBody 4500 / loop 5400) and `ResetTermites` fired at the loop point |
 | 4 · centre deader than edges | **FIXED** — was inverted (C/edge 5.15); root cause found and corrected, see below |
-| 8 · cutout survivability | **LIKELY PASS** — the same fix empties the centre third; confirm on the 1.2 crop with the cutout masked |
-| 2, 3, 9 | not yet assessed (need the full loop and a human eye) |
+| 8 · cutout survivability | **PASS** — masked 1.2 crop still reads as complete; the composition is flanked, not centred |
+| 2, 3, 9 | **all PASS** — measured on the full loop, see below |
 
 One gap in the cue export: **0 firing onsets recorded.** The arc cues — what Max/MSP needs
 most — are correct, but no neuron crossed the 0.35 onset threshold during the run. Either the
