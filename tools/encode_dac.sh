@@ -30,36 +30,25 @@ count=$(find "$FRAMES" -name 'f*.png' | wc -l | tr -d ' ')
 echo "frames: $count in $FRAMES  ->  $OUT"
 [ "$count" -gt 0 ] || { echo "no frames found"; exit 1; }
 
-common=(-y -framerate "$FPS" -start_number 0 -i "$FRAMES/f%05d.png")
-
+# ONE decode pass, four outputs. The frame sequence is ~26 GB of 8.5 Mpx PNGs; running four
+# separate ffmpeg invocations would decode all of it four times, and PNG decode — not x264 —
+# is the bottleneck at this resolution. `split` fans the decoded frames out instead.
 echo
-echo "== master 9472x900 (ProRes 422 HQ — the handover master, no width limits) =="
-ffmpeg -hide_banner -loglevel warning "${common[@]}" \
-  -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le \
-  "$OUT/DAC_master_9472x900_prores.mov"
-
-echo
-echo "== master 9472x900 (H.264 High, for preview/submission) =="
-ffmpeg -hide_banner -loglevel warning "${common[@]}" \
-  -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
-  -crf "$CRF" -preset slow -movflags +faststart \
-  "$OUT/DAC_master_9472x900.mp4"
-
-echo
-echo "== screen 2.6 — Xinda Plaza 9472x800 (crop, no rescale) =="
-ffmpeg -hide_banner -loglevel warning "${common[@]}" \
-  -vf "crop=9472:800:0:50" \
-  -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
-  -crf "$CRF" -preset slow -movflags +faststart \
-  "$OUT/DAC_screen2.6_9472x800.mp4"
-
-echo
-echo "== screen 1.2 — Jingyao Hongqiao 9000x900 (crop, no rescale) =="
-ffmpeg -hide_banner -loglevel warning "${common[@]}" \
-  -vf "crop=9000:900:236:0" \
-  -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
-  -crf "$CRF" -preset slow -movflags +faststart \
-  "$OUT/DAC_screen1.2_9000x900.mp4"
+echo "== single-pass encode: ProRes master + 3x H.264 =="
+ffmpeg -hide_banner -loglevel warning -stats \
+  -y -framerate "$FPS" -start_number 0 -i "$FRAMES/f%05d.png" \
+  -filter_complex "[0:v]split=4[m1][m2][a][b];[a]crop=9472:800:0:50[c26];[b]crop=9000:900:236:0[c12]" \
+  -map "[m1]" -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le \
+      "$OUT/DAC_master_9472x900_prores.mov" \
+  -map "[m2]" -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
+      -crf "$CRF" -preset medium -movflags +faststart \
+      "$OUT/DAC_master_9472x900.mp4" \
+  -map "[c26]" -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
+      -crf "$CRF" -preset medium -movflags +faststart \
+      "$OUT/DAC_screen2.6_9472x800.mp4" \
+  -map "[c12]" -c:v libx264 -profile:v high -level:v 6.2 -pix_fmt yuv420p \
+      -crf "$CRF" -preset medium -movflags +faststart \
+      "$OUT/DAC_screen1.2_9000x900.mp4"
 
 echo
 echo "== result =="
