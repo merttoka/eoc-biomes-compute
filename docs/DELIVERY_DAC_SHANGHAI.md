@@ -53,6 +53,30 @@ The render is deterministic: the sim runs at a fixed 60 Hz and the show is autho
 **1:1 sim-step-to-frame ratio**, so frame index *is* sim step and 90 s is exactly 5400 of
 both. Re-rendering reproduces the same frames, and the loop seam lands in the same place.
 
+## Re-verifying after any change
+
+`Biomes > Verify Scene_DAC criteria`, or headless:
+
+```bash
+Unity -projectPath . -batchmode -executeMethod Biomes.EditorTools.DacVerify.Run
+```
+
+Measures criteria 1, 2, 3, 4, 8 and 9 numerically and writes
+`Recordings/dac_verify/`. It exists because judged by eye, three of these were called wrong
+during development — the centre/edge ratio was blamed on termite composite weight when the
+mound overlay was masking the agent layer, `spawnScale` was declared innocent when it was the
+cause, and the cutout was flagged on a ratio that does not answer the question the criterion
+asks. Each was settled by measuring.
+
+Baseline at the shipped settings:
+
+| Criterion | Measure |
+|---|---|
+| 2 · seam | wrap delta 0.00215 vs 0.01405 over 59 frames (ratio **0.153**) |
+| 3 · hue | circular variance **0.559 → 0.000**, mean hue **0.000** (red) |
+| 4 · centre | agent layer C/edge **0.04** |
+| 9 · rings | edge-neuron density **7.91×** random |
+
 ## Known constraints
 
 - **9472 px is unusually wide for H.264.** It is 592 macroblocks; Level 6.2 permits 139 264
