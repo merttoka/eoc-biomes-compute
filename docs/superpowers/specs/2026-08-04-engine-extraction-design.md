@@ -455,4 +455,37 @@ with the Verification commands, the commands won — as this document says they 
 7. **`docs/INDEX.md` was hand-written, not snapshotted.** The archive version carries a
    `## Delivery` section and a link to the Shanghai spec, neither of which travels.
 
-Steps 8–10 (Unity reopen, C5, push) remain open and need the Editor.
+## Execution notes (2026-08-04, steps 8–10)
+
+8. **Steps 8 and 9 ran headlessly, not by hand.** "There is no headless compile available" is
+   not true of this project — the 2026-08-02 session already drove a batchmode Unity. Step 8
+   ran `-runTests -testPlatform EditMode` against `6000.3.10f1`: **31/31 green**
+   (`NeuronLayoutTests` 18/18), 0 compile errors, 0 shader errors, 0 exceptions, 0 missing
+   scripts. The reimport modified no tracked file.
+
+9. **C5 used `AssetDatabase`, which is the same code path as ⌘D** — batchmode Unity is the
+   Editor, so the spec's "not the shell" requirement holds. Worth recording: `CopyAsset`
+   minted fresh GUIDs but did **not** remap the duplicated scene's internal references, so a
+   naive scripted copy would have left `Scene_DAC.unity` pointing at 11.2's materials — the
+   exact failure the spec predicted for `cp -r`. An explicit srcGuid→dstGuid rewrite fixed it.
+   Verified: 16/16 assets fresh, 0 GUID overlap with 11.2, 0 references back into 11.2, and
+   the same 42 resolved references as the source scene.
+
+10. **`Reset()` collides with Unity's Editor callback — a real latent defect.**
+    `FieldSimulationBase` declares `public override void Reset()` as the sim's reset, but
+    `Reset()` is also the message Unity fires when a component is added. `AddComponent`
+    therefore ran `Allocate()` with `cs` still null and threw at
+    `FieldSimulationBase.cs:180` (`cs.FindKernel`), and the half-run reset serialized two
+    orphaned param clones into the scene. Both were cleaned; `caParams` is back to
+    `{fileID: 0}` as the reference scene had it. **Anyone following C5 step 5 by hand hits
+    this same exception** — the archived scene never exposed it because its components were
+    authored directly as YAML. Unfixed here: a null guard in `Allocate()` is engine work,
+    outside this spec.
+
+11. **Verification #1's exclusion is one character too narrow.** `grep -vF '11.3 SIGGRAPH DAC
+    Scene/'` matches files *inside* C5's folder but not Unity's sibling
+    `11.3 SIGGRAPH DAC Scene.meta`, so the check reports one false positive. Dropping the
+    trailing slash returns nothing and still catches real contamination. Use:
+    `grep -vF '11.3 SIGGRAPH DAC Scene'`.
+
+Final state: `ca-dev` at six commits, all verification green, EditMode 31/31.
