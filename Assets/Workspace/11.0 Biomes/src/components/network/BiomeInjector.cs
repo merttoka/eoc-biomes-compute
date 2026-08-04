@@ -28,7 +28,13 @@ namespace Biomes
     /// </summary>
     public class BiomeInjector : MonoBehaviour
     {
-        public enum BlendMode { Additive = 0, MaxToward = 1, SetToward = 2 }
+        // Shared blend vocabulary for every write into a biome channel — point stamps here
+        // and raster seeds via Biome.SeedChannelFromTexture both branch on these values, and
+        // the numbers are the wire format for the GPU (InjectStampKernel / SeedChannelKernel).
+        // MinToward is the one-way CLOSE counterpart of MaxToward: it can only ever lower a
+        // channel, which is what a monotonic seed needs (Shanghai built-up only grows, so
+        // permeability only closes) without stomping values other writers have built up.
+        public enum BlendMode { Additive = 0, MaxToward = 1, SetToward = 2, MinToward = 3 }
 
         // Source value origin. External = inspector/OSC (default). Procedural = the source
         // animates its own position + value from a phase clock (e.g. the diurnal sun), ignoring OSC.
@@ -130,6 +136,17 @@ namespace Biomes
         [Tooltip("Max stamp amount for a full-intensity firing neuron.")]
         [Range(0f, 1f)] public float dispersalAmount = 0.6f;
         [Range(0f, 1f)] public float dispersalFireThreshold = 0.1f;
+
+        [Header("Centre keep-out (physical screen cutout)")]
+        [Tooltip("Normalized width of a centre band where dispersal stamps are attenuated, so " +
+                 "the composition survives a central cutout in the physical display. " +
+                 "0 = off. For installs whose display has a hole in the middle.")]
+        [Range(0f, 0.6f)] public float centreKeepOut = 0f;
+        [Tooltip("How much is removed at dead centre. Deliberately NOT 1 by default: the same " +
+                 "master may also play on a screen with NO cutout, so the keep-out must " +
+                 "bias density rather than punch a hard-edged empty band. The falloff is " +
+                 "smoothstepped for the same reason.")]
+        [Range(0f, 1f)] public float centreKeepOutDepth = 0.8f;
 
         public enum FiringDispersalSource { NeuronPositions, AgentPositions }
         [Tooltip("NeuronPositions = fixed CSV neuron coords (no readback). AgentPositions = live agent positions of the sim below (pulses erupt from where the swarm actually is). With useAsyncReadback on (default) the readback is non-blocking; positions lag 1-2 frames (invisible for a fading pulse).")]
@@ -482,17 +499,36 @@ namespace Biomes
         private int AddDispersalStamp(Vector2 uv, float fc, int k)
         {
             if (k >= _scratch.Length) GrowScratch(k + 1);
+            float amount = dispersalBaseline + (dispersalAmount - dispersalBaseline) * fc;
+            amount *= CentreKeepOutWeight(uv.x);
             _scratch[k++] = new Stamp
             {
                 uv = uv,
                 radius = dispersalRadius * (1f + dispersalExpandGain * (1f - fc)),
                 falloff = dispersalFalloff,
                 channel = Mathf.Clamp(dispersalChannel, 0, BiomeChannel.Count - 1),
-                amount = dispersalBaseline + (dispersalAmount - dispersalBaseline) * fc,
+                amount = amount,
                 mode = (int)BlendMode.MaxToward,
                 pad = 0f,
             };
             return k;
+        }
+
+        /// <summary>
+        /// Attenuation for a stamp at normalized x, biasing activity out of the middle of the
+        /// frame. Applied at the single point both stamp sources funnel through, so neuron-CSV
+        /// and live-agent placement are biased identically.
+        ///
+        /// <para>Smoothstepped and floored at <c>1 - centreKeepOutDepth</c> rather than cut to
+        /// zero. One master serves two screens and only one of them has a centre cutout, so a
+        /// hard-edged hole would be visible as a defect on the screen that has none.</para>
+        /// </summary>
+        private float CentreKeepOutWeight(float u)
+        {
+            if (centreKeepOut <= 0f) return 1f;
+            float d = Mathf.Abs(u - 0.5f) * 2f;          // 0 at centre, 1 at either edge
+            float w = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, Mathf.Max(1e-4f, centreKeepOut), d));
+            return Mathf.Lerp(1f - Mathf.Clamp01(centreKeepOutDepth), 1f, w);
         }
 
         /// <summary>The OSC address a source listens on: its explicit override, or

@@ -12,6 +12,7 @@
 #pragma kernel InjectStampKernel
 #pragma kernel ReadFieldKernel
 #pragma kernel BuildPermeabilityKernel
+#pragma kernel SeedChannelKernel
 
 #include "includes/random.hlsl"
 #include "includes/color.hlsl"
@@ -30,7 +31,9 @@
 #define CH_DISPERSAL    10
 #define CH_HUMIDITY     11
 #define CH_HUMIDITY_GRAD 12
-#define CH_COUNT        13
+#define CH_EXCITABILITY 13
+#define CH_SUBSTRATE    14
+#define CH_COUNT        15
 
 // --- Textures ---
 SamplerState sampler_fieldRead;
@@ -413,8 +416,48 @@ void InjectStampKernel(uint3 id : SV_DISPATCHTHREADID) {
 
         if (st.mode == 1)       fieldWrite[c] = max(cur, saturate(st.amount * w)); // max-toward (stable gradient)
         else if (st.mode == 2)  fieldWrite[c] = saturate(lerp(cur, st.amount, w)); // set-toward
+        else if (st.mode == 3)  fieldWrite[c] = lerp(cur, min(cur, saturate(st.amount)), w); // min-toward (one-way close)
         else                    fieldWrite[c] = saturate(cur + st.amount * w);     // additive
     }
+}
+
+
+// ════════════════════════════════════════════════
+// SEED CHANNEL FROM TEXTURE
+// ════════════════════════════════════════════════
+// Raster -> channel. The one texture-driven write path in the biome: every other kernel
+// writes from agent-position buffers or stamps radial blobs from a point+radius+falloff,
+// so neither can ingest an image. Two consumers share this: the Shanghai built-up transect
+// seeding Permeability, and a FieldSimulationBase publishing its cellular-automaton state
+// into its own channel.
+//
+// Sampled through an explicit linear-CLAMP sampler rather than the source texture's own
+// settings. Clamp matters: the CA state textures are Repeat-wrapped for the rule's toroidal
+// neighbourhood, and inheriting that here would wrap the Shanghai strip's far edge back into
+// frame. Linear matters because the source is usually a different resolution than the field.
+Texture2D<float4> seedTex;
+SamplerState sampler_linear_clamp;
+int   seedChannel;
+float seedGain;
+int   seedMode;      // matches BiomeInjector.BlendMode: 0 add, 1 max, 2 set, 3 min
+
+[numthreads(8, 8, 1)]
+void SeedChannelKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float2 uv = (float2(id.xy) + 0.5) / float2((float)rezX, (float)rezY);
+    float v = saturate(seedTex.SampleLevel(sampler_linear_clamp, uv, 0).r * seedGain);
+
+    uint3 c = uint3(id.xy, (uint)seedChannel);
+    float cur = fieldWrite[c];
+
+    // No falloff term here — the texture IS the spatial weight, so each mode applies at
+    // full strength per texel. That makes set-toward an overwrite and min-toward a hard
+    // ceiling, which is exactly what a monotonic closure seed wants.
+    if (seedMode == 1)      fieldWrite[c] = max(cur, v);
+    else if (seedMode == 2) fieldWrite[c] = v;
+    else if (seedMode == 3) fieldWrite[c] = min(cur, v);
+    else                    fieldWrite[c] = saturate(cur + v);
 }
 
 
