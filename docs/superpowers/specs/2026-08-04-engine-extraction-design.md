@@ -241,18 +241,29 @@ docs/verification/2026-08-02-dac-headless/              7.5 MB of PNGs
 docs/superpowers/specs/*scene-dac*
 ```
 
-`docs/verification/` is 7.5 MB against a 13.7 MB pack. Keeping it off `ca-dev` is the
-single largest reason not to simply fast-forward main.
+`docs/verification/` is 7.5 MB of ordinary pack blobs — `.gitattributes` routes only
+`Assets/StreamingAssets/biomes11/**` and `*.f16` to LFS, so the PNGs are not pointers.
+
+Note what this does and does not buy. Those blobs are already in the remote's object store
+via the archive push and will stay there permanently; excluding them from `ca-dev` does not
+shrink the repository. What it buys is a clean working tree and, more importantly, that a
+future `ca-dev` → `main` merge does not carry 7.5 MB of criterion screenshots onto the
+production branch. The 9.1 MB `shanghai_transect.bytes` is the one large file that *is*
+LFS-backed, so it costs nothing to clones that do not fetch it.
 
 ## Procedure
 
 Ordered. Each step is verifiable before the next.
 
+> **Steps 1 and 1b are already complete** (2026-08-04). `archive/dac-shanghai` exists at
+> `92ff156`, 33 commits ahead of `origin/main`, and is pushed. Execution resumes at
+> step 2. Do not re-run step 1 — `git switch -c` will fail on the existing branch.
+
 **0. Close Unity.** Branch switching with the Editor open makes it rewrite `.meta` files
 and reimport against a tree that changed underneath it. Non-negotiable for every step
 below.
 
-**1. Archive.**
+**1. Archive.** ✅ done — `92ff156 wip: working tree at engine-extraction handoff`
 ```
 git switch -c archive/dac-shanghai          # dirty tree comes along
 git add -A
@@ -265,13 +276,11 @@ restores it onto `ca-dev` from the archive. Do not move it aside by hand.
 Verify: `git status` clean; `git log --oneline | wc -l` shows 33 commits ahead of
 `origin/main`.
 
-**1b. Push the archive immediately.**
-```
-git push -u origin archive/dac-shanghai
-```
-Before anything destructive runs, not after. This is the step that makes step 2 safe: once
-the archive is on the remote, a mistaken `reset --hard` costs a re-clone rather than the
-work. Do not proceed to step 2 until this push succeeds.
+**1b. Push the archive immediately.** ✅ done — `origin/archive/dac-shanghai` at `92ff156`,
+SHA-verified against local.
+
+Before anything destructive runs, not after. This is what makes step 2 safe: with the
+archive on the remote, a mistaken `reset --hard` costs a re-clone rather than the work.
 
 **2. Reset main.**
 ```
@@ -367,8 +376,11 @@ snapshot missed.
 
 **Tests pass:** run the EditMode suite; `NeuronLayoutTests` (143 lines) must be green.
 
-**Repo weight:** `git count-objects -vH` on a fresh clone of `ca-dev` — the pack should be
-near the pre-Shanghai size, not 13.7 MB.
+**Working-tree weight:** `du -sh docs/` on `ca-dev` — must not include
+`docs/verification/`. Do *not* check pack size: a plain `git clone` fetches every branch,
+so the archive's blobs come down regardless and the pack proves nothing. Only
+`git clone --single-branch --branch ca-dev` would isolate them, which is not how anyone
+will clone this.
 
 **Compilation** is the Unity Console check in step 8. There is no headless compile
 available, so this gate is manual.
@@ -380,7 +392,7 @@ available, so this gate is manual.
 | `reset --hard` on main feels destructive | All 32 commits are on `archive/dac-shanghai` before the reset runs. Step 1 verifies this before step 2 touches anything. |
 | Snapshot misses a file, `ca-dev` will not compile | The second verification command derives the miss list rather than trusting the manifest. |
 | `Scene_CURRENTS`/`Scene_SIGGRAPH` reference a show component by GUID | Step 5 gates C3. Fall back to `.asset`-only and a hand edit. |
-| Untracked `.DS_Store` files get committed into the archive by `git add -A` | Cosmetic, on an archive branch. Ignore, or add to `.gitignore` first. |
+| ~~`.DS_Store` swept into the archive by `git add -A`~~ | Non-issue, verified: `.gitignore:42-43` already excludes it. The archive commit confirmed clean. |
 | The CA engine was only ever exercised inside Scene_DAC | C5 rebuilds a sandbox from 11.2. Until it is wired, nothing on `ca-dev` instantiates a CA sim. |
 | `cp -r` of the 11.2 folder produces duplicate GUIDs | C5 is an in-Editor ⌘D, never a shell copy. Unity mints fresh GUIDs and rewires intra-selection references. |
 | C5's folder name trips the Shanghai-detection grep | Verification command excludes `11.3 SIGGRAPH DAC Scene/` by fixed string. |
