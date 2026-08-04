@@ -205,6 +205,85 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &159104053
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 159104055}
+  - component: {fileID: 159104054}
+  m_Layer: 0
+  m_Name: LookupCA
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &159104054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 159104053}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: caf00003b3a54e7d9c2f81046ad5e100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.LookupCASim
+  cs: {fileID: 7200000, guid: caf0000cb3a54e7d9c2f81046ad5e100, type: 3}
+  outputMat: {fileID: 2100000, guid: c2010ea3254cd4261b0ee5ba5b55eb13, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 0}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 0}
+  csvCoordinatesAreNormalized: 0
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  cellResolutionScale: 0.35
+  stepEvery: 4
+  publishTarget: {fileID: 1919109757}
+  publishChannel: 14
+  publishGain: 1
+  publishMode: 2
+  couplingSource: {fileID: 0}
+  couplingStrength: 1
+  couplingThreshold: 0.5
+  couplingInvert: 0
+  firingIgnitionStrength: 0
+  firingIgnitionRadius: 8
+  centreKeepOut: 0
+  centreKeepOutDepth: 0.8
+  paramsSO: {fileID: 11400000, guid: 810d061b2743e46208add045e5567b1a, type: 2}
+  caParams: {fileID: 0}
+--- !u!4 &159104055
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 159104053}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2000144459}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &276895385
 GameObject:
   m_ObjectHideFlags: 0
@@ -329,7 +408,6 @@ MonoBehaviour:
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.5, y: 0.6}
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
@@ -398,12 +476,7 @@ MonoBehaviour:
   rightBot: 15
   sendLEDFeedback: 1
   ledUpdateInterval: 0.3
-  physarumHueStart: 20
-  physarumHueEnd: 40
-  boidHueStart: 78
-  boidHueEnd: 98
-  termiteHueStart: 57
-  termiteHueEnd: 70
+  typeBrightnessMid: 32
   bankFlashDuration: 0.7
   logMidi: 0
   ccSideL1: 8
@@ -481,6 +554,86 @@ Transform:
   - {fileID: 2000144459}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &564393963
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 564393964}
+  - component: {fileID: 564393965}
+  m_Layer: 0
+  m_Name: CyclicCA
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &564393964
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 564393963}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2000144459}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &564393965
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 564393963}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: caf00002b3a54e7d9c2f81046ad5e100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.CyclicCASim
+  cs: {fileID: 7200000, guid: caf0000bb3a54e7d9c2f81046ad5e100, type: 3}
+  outputMat: {fileID: 2100000, guid: 64beb75eaf36640288cbed33e9d1e848, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 0}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 0}
+  csvCoordinatesAreNormalized: 0
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  cellResolutionScale: 0.35
+  stepEvery: 3
+  publishTarget: {fileID: 1919109757}
+  publishChannel: 13
+  publishGain: 1
+  publishMode: 2
+  couplingSource: {fileID: 159104054}
+  couplingStrength: 1
+  couplingThreshold: 0.5
+  couplingInvert: 0
+  firingIgnitionStrength: 0
+  firingIgnitionRadius: 8
+  centreKeepOut: 0
+  centreKeepOutDepth: 0.8
+  paramsSO: {fileID: 11400000, guid: 89f694a2de2d54d08b5e64a3618cc662, type: 2}
+  caParams: {fileID: 0}
+  resetSeed: 12345
 --- !u!1 &584847074
 GameObject:
   m_ObjectHideFlags: 0
@@ -1219,7 +1372,6 @@ MonoBehaviour:
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.5, y: 0.6}
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
@@ -1659,7 +1811,6 @@ MonoBehaviour:
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.5, y: 0.6}
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
@@ -2023,13 +2174,14 @@ MonoBehaviour:
   firingSource: {fileID: 2000144462}
   firingDispersalEnabled: 1
   dispersalChannel: 10
-  firingSpawnScale: {x: 0.4, y: 0.75}
   dispersalRadius: 0.02
   dispersalExpandGain: 2
   dispersalFalloff: 0.4
   dispersalBaseline: 0.025
   dispersalAmount: 0.95
   dispersalFireThreshold: 0.1
+  centreKeepOut: 0
+  centreKeepOutDepth: 0.8
   firingDispersalSource: 1
   firingAgentSim: {fileID: 1010527583}
   firingAgentStampCap: 262
@@ -2158,6 +2310,8 @@ Transform:
   - {fileID: 276895386}
   - {fileID: 1825205986}
   - {fileID: 1010527585}
+  - {fileID: 159104055}
+  - {fileID: 564393964}
   m_Father: {fileID: 527395917}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2000144460
@@ -2212,6 +2366,8 @@ MonoBehaviour:
   - {fileID: 276895388}
   - {fileID: 1825205988}
   - {fileID: 1010527583}
+  - {fileID: 564393965}
+  - {fileID: 159104054}
   externalInput: {fileID: 0}
   neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0
@@ -2224,7 +2380,6 @@ MonoBehaviour:
   m_RingExpandGain: 2
   m_RingCoreStrength: 1.5
   m_RingThreshold: 0.1
-  m_RingSpawnScale: {x: 0.4, y: 0.75}
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
   compositeOutMat: {fileID: 2100000, guid: b154ae275d2d241fb8c639183fc53c70, type: 2}
   compositeOutputQuad: {fileID: 944659780}
