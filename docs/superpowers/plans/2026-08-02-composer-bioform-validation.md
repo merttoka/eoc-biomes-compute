@@ -2,7 +2,7 @@
 status: draft
 date: 2026-08-02
 tags: [plan, validation, sequencer, temporal-composer, bioform, untested]
-related: [[../specs/2026-08-02-shanghai-dac-11-3-design]], [[../specs/2026-07-19-temporal-composer-design]], [[../../INDEX]]
+related: [[../specs/2026-07-19-temporal-composer-design]], [[../../INDEX]]
 ---
 
 # Temporal Composer + Bioform 3D — Validation Track

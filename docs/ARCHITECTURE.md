@@ -134,15 +134,19 @@ coupling direction each way is defined per-sim by its `UmweltMapping`.
 
 ### 3.3 The biome field — `Biome` + `BiomeFieldConfig`
 
-The biome is a double-buffered `Texture2DArray` of **12 scalar channels**
-(`BiomeChannel`): `Nutrient, Pheromone0, Pheromone1, Pheromone2, Oxygen, Temperature,
-Waste, Permeability, FlowX, FlowY, Dispersal, Humidity` (Pheromone0/1/2 are per-species
-scents for the three sims; **Dispersal** is a transient, fast-decay agitation field that
-scatters all sims — see §3.5; **Humidity** is a high-diffusion, flow-advected moisture
-field that relaxes to an ambient baseline and is evaporated by Temperature;
-**Permeability** starts at a uniform-open baseline and relaxes toward it near-zero — its
-structure is authored entirely by termites, not static terrain, see §3.4 +
-[[adr/0010-permeability-agent-built-topography|ADR-0010]]). Per-channel
+The biome is a double-buffered `Texture2DArray` of **15 scalar channels**
+(`BiomeChannel`, defined in `core/BiomeFieldConfig.cs` as a `static class` of `const int` —
+not an enum, despite older notes): `Nutrient, Pheromone0, Pheromone1, Pheromone2, Oxygen,
+Temperature, Waste, Permeability, FlowX, FlowY, Dispersal, Humidity, HumidityGrad,
+Excitability, Substrate` (Pheromone0/1/2 are per-species scents; **Dispersal** is a
+transient, fast-decay agitation field that scatters all sims — see §3.5; **Humidity** is a
+high-diffusion, flow-advected moisture field that relaxes to an ambient baseline and is
+evaporated by Temperature; **Permeability** starts at a uniform-open baseline and relaxes
+toward it near-zero — its structure is authored entirely by termites, not static terrain,
+see §3.4 + [[adr/0010-permeability-agent-built-topography|ADR-0010]];
+**Excitability** and **Substrate** are CA-owned publish targets written each step by a
+`FieldSimulationBase` and left alone by the PDE — `diffuseRate`/`relaxRate` 0, or the rule's
+own output blurs back over itself). Per-channel
 behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
 from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
 hardcoded in two sync'd places — `BiomeChannel.Count/Names` (the C# source of truth; both
@@ -160,7 +164,26 @@ texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow tran
 the chemical fields only — agents are never pushed by it. Resolution is independent of
 sim resolution; sim↔field coordinates are mapped by ratio.
 
-### 3.4 Simulations — `SimulationBase` → `BoidSim` / `PhysarumSim` / `TermiteSim`
+### 3.4 Simulations — agent sims and field sims
+
+Two families share one base. **Agent sims** (`PhysarumSim` / `BoidSim` / `TermiteSim`) carry
+populations of GPU agents. **Field sims** (`FieldSimulationBase` → `CyclicCASim` /
+`LookupCASim`) have no agents at all — their entire state is one integer per cell.
+
+Field sims still *derive* from `SimulationBase` and seal the agent contract to
+`null`/`0`/`1`; `SimulationManager`'s existing null-guards then route around them, so a
+grid process needs no orchestrator special-casing. They own a double-buffered
+`stateRead`/`stateWrite` pair (mandated at the base so an in-place update is inexpressible),
+render into `outTex` like any other layer, and may publish their normalized state into a
+biome channel so agent species perceive them through `UmweltMapping` with **no shader
+change** — only a mapping entry. See
+[[adr/0011-field-native-sims-derive-simulationbase|ADR-0011]].
+
+> A subclass that overrides `Allocate()` **must** call `MarkAllocated()`. The clear-in-place
+> signature is private and that is the only way to stamp it; skipping it makes
+> `NeedsAllocation()` permanently true, so every reset reallocates and downstream Syphon
+> servers tear down each time — the failure [[adr/0008-clear-in-place-reset|ADR-0008]] exists
+> to prevent.
 
 `SimulationBase` is the abstract GPU-agent template: trail texture arrays (per-type
 + total), a perception texture, an external-influence texture, **neuron-position seeding**
@@ -171,6 +194,16 @@ sim resolution; sim↔field coordinates are mapped by ratio.
 - **`PhysarumSim`** — slime-mold agents (sense-angle/distance, turn, deposit, eat).
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
   ranges, food-seeking).
+- **`CyclicCASim`** — cyclic (Griffeath) cellular automaton, an excitable medium of smooth
+  spiral waves. A cell advances to the next state when `threshold` neighbours already hold
+  it. Publishes to `Excitability`.
+- **`LookupCASim`** — multi-state lookup-table CA, a crisp standing lattice. The 5-cell
+  von-Neumann neighbourhood indexes a seed-generated `nstates^5` table; Langton's `lambda`
+  is the edge-of-chaos dial. Publishes to `Substrate`. Because the rule is a *buffer*, only
+  `seed`/`lambda`/`nstates` are interpolatable and changing any regenerates the table —
+  arc evolution is discrete regenerations, not a continuous morph.
+  Pointing a `CyclicCASim.couplingSource` at a `LookupCASim` gates the waves on the lattice,
+  so structure and flow become one coupled system rather than two stacked layers.
 - **`TermiteSim`** — neuron-coupled pheromone-stigmergy swarm (ported from
   `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat". Builds persistent
   **permeability mounds** via a dedicated firing-gated `Biome.BuildPermeability` /
