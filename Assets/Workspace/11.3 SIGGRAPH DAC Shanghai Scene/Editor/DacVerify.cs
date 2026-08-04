@@ -5,7 +5,6 @@ using System.Text;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using Biomes;
 
 namespace Biomes.EditorTools
 {
@@ -146,7 +145,6 @@ namespace Biomes.EditorTools
             float saveMound = sm.moundOverlayStrength;
             sm.Reset(); sm.moundOverlayStrength = 0f;
             for (int i = 0; i < 800; i++) { arc?.ScrubTo(55f); tr?.SeedNow(); sm.Step(); }
-            sm.moundOverlayStrength = 0f;
             s_Render.Invoke(sm, null);
             var bare = Grab(sm.CompositeOutputTexture);
             float L = Band(bare, 0f, .2f), C = Band(bare, .4f, .6f), R = Band(bare, .8f, 1f);

@@ -246,17 +246,28 @@ namespace Biomes
             if (_epochs != null)
             {
                 foreach (var t in _epochs)
-                    if (t != null) Destroy(t);
+                    DestroyOwned(t);
                 _epochs = null;
             }
             if (_opennessRT != null)
             {
                 _opennessRT.Release();
-                Destroy(_opennessRT);
+                DestroyOwned(_opennessRT);
                 _opennessRT = null;
             }
             _frameCount = 0;
             _allocRezX = _allocRezY = -1;
+        }
+
+        // Destroy() is a silent no-op outside play mode, and Load() runs in EDIT mode — from
+        // the button, from DacVerify, and from the batchmode render harness. Without the
+        // DestroyImmediate branch every reload leaks 12 epoch textures plus the openness RT.
+        // Safe on both: these are runtime-created objects, never imported assets.
+        private static void DestroyOwned(UnityEngine.Object o)
+        {
+            if (o == null) return;
+            if (Application.isPlaying) Destroy(o);
+            else DestroyImmediate(o);
         }
 
         /// <summary>Year at the current phase — for on-screen date readouts and cue export.</summary>

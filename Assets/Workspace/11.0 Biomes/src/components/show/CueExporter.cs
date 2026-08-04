@@ -17,9 +17,6 @@ namespace Biomes
     /// frame number and 90 s is exactly 5400 of both. Seconds are exported too, but the frame
     /// index is the value that cannot drift — a non-integer ratio would make it approximate,
     /// which is exactly why the show is authored at 1:1.</para>
-    ///
-    /// <para>Runs after ShowArc so a cue recorded this step is captured on the same step it
-    /// fired.</para>
     /// </summary>
     [DefaultExecutionOrder(-105)]   // after ShowArc (-110), so a cue fired this step is caught on it
     public class CueExporter : MonoBehaviour
@@ -47,6 +44,11 @@ namespace Biomes
         [Tooltip("Export automatically the first time the arc completes a loop.")]
         public bool autoExportOnLoopEnd = true;
 
+        // Floored at 1 in one place: capture and export must derive frame indices from the
+        // same rate, or a mis-set exportFps would shift the logged onsets relative to the
+        // header the composer reads them against.
+        private float Fps => Mathf.Max(1f, exportFps);
+
         private readonly List<FiringEvent> _firing = new();
         private bool[] _wasAbove;
         private bool _exported;
@@ -59,8 +61,6 @@ namespace Biomes
             public float seconds;
             public float intensity;
         }
-
-        public int FiringEventCount => _firing.Count;
 
         void OnEnable()
         {
@@ -97,7 +97,7 @@ namespace Biomes
             if (_wasAbove == null || _wasAbove.Length != scaled.Length)
                 _wasAbove = new bool[scaled.Length];
 
-            int frame = Mathf.RoundToInt(seconds * Mathf.Max(1f, exportFps));
+            int frame = Mathf.RoundToInt(seconds * Fps);
 
             for (int i = 0; i < scaled.Length; i++)
             {
@@ -124,7 +124,7 @@ namespace Biomes
             var inv = CultureInfo.InvariantCulture;
             var sb = new StringBuilder(1024 + _firing.Count * 72);
 
-            float fps = Mathf.Max(1f, exportFps);
+            float fps = Fps;
             float loopSeconds = arc != null ? arc.loopSeconds : 90f;
             float simRate = simManager != null ? simManager.simRate : 60f;
 

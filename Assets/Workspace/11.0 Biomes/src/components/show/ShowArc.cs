@@ -168,16 +168,16 @@ namespace Biomes
             if (_startStep < 0) _startStep = step;
 
             float totalSteps = Mathf.Max(1f, loopSeconds * StepsPerSecond);
-            float elapsed = step - _startStep;
+            float progress = (step - _startStep) / totalSteps;
 
-            int loopIndex = Mathf.FloorToInt(elapsed / totalSteps);
+            int loopIndex = Mathf.FloorToInt(progress);
             if (!loop && loopIndex > 0)
             {
                 _t = 1f;
             }
             else
             {
-                _t = Mathf.Repeat(elapsed / totalSteps, 1f);
+                _t = Mathf.Repeat(progress, 1f);
                 if (loopIndex != _lastLoopIndex)
                 {
                     _lastLoopIndex = loopIndex;
@@ -205,9 +205,8 @@ namespace Biomes
                 // Epochs crossfade 1975 -> 2030 across everything up to ONE BODY, then the melt
                 // releases the closure rather than snapping the phase back — the loop seam is
                 // hidden by closureStrength falling to 0, not by the epoch index resetting.
-                transect.epochPhase = Mathf.Clamp01(
-                    Mathf.InverseLerp(0f, Mathf.Max(0.01f, oneBodySeconds), seconds));
-                transect.closureStrength = Mathf.Clamp01(ramp) * (1f - Mathf.SmoothStep(0f, 1f, melt));
+                transect.epochPhase = Mathf.InverseLerp(0f, Mathf.Max(0.01f, oneBodySeconds), seconds);
+                transect.closureStrength = ramp * (1f - Mathf.SmoothStep(0f, 1f, melt));
             }
 
             // ── Colour register: spread closes, hues unify on red ─────────────────────
@@ -249,11 +248,12 @@ namespace Biomes
             // ── Loop point: the built form dissolves ──────────────────────────────────
             // Uses the shipped ResetTermites, which already clears permeability, melts mounds
             // and frees confined species. Firing it here makes the dissolve the loop point AND
-            // masks the permeability reset from 2030 back to 1975.
+            // masks the permeability reset from 2030 back to 1975. Null-tolerant because Apply
+            // is also reached via ScrubTo, which — unlike Tick — does not require a simManager.
             if (!_firedOneBody && seconds >= oneBodySeconds)
             {
                 _firedOneBody = true;
-                simManager.ResetTermites();
+                simManager?.ResetTermites();
                 RecordCue("ResetTermites", seconds);
             }
         }
@@ -277,7 +277,8 @@ namespace Biomes
             {
                 // Centred offset in -0.5..0.5, scaled by the spread. At spread 1 the types sit
                 // evenly around the whole wheel; at 0 they collapse onto convergedHue exactly.
-                float offset = (n == 1) ? 0f : ((i / (float)n) - 0.5f + (0.5f / n));
+                // A single type lands on exactly 0, so it sits on convergedHue at any spread.
+                float offset = (i / (float)n) - 0.5f + (0.5f / n);
                 float hue = Mathf.Repeat(convergedHue + offset * spread, 1f);
 
                 sim.agentParams.types[i].hue = hue;

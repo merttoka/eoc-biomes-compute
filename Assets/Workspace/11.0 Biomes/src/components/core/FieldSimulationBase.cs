@@ -263,7 +263,11 @@ namespace Biomes
             cs.SetFloat(s_IgnitionRadiusID, firingIgnitionRadius);
             cs.SetVector(s_NeuronScaleID,
                 new Vector4(neuronSpawnScale.x, neuronSpawnScale.y, 0, 0));
-            BindNeuronPositionsForIgnition(stepRuleKernel);
+            // Field sims have no reset-agents kernel, so the inherited CSV parse/upload is
+            // pointed at the rule kernel instead. It parses once per allocation and rebinds
+            // thereafter, uploading positions pre-multiplied by the SIM resolution — the rule
+            // rescales those into cell space via neuronSrcRez (see cellular_common.hlsl).
+            BuildNeuronPositions(stepRuleKernel);
 
             cs.SetTexture(stepRuleKernel, s_StateReadID, stateRead);
             cs.SetTexture(stepRuleKernel, s_StateWriteID, stateWrite);
@@ -334,18 +338,6 @@ namespace Biomes
             // backends even when the branch that reads it is dead.
             cs.SetTexture(kernel, s_CouplingTexID,
                 enabled ? couplingSource.StateTexture : stateRead);
-        }
-
-        /// <summary>
-        /// Bind neuron positions for the ignition path. Field sims have no reset-agents kernel,
-        /// so this reuses the inherited CSV parse/upload against the rule kernel instead.
-        /// </summary>
-        protected void BindNeuronPositionsForIgnition(int kernel)
-        {
-            // BuildNeuronPositions parses once per allocation and rebinds thereafter; it
-            // uploads positions pre-multiplied by rezX/rezY, which for a field sim is the
-            // CELL grid — matching what the rule kernel indexes.
-            BuildNeuronPositions(kernel);
         }
 
         protected void SwapState() => (stateRead, stateWrite) = (stateWrite, stateRead);

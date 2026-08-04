@@ -33,7 +33,7 @@ One master, two pure crops. **No rescale anywhere** — that is why the master i
 > 10.52:1 master keeps 1600 of 9472 px, 17% of the frame — and is Level 4.2, so unlike the
 > ultra-wide files it plays anywhere.
 
-All four independently verified: **5400 frames, 60/1 fps, 90.0 s** each.
+All five videos independently verified: **5400 frames, 60/1 fps, 90.0 s** each.
 
 Rendered in 3 resumed passes (~30 min total) plus ~4 min of encoding. The intermediate PNG
 sequence (5400 frames, 54 GB) is at `/private/tmp/eoc-render/frames` — **not durable**; keep

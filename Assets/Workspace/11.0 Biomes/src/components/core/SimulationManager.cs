@@ -202,18 +202,7 @@ namespace Biomes
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
-                // Scale sim resolution by simResolutionScale, preserving the manager's
-                // aspect ratio (both dims scale equally). Composite UV-samples back up.
-                sim.SetResolution(
-                    Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
-                    Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
-                sim.perceptionResScale = perceptionResScale;
-                sim.referenceHeight = referenceHeight;
-                sim.scaleSpatialToResolution = scaleSpatialToResolution;
-                sim.scaleDensityToResolution = scaleDensityToResolution;
-                // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
-                sim.neuronSpawnScale = NeuronLayoutScale;
-                sim.Reset();
+                ConfigureAndReset(sim);
             }
 
             Render();
@@ -563,18 +552,7 @@ namespace Biomes
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
-                // Scale sim resolution by simResolutionScale, preserving the manager's
-                // aspect ratio (both dims scale equally). Composite UV-samples back up.
-                sim.SetResolution(
-                    Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
-                    Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
-                sim.perceptionResScale = perceptionResScale;
-                sim.referenceHeight = referenceHeight;
-                sim.scaleSpatialToResolution = scaleSpatialToResolution;
-                sim.scaleDensityToResolution = scaleDensityToResolution;
-                // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
-                sim.neuronSpawnScale = NeuronLayoutScale;
-                sim.Reset();
+                ConfigureAndReset(sim);
             }
         }
 
@@ -594,17 +572,31 @@ namespace Biomes
             foreach (var sim in simulations)
             {
                 if (sim is not T) continue;
-                sim.SetResolution(
-                    Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
-                    Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
-                sim.perceptionResScale = perceptionResScale;
-                sim.referenceHeight = referenceHeight;
-                sim.scaleSpatialToResolution = scaleSpatialToResolution;
-                sim.scaleDensityToResolution = scaleDensityToResolution;
-                // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
-                sim.neuronSpawnScale = NeuronLayoutScale;
-                sim.Reset();
+                ConfigureAndReset(sim);
             }
+        }
+
+        /// <summary>
+        /// Push the manager-owned settings a sim needs, then respawn it. Every reset path
+        /// funnels through here: the settings below are copies the manager owns and the sim
+        /// only reads, so a new one added to a single path would silently desync the others.
+        /// That is not hypothetical — <c>neuronSpawnScale</c> is here because three
+        /// hand-maintained copies of it drifted apart in 11.2 and 11.3.
+        /// </summary>
+        private void ConfigureAndReset(SimulationBase sim)
+        {
+            // Scale sim resolution by simResolutionScale, preserving the manager's
+            // aspect ratio (both dims scale equally). Composite UV-samples back up.
+            sim.SetResolution(
+                Mathf.Max(8, Mathf.RoundToInt(rezX * simResolutionScale)),
+                Mathf.Max(8, Mathf.RoundToInt(rezY * simResolutionScale)));
+            sim.perceptionResScale = perceptionResScale;
+            sim.referenceHeight = referenceHeight;
+            sim.scaleSpatialToResolution = scaleSpatialToResolution;
+            sim.scaleDensityToResolution = scaleDensityToResolution;
+            // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
+            sim.neuronSpawnScale = NeuronLayoutScale;
+            sim.Reset();
         }
     }
 }

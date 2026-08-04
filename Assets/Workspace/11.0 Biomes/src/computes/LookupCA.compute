@@ -19,7 +19,7 @@
 // inexpressible rather than merely avoided.
 //
 // The table is ANISOTROPIC (neighbour order matters — up and left index different digits).
-// An isotropic/Moore table is a deliberate non-goal, flagged as a TODO in the source too.
+// An isotropic/Moore table is a deliberate non-goal, not an omission.
 
 #pragma kernel ResetStateKernel
 #pragma kernel StepRuleKernel
@@ -76,7 +76,11 @@ void ResetStateKernel(uint3 id : SV_DISPATCHTHREADID)
     else if (initMode == 2)                // circle
         inside = length(d) < (initSize * 0.5);
     else                                   // random field
-        inside = pick < initSize;
+        // Drawn independently of `pick`. Reusing it would correlate membership with state:
+        // every seeded cell satisfies pick < initSize and so lands in the lowest states,
+        // which the quiescent guard above then collapses onto 1 — a monochrome field rather
+        // than the multi-state one this mode exists to produce.
+        inside = Hash1u(idx * 1013904223u + time * 1664525u + ruleSeed) < initSize;
 
     stateWrite[id.xy] = inside ? (float)live : 0.0;
 }

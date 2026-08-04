@@ -193,9 +193,11 @@ ShowArc on its own `SimStepCount` clock, twice, so the wrap could be compared ag
   all luminance in frame) is the lever.
 
 **Render.** 5400 frames at 9472×900 written as a PNG sequence from batchmode at **312 ms/frame**
-(~28 min, ~32 GB), then `tools/encode_dac.sh` produces the ProRes handover master and three
-H.264s in a **single decode pass** (`split=4` — PNG decode, not x264, is the bottleneck at
-8.5 Mpx/frame).
+(~28 min, ~32 GB), then `tools/encode_dac.sh` produces both screen crops, the H.264 and ProRes
+masters, and the 1920×1080 submission. A `split=4` single-decode pass was tried first — PNG
+decode, not x264, is the bottleneck at 8.5 Mpx/frame — and **dropped**: it is all-or-nothing
+across a 54 GB sequence, so an interruption loses everything. The shipped script encodes **per
+output with resume**, ship-critical crops first.
 
 > **Delivery caveat.** 9472 px is 592 macroblocks wide. That is legal H.264 — Level 6.2 allows
 > 139 264 MBs and ~1056 MBs of width, and libx264 encodes it at Level 6.0 — but many *hardware*
@@ -215,13 +217,16 @@ H.264s in a **single decode pass** (`split=4` — PNG decode, not x264, is the b
    `Assets/StreamingAssets/biomes11/shanghai_transect.bytes` (9.1 MB, round-trip verified).
    Regenerable via `Biomes > Bake Shanghai Transect`; left out of git to keep a 9 MB binary out
    of history. Decide whether to track it.
-5. **Play-mode is the whole remaining risk surface**: neuron spec criteria 4–5, CA spec all, DAC
-   spec 1–9. Nothing has ever executed. Performance at 9472×900 with 1 M physarum agents plus two
-   CA layers is entirely unmeasured.
-6. **Not merged to main.** Everything mechanically checkable is green, but `main` is required to
-   be production-ready and this has not run once. `BiomeChannel.Count` 13 → 15 touches *every*
-   scene (handled by the existing zero-fill + warning, but unverified) — that is DAC spec
-   criterion 7. Merge after a play-mode pass on 11.1 CURRENTS and 11.2 SIGGRAPH.
+5. ~~**Play-mode is the whole remaining risk surface**: nothing has ever executed, and performance
+   at 9472×900 is entirely unmeasured.~~ → **Resolved: it has run.** 0 errors / 0 exceptions
+   across all three scenes, all nine criteria measured. 9.26 ms/sim step and 10.10 ms/step+composite
+   at 9472×900 with 1 M physarum plus two CA layers — 99 fps realtime-equivalent, inside the
+   16.7 ms budget.
+6. ~~**Not merged to main.**~~ → **Resolved: merged as `b968a1e`.** `BiomeChannel.Count` 13 → 15
+   touches every scene, which was DAC spec criterion 7, and it passes — CURRENTS (3840×1080) and
+   SIGGRAPH (3840×2160) both reset and step clean.
 7. `Scene_DAC.unity.bak-preCA` is the pre-edit backup; delete once the scene opens cleanly.
-8. `README` / `ARCHITECTURE` / `ROADMAP` deliberately **not** updated — the CA spec says those
-   track shipped pillars and this has not run yet.
+8. ~~`README` / `ARCHITECTURE` / `ROADMAP` deliberately **not** updated — the CA spec says those
+   track shipped pillars and this has not run yet.~~ → **Resolved for two of three:** it has run,
+   so `README` (CA + Scene_DAC pillars, and the 12→15 channel count) and `ARCHITECTURE` are
+   updated. `ROADMAP` is still untouched.
