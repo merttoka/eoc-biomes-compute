@@ -1,0 +1,132 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cedb5f294328d477cbecb144e33660a9, type: 3}
+  m_Name: PhysarumParams
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumParams
+  typeCount: 8
+  types:
+  - senseAngle: 51
+    senseDistance: 11.118111
+    turnAngle: 99.285034
+    moveSpeed: 0.1
+    depositAmount: 0.24
+    eatAmount: 0.94
+    diffuseRate: 0.9
+    hue: 0.109286755
+    saturation: 0.8098313
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 96.45118
+    senseDistance: 66.20866
+    turnAngle: 107.78661
+    moveSpeed: -0.1
+    depositAmount: 0.93
+    eatAmount: 0.96
+    diffuseRate: 0.9
+    hue: 0.8407087
+    saturation: 0.62651634
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 42
+    senseDistance: 4.822047
+    turnAngle: 82.28189
+    moveSpeed: 0.1
+    depositAmount: 0.3
+    eatAmount: 0.35
+    diffuseRate: 0.9
+    hue: 0.54443896
+    saturation: 0.7882761
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 36.94016
+    senseDistance: 61.486614
+    turnAngle: 87.94961
+    moveSpeed: 0.1
+    depositAmount: 0.4
+    eatAmount: 0.44
+    diffuseRate: 0.9031496
+    hue: 0.3299721
+    saturation: 0.6762847
+    firingSpeedMul: 2
+    firingDepositAmount: 0.7
+  - senseAngle: 14.1
+    senseDistance: 9
+    turnAngle: 111.54
+    moveSpeed: 0.1
+    depositAmount: 0.02
+    eatAmount: 0.01
+    diffuseRate: 0.985
+    hue: 0.5998596
+    saturation: 0.6993895
+    firingSpeedMul: 2
+    firingDepositAmount: 1
+  - senseAngle: 12.6
+    senseDistance: 47.02
+    turnAngle: 39.2
+    moveSpeed: 0.1
+    depositAmount: 0.02
+    eatAmount: 0.01
+    diffuseRate: 0.985
+    hue: 0.040945154
+    saturation: 0.4225135
+    firingSpeedMul: 2
+    firingDepositAmount: 1
+  - senseAngle: 27.93
+    senseDistance: 2.2
+    turnAngle: 95.4
+    moveSpeed: -0.05
+    depositAmount: 0.02
+    eatAmount: 0.01
+    diffuseRate: 0.985
+    hue: 0.95508385
+    saturation: 0.7963561
+    firingSpeedMul: 2
+    firingDepositAmount: 1
+  - senseAngle: 22.5
+    senseDistance: 2.2
+    turnAngle: 54.8
+    moveSpeed: 0.1
+    depositAmount: 0.02
+    eatAmount: 0.01
+    diffuseRate: 0.985
+    hue: 0.46184146
+    saturation: 0.80603987
+    firingSpeedMul: 2
+    firingDepositAmount: 1
+  ranges:
+  - name: moveSpeed
+    min: 0.1
+    max: 50
+  - name: senseAngle
+    min: 0.1
+    max: 360
+  - name: turnAngle
+    min: 0.1
+    max: 360
+  - name: senseDistance
+    min: 0.1
+    max: 200
+  - name: depositAmount
+    min: 0.01
+    max: 1
+  - name: eatAmount
+    min: 0
+    max: 0.1
+  - name: diffuseRate
+    min: 0.9
+    max: 1
+  - name: hue
+    min: 0
+    max: 1
+  - name: saturation
+    min: 0
+    max: 1
