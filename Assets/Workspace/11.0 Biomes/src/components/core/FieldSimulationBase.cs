@@ -161,6 +161,8 @@ namespace Biomes
         /// </summary>
         protected override void Allocate()
         {
+            if (!IsConfigured) return;   // guarded at Reset() too; this is the direct-call path
+
             Release();
             gpu = new GPUResourceManager();
 
@@ -174,7 +176,9 @@ namespace Biomes
 
             // Output lives at cell resolution: the composite UV-samples every layer through a
             // linear-clamp sampler, so a coarse CA upscales without a resample pass here.
-            outTex = gpu.CreateTexture2D(cellRezX, cellRezY, FilterMode.Trilinear,
+            // outTex = gpu.CreateTexture2D(cellRezX, cellRezY, FilterMode.Trilinear,
+                // RenderTextureFormat.ARGBHalf, SimName + "_out");
+            outTex = gpu.CreateTexture2D(cellRezX, cellRezY, FilterMode.Point,
                 RenderTextureFormat.ARGBHalf, SimName + "_out");
 
             resetStateKernel = cs.FindKernel("ResetStateKernel");
@@ -190,6 +194,23 @@ namespace Biomes
         }
 
         /// <summary>
+        /// Whether the sim has enough wiring to touch the GPU at all.
+        ///
+        /// <para><b>Why this exists.</b> <c>Reset()</c> is this project's public "re-seed the
+        /// sim" call — the manager, the MIDI bindings and the Inspector button all use it. It
+        /// is also, by name, the message Unity fires the instant a component is added in the
+        /// Editor. So the very first <c>Reset()</c> a freshly added CA sim receives arrives
+        /// before <c>cs</c> has been assigned, and <see cref="Allocate"/> would dereference it
+        /// at <c>FindKernel</c>. Guarding beats renaming: the name is load-bearing across the
+        /// manager, the bindings and the agent sims.</para>
+        ///
+        /// <para>Not an error state — <c>SimulationManager.ConfigureAndReset</c> resets every
+        /// sim again once the scene is wired, so an unconfigured sim simply sits inert until
+        /// then.</para>
+        /// </summary>
+        protected bool IsConfigured => cs != null;
+
+        /// <summary>
         /// Clear-in-place reset. Mirrors SimulationBase.Reset() minus the agent/trail work:
         /// re-clone params, rescale, allocate only on a genuine size change, seed, render.
         /// </summary>
@@ -197,6 +218,8 @@ namespace Biomes
         // draw a second. Same reason the agent sims override it bare.
         public override void Reset()
         {
+            if (!IsConfigured) return;
+
             _ruleStep = 0;
 
             // Honour the IParamSet resolution-independence contract even though CA params are

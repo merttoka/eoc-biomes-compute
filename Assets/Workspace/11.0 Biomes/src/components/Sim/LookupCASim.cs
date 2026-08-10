@@ -64,6 +64,10 @@ namespace Biomes
 
         public override void Reset()
         {
+            // Before the clone: Unity's add-component Reset() would otherwise mint a runtime
+            // clone that serializes into the scene. See FieldSimulationBase.IsConfigured.
+            if (!IsConfigured) return;
+
             caParams = paramsSO != null
                 ? Instantiate(paramsSO)
                 : ScriptableObject.CreateInstance<LookupCAParams>();

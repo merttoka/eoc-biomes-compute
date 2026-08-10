@@ -57,6 +57,11 @@ namespace Biomes
 
         public override void Reset()
         {
+            // Before the clone, not just before base.Reset(): Unity's add-component Reset()
+            // would otherwise mint a runtime clone that serializes into the scene as an
+            // orphaned ScriptableObject. See FieldSimulationBase.IsConfigured.
+            if (!IsConfigured) return;
+
             // Re-clone from the pristine asset every reset, exactly as the agent sims do, so
             // live tweaks and resolution scaling never compound into the on-disk preset.
             caParams = paramsSO != null
