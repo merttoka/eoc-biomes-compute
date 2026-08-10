@@ -12,6 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[superpowers/specs/2026-08-10-anisotropic-diffusion-design]] — biome diffusion goes non-uniform: normalized weighted 3×3 average (box→gaussian shape, flow-aligned anisotropy, permeability gating) + `ambientWind`; defaults reproduce the legacy box blur
 - [[superpowers/specs/2026-08-04-engine-extraction-design]] — split the reusable sim engine off an abandoned show branch: `main` reset to `origin/main`, engine replayed onto `ca-dev` as four commits, the show preserved whole on `archive/dac-shanghai`
 - [[superpowers/plans/2026-08-02-composer-bioform-validation]] — validation track for the 2026-07-19 merges that never ran (temporal composer, bioform 3D); observe-then-triage, no fixing on sight
 - [[superpowers/specs/2026-08-02-neuron-layout-single-owner-design]] — `spawnScale` collapses to one owner (`NeuronFiringSource`) + one mapping function (`includes/neuron_layout.hlsl`); fixes a live desync where rings + dispersal stamps land off the agents at wide resolutions
@@ -25,6 +26,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-08-10-anisotropic-diffusion-kernels]] — `DiffuseFieldsKernel` box blur → shaped weighted average (flow anisotropy, permeability-gated porous transport, gaussian option) + ambient wind; numerically verified (defaults == legacy, uniform fixed point, walls block, zero drift); on `worktree-diffusion-kernels`, pending in-editor validation ([[adr/0012-weighted-diffusion-kernels|ADR-0012]])
 - [[sessions/2026-08-02-cellular-automata-sims]] — CA lineage lands as field-native sims (`FieldSimulationBase` + CCA + lookup CA, both double-buffered, CA↔CA coupling, new Excitability/Substrate channels, `BiomeChannel.Count` 13 → 15); shaders compile-verified, 31/31 EditMode green ([[adr/0011-field-native-sims-derive-simulationbase|ADR-0011]])
 - [[sessions/2026-07-19-mft-led-legibility]] — MFT LEDs made readable: per-type hue gradients (family CC range lerped by type index, inspector-tunable), 0.7s bank-switch flash (top row = soft bank color-coded, bottom row = HW bank white), full brightness on bound knobs; fixed mislabeled anim constants; merged to main
 - [[sessions/2026-07-15-permeability-mounds]] — termite-built permeability walls partition the field into habitats (Boids open / Physarum edges / Termites walls); wired the dead `preferredPermeabilityMin/Max` gate + firing-gated build kernel + `ResetTermites` melt + composite overlay; speed-floor freeze fix; merged to main ([[adr/0010-permeability-agent-built-topography|ADR-0010]])
@@ -41,6 +43,7 @@ tags: [meta, index]
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
 ## ADRs (newest first)
+- [[adr/0012-weighted-diffusion-kernels]] — diffusion neighbourhood is a shaped weighted average (flow anisotropy + permeability gating + ambient wind), extending ADR-0007's per-class operators; global mass conservation traded for medium/wind coupling
 - [[adr/0011-field-native-sims-derive-simulationbase]] — field sims (CA) derive `SimulationBase` and seal the agent contract, rather than getting a parallel hierarchy; double buffering mandated at the base
 - [[adr/0010-permeability-agent-built-topography]] — permeability is agent-built topography (uniform-open baseline + termite build kernel), not static noise; habitat bands confine species
 - [[adr/0009-per-show-scene-workspaces]] — one workspace folder per show; shared engine stays in `11.0 Biomes/`

@@ -91,6 +91,9 @@ namespace Biomes
         private ComputeBuffer channelSettingsBuffer;
         // Parallel per-channel relaxation rates (homeostatic pull toward baseline / terrain).
         private ComputeBuffer channelRelaxBuffer;
+        // Parallel per-channel diffusion-kernel shaping (kernelShape, flowAnisotropy,
+        // permeabilityInfluence, reserved). All-zero rows = legacy uniform box blur.
+        private ComputeBuffer channelKernelBuffer;
 
         // Reusable perception read-entry buffer (one per Biome, grown on demand). Replaces
         // the per-call new/Release in BuildPerceptionTex, which churned ~180 GPU buffer
@@ -105,6 +108,9 @@ namespace Biomes
         private static readonly int s_ChannelCountID = Shader.PropertyToID("channelCount");
         private static readonly int s_ChannelSettingsID = Shader.PropertyToID("channelSettings");
         private static readonly int s_ChannelRelaxID = Shader.PropertyToID("channelRelax");
+        private static readonly int s_ChannelKernelID = Shader.PropertyToID("channelKernel");
+        private static readonly int s_WindXID = Shader.PropertyToID("windX");
+        private static readonly int s_WindYID = Shader.PropertyToID("windY");
         private static readonly int s_DecompTempSpanID = Shader.PropertyToID("decompTempSpan");
         private static readonly int s_DebugOutTexID = Shader.PropertyToID("debugOutTex");
         private static readonly int s_DebugChannelID = Shader.PropertyToID("debugChannel");
@@ -208,11 +214,12 @@ namespace Biomes
             int stride = sizeof(float) * 4;
             channelSettingsBuffer = gpu.CreateBuffer(BiomeChannel.Count, stride);
             channelRelaxBuffer = gpu.CreateBuffer(BiomeChannel.Count, sizeof(float));
+            channelKernelBuffer = gpu.CreateBuffer(BiomeChannel.Count, stride);
         }
 
         public void UploadChannelSettings()
         {
-            if (channelSettingsBuffer == null || channelRelaxBuffer == null) return;
+            if (channelSettingsBuffer == null || channelRelaxBuffer == null || channelKernelBuffer == null) return;
             // Pack per-channel settings: diffuseRate, decayRate, advectedByFlow, initialValue.
             // A config with fewer rows than BiomeChannel.Count leaves the tail channels
             // zero-filled (no diffuse/advect/relax, initialValue 0) — i.e. a silently dead
@@ -225,6 +232,7 @@ namespace Biomes
                     $"(zero diffuse/relax/initial). Add the missing rows to the asset.", this);
             var data = new float[BiomeChannel.Count * 4];
             var relax = new float[BiomeChannel.Count];
+            var kern = new float[BiomeChannel.Count * 4];
             for (int i = 0; i < BiomeChannel.Count && i < fieldConfig.channels.Count; i++)
             {
                 var ch = fieldConfig.channels[i];
@@ -233,9 +241,15 @@ namespace Biomes
                 data[i * 4 + 2] = ch.advectedByFlow ? 1f : 0f;
                 data[i * 4 + 3] = ch.initialValue;
                 relax[i] = ch.relaxRate;
+                // Kernel shaping: shape as float so the shader can morph box→gaussian.
+                kern[i * 4 + 0] = (float)ch.kernelShape;
+                kern[i * 4 + 1] = ch.flowAnisotropy;
+                kern[i * 4 + 2] = ch.permeabilityInfluence;
+                kern[i * 4 + 3] = 0f;   // reserved
             }
             channelSettingsBuffer.SetData(data);
             channelRelaxBuffer.SetData(relax);
+            channelKernelBuffer.SetData(kern);
         }
 
         private void GPUReset()
@@ -280,8 +294,10 @@ namespace Biomes
             // swap let DiffuseFieldsKernel (which writes every channel) clobber the
             // flow/advect/interact passes, making them dead code.
 
-            // 1. Generate flow from temperature gradients
+            // 1. Generate flow from temperature gradients + ambient wind
             cs.SetFloat(s_TempToFlowStrengthID, fieldConfig.temperatureToFlowStrength);
+            cs.SetFloat(s_WindXID, fieldConfig.ambientWind.x);
+            cs.SetFloat(s_WindYID, fieldConfig.ambientWind.y);
             DispatchFieldPass(generateFlowKernel);
 
             // 2. Advect fields by flow (transports chemicals; agents are not pushed)
@@ -303,9 +319,12 @@ namespace Biomes
             cs.SetBuffer(interactFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
             DispatchFieldPass(interactFieldsKernel);
 
-            // 4. Diffuse, decay, and homeostatic relaxation toward baseline.
+            // 4. Diffuse, decay, and homeostatic relaxation toward baseline. The kernel
+            //    buffer shapes the neighbourhood average (box/gaussian, flow anisotropy,
+            //    permeability gating) — all-zero rows keep the legacy uniform blur.
             cs.SetBuffer(diffuseFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
             cs.SetBuffer(diffuseFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
+            cs.SetBuffer(diffuseFieldsKernel, s_ChannelKernelID, channelKernelBuffer);
             DispatchFieldPass(diffuseFieldsKernel);
 
             // Debug render (reads fieldReadArray, which now holds the final state)
@@ -779,6 +798,7 @@ namespace Biomes
             gpu = null;
             channelSettingsBuffer = null;   // tracked + freed above; null so they're rebuilt on realloc
             channelRelaxBuffer = null;
+            channelKernelBuffer = null;
             perceptionEntryBuffer = null;
             _perceptionEntryData = null;
             _writeEntryBuffer?.Release();   // not gpu-tracked (own buffer)
