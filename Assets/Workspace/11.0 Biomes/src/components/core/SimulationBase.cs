@@ -57,6 +57,14 @@ namespace Biomes
         // Shared neuron firing (assigned by SimulationManager from NeuronFiringSource)
         [NonSerialized] public ComputeBuffer neuronFiring;
         [NonSerialized] public int neuronFiringCount;
+        [Header("Trail Diffusion")]
+        [Tooltip("Coherence-enhancing trail diffusion: elongate each cell's blur along the " +
+                 "local trail ridge (from the trail's own structure tensor), so a moving agent " +
+                 "leaves a crisp comet tail instead of a round bloom — at 1, trail width " +
+                 "roughly halves. Round blobs and trail crossings stay isotropic by " +
+                 "construction. 0 = legacy isotropic box blur.")]
+        [Range(0f, 1f)] public float trailAnisotropy = 0f;
+
         [Header("Neuron Firing")]
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
         private ComputeBuffer dummyNeuronFiringBuffer;
@@ -123,6 +131,7 @@ namespace Biomes
         protected static readonly int s_NeuronCountID = Shader.PropertyToID("neuronCount");
         protected static readonly int s_NeuronScaleID = Shader.PropertyToID("neuronScale");
         protected static readonly int s_PersistenceID = Shader.PropertyToID("persistence");
+        protected static readonly int s_TrailAnisoID = Shader.PropertyToID("trailAnisotropy");
         #endregion
 
         public abstract string SimName { get; }
@@ -383,6 +392,14 @@ namespace Biomes
             RenderTexture.active = outTex;
             GL.Clear(false, true, Color.clear);
             RenderTexture.active = prev;
+        }
+
+        /// <summary>Push the trail-anisotropy knob (orientation is derived in-kernel from
+        /// the trail's own structure tensor, so there is nothing to bind — just the float).
+        /// Call each GPUStep, alongside the other per-step binds.</summary>
+        protected void BindTrailAnisotropy()
+        {
+            cs.SetFloat(s_TrailAnisoID, trailAnisotropy);
         }
 
         protected void BindPerceptionTex(params int[] kernels)

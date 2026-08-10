@@ -319,9 +319,10 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
     // Channel-independent per-cell tap data, hoisted out of the channel loop.
-    // Taps are clamped integer Loads: at texel centers the old bilinear SampleLevel
-    // returned exactly these values (clamp sampler), so behaviour is unchanged.
-    int2  taps[9];     // clamped coords, row-major (dy outer, dx inner) to match GAUSS_W
+    // Taps are TOROIDALLY WRAPPED integer Loads: the field textures are Repeat-wrapped
+    // (GPUResourceManager), so the old SampleLevel blur wrapped at the edges; integer
+    // modulo reproduces that exactly (agents wrap too — the world is a torus).
+    int2  taps[9];     // wrapped coords, row-major (dy outer, dx inner) to match GAUSS_W
     float align2[9];   // (tap dir · flow dir)^2; 1 for the center tap (never penalized)
     float permIf[9];   // interface permeability toward each tap; 1 for the center
 
@@ -334,7 +335,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint t = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            int2 xy = clamp(int2(id.xy) + int2(dx, dy), int2(0, 0), int2(rezX - 1, rezY - 1));
+            int2 xy = (int2(id.xy) + int2(dx, dy) + int2(rezX, rezY)) % int2(rezX, rezY);
             taps[t] = xy;
             if (dx == 0 && dy == 0) {
                 align2[t] = 1.0;

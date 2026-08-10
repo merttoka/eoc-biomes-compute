@@ -19,93 +19,139 @@ MonoBehaviour:
     advectedByFlow: 1
     initialValue: 0.3
     relaxRate: 0
+    kernelShape: 1
+    flowAnisotropy: 0.2
+    permeabilityInfluence: 0.6
   - name: Pheromone_0
     diffuseRate: 0.98
     decayRate: 0.002
     advectedByFlow: 1
     initialValue: 0
     relaxRate: 0
+    kernelShape: 1
+    flowAnisotropy: 0.7
+    permeabilityInfluence: 0.9
   - name: Pheromone_1
     diffuseRate: 0.98
     decayRate: 0.002
     advectedByFlow: 1
     initialValue: 0
     relaxRate: 0
+    kernelShape: 1
+    flowAnisotropy: 0.7
+    permeabilityInfluence: 0.9
   - name: Pheromone_2
     diffuseRate: 0.9999
     decayRate: 0.001
     advectedByFlow: 1
     initialValue: 0
     relaxRate: 0
+    kernelShape: 1
+    flowAnisotropy: 0.7
+    permeabilityInfluence: 0.9
   - name: Oxygen
     diffuseRate: 0.995
     decayRate: 0
     advectedByFlow: 1
     initialValue: 0.5
     relaxRate: 0.01
+    kernelShape: 1
+    flowAnisotropy: 0.4
+    permeabilityInfluence: 0.3
   - name: Temperature
     diffuseRate: 0.96
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0.5
     relaxRate: 0.06
+    kernelShape: 1
+    flowAnisotropy: 0.15
+    permeabilityInfluence: 0.5
   - name: Waste
     diffuseRate: 0.99
     decayRate: 0.001
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 1
+    flowAnisotropy: 0.1
+    permeabilityInfluence: 0.7
   - name: Permeability
     diffuseRate: 0
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0.7
     relaxRate: 0.0005
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   - name: Flow_X
     diffuseRate: 0.92
     decayRate: 0.02
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   - name: Flow_Y
     diffuseRate: 0.92
     decayRate: 0.02
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   - name: Dispersal
     diffuseRate: 0.9
     decayRate: 0.12
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   - name: Humidity
     diffuseRate: 0.97
     decayRate: 0.001
     advectedByFlow: 1
     initialValue: 0.5
     relaxRate: 0.01
+    kernelShape: 1
+    flowAnisotropy: 0.5
+    permeabilityInfluence: 0.4
   - name: Humidity_Grad
     diffuseRate: 0
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   - name: Excitability
     diffuseRate: 0
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   - name: Substrate
     diffuseRate: 0
     decayRate: 0
     advectedByFlow: 0
     initialValue: 0
     relaxRate: 0
+    kernelShape: 0
+    flowAnisotropy: 0
+    permeabilityInfluence: 0
   wasteToNutrientRate: 0.02
   decompositionTempSpan: 3
   temperatureToFlowStrength: 0.8
+  ambientWind: {x: 0.03, y: 0}
   temperatureToPermeability: 0.02
   permeabilityOpenBaseline: 0.9
   temperatureToEvaporation: 0.13

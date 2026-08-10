@@ -17,6 +17,9 @@ Texture2DArray<float> trailRead;
 RWTexture2DArray<float> trailWrite;
 RWTexture2D<float4> outTex;
 
+// Coherence-enhancing trail diffusion (see DiffuseTextureKernel).
+float trailAnisotropy;       // 0 = legacy isotropic box blur
+
 // Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
 Texture2D<float4> perceptionTex;
 SamplerState sampler_perceptionTex;
@@ -379,21 +382,82 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     }
 }
 
+// Coherence-enhancing anisotropic trail diffusion (structure tensor, à la Weickert):
+// measure the local orientation of the TOTAL trail (layer typeCount) and elongate
+// every type's 3x3 blur along the ridge axis — the tensor's minor eigenvector — by
+// trailAnisotropy · coherence². A slow, small flock then leaves a crisp comet tail
+// instead of the wide cone this exists to fix (measured on that case, trail width
+// halves at full strength). Orientation derives from the trail itself, so it lives
+// exactly as long as the trail — a separate heading field decays on the wrong
+// timescale and measurably does nothing. Round blobs (stationary agents) and trail
+// crossings have coherence ~0 → isotropic. The ridge AXIS is sign-free, matching the
+// symmetric angular weight: the tail forms by retention, not drift. trailAnisotropy
+// 0 → every weight 1 → the legacy box blur. Taps wrap toroidally: the trail textures
+// are Repeat-wrapped and point-filtered, so integer modulo Loads reproduce the
+// SampleLevel taps they replace — and match the agents' own wrapping.
 [numthreads(8, 8, 1)]
 void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
+    int2 rez = int2(rezX, rezY);
+
+    // 5x5 cache of the total-trail layer -> central-difference gradients at the 3x3
+    // window positions -> averaged structure tensor J = Σ g·gᵀ.
+    float tot[25];
+    {
+        uint n = 0;
+        for (int oy = -2; oy <= 2; oy++)
+            for (int ox = -2; ox <= 2; ox++)
+                tot[n++] = trailRead[uint3((int2(id.xy) + int2(ox, oy) + rez) % rez, typeCount)];
+    }
+    float jxx = 0, jxy = 0, jyy = 0;
+    for (int wy = -1; wy <= 1; wy++) {
+        for (int wx = -1; wx <= 1; wx++) {
+            float gx = (tot[(wy + 2) * 5 + (wx + 3)] - tot[(wy + 2) * 5 + (wx + 1)]) * 0.5;
+            float gy = (tot[(wy + 3) * 5 + (wx + 2)] - tot[(wy + 1) * 5 + (wx + 2)]) * 0.5;
+            jxx += gx * gx; jxy += gx * gy; jyy += gy * gy;
+        }
+    }
+
+    // Eigen-split: l1 >= l2; coherence ((l1-l2)/(l1+l2))² gates the elongation so only
+    // clean ridges sharpen. Ridge axis = minor eigenvector = perp of the major one.
+    float halfTr = (jxx + jyy) * 0.5;
+    float det = sqrt(max(0.0, 0.25 * (jxx - jyy) * (jxx - jyy) + jxy * jxy));
+    float l1 = halfTr + det, l2 = halfTr - det;
+    float cohBase = (l1 + l2) > 1e-12 ? (l1 - l2) / (l1 + l2) : 0.0;
+    float2 major = float2(jxy, l1 - jxx);
+    if (abs(major.x) + abs(major.y) < 1e-12) major = float2(l1 - jyy, jxy);
+    float mlen = length(major);
+    float2 ridge = mlen > 1e-12 ? float2(-major.y, major.x) / mlen : float2(0, 0);
+    float elong = (det > 1e-12 && mlen > 1e-12)
+        ? trailAnisotropy * cohBase * cohBase : 0.0;
+
+    int2  taps[9];
+    float wts[9];
+    float wsum = 0;
+    uint k = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            taps[k] = (int2(id.xy) + int2(dx, dy) + rez) % rez;
+            float a = 1.0;   // center tap: never down-weighted (wsum >= 1)
+            if (dx != 0 || dy != 0) {
+                float al = dot(normalize(float2(dx, dy)), ridge);
+                float al2 = al * al;
+                a = al2 * al2;   // ^4 lobe: halves the diagonal side-leak vs ^2
+            }
+            wts[k] = lerp(1.0, a, elong);
+            wsum += wts[k];
+            k++;
+        }
+    }
+
     float total = 0;
     for (uint t = 0; t < typeCount; t++) {
-        float avg = 0;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                float3 coord = float3((id.x + dx + 0.5) / (float)rezX, (id.y + dy + 0.5) / (float)rezY, t);
-                avg += trailRead.SampleLevel(sampler_trailRead, coord, 0);
-            }
-        }
-        avg /= 9.0;
-        float diffused = clamp(avg * typeParams[t].diffuseRate, 0, 1);
+        float acc = 0;
+        [unroll]
+        for (uint i = 0; i < 9; i++)
+            acc += wts[i] * trailRead[uint3(taps[i], t)];
+        float diffused = clamp(acc / wsum * typeParams[t].diffuseRate, 0, 1);
         trailWrite[uint3(id.xy, t)] = diffused;
         total += diffused;
     }

@@ -91,8 +91,10 @@ Then, unchanged from ADR-0007:
   before the flow pass.
 - Kernel perf: flow vector, 9 permeability taps, alignment and interface terms
   are hoisted out of the per-channel loop (computed once per cell). Neighbor
-  taps switch from bilinear `SampleLevel` at texel centers to clamped integer
-  `Load`s — same values (clamp sampler at texel centers), exact and cheaper.
+  taps switch from bilinear `SampleLevel` at texel centers to TOROIDALLY WRAPPED
+  integer `Load`s — same values: the field textures are Repeat-wrapped
+  (GPUResourceManager), so the legacy blur wrapped at edges and modulo taps
+  reproduce it exactly.
 
 ## Out of scope
 
@@ -105,6 +107,20 @@ Then, unchanged from ADR-0007:
   need.
 - Scene/asset edits: none. Defaults are inert; knobs are flipped in the
   inspector per experiment.
+
+## Addendum (same day): edges, config values, sim trails
+
+- **Toroidal fix.** GPUResourceManager Repeat-wraps every texture — the legacy blur
+  wrapped at edges, so the weighted kernel's taps wrap with integer modulo, not clamp.
+- **Config values** applied to the 11.3 DAC `BiomeFieldConfig_Homeostatic` asset
+  (pheromones 0.7/0.9/gaussian, wind (0.03, 0), full table in the asset); 11.1/11.2
+  left stock until 11.3 validates.
+- **Sim trails** (Physarum/Boid/Termite) got anisotropy from a different orientation
+  source: the trail's own structure tensor (coherence-enhancing diffusion, ADR-0013).
+  Two deposited-heading-field designs measured as no-ops first — orientation must
+  exist at the RECEIVING cells and live as long as the trail; only the trail itself
+  satisfies both. Single `trailAnisotropy` knob per sim, default 0 = legacy.
+  Measured: σ⊥ halves at 1, stationary blobs stay round, crossings stay isotropic.
 
 ## Verification
 

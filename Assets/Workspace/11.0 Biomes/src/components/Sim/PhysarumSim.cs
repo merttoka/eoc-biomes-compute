@@ -125,6 +125,7 @@ namespace Biomes
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
+            BindTrailAnisotropy();
 
             // Move
             BindDispersalSpeedParams();

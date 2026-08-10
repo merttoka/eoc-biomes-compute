@@ -51,7 +51,8 @@ per-step add; ±0.02..0.1 useful).
 - `permeabilityInfluence` 1 makes mounds scent containers (interface `min` ⇒ perm-0 walls
   pass exactly zero); sealed cells keep their load until decay. ADR-0010's topography now
   shapes chemistry, not just locomotion.
-- Sim-local trail blurs (Physarum/Termite `DiffuseTextureKernel`) still box — out of scope.
+- Sim-local trail blurs went anisotropic the same day via a different orientation
+  source (the trail's own structure tensor) — see [[0013-coherence-enhancing-trail-diffusion]].
 
 ## Related
 
