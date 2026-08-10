@@ -205,7 +205,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &159104053
+--- !u!1 &47834216
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -213,22 +213,22 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 159104055}
-  - component: {fileID: 159104054}
+  - component: {fileID: 47834218}
+  - component: {fileID: 47834217}
   m_Layer: 0
-  m_Name: LookupCA
+  m_Name: 2DCA
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &159104054
+--- !u!114 &47834217
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 159104053}
+  m_GameObject: {fileID: 47834216}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: caf00003b3a54e7d9c2f81046ad5e100, type: 3}
@@ -236,7 +236,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.LookupCASim
   cs: {fileID: 7200000, guid: caf0000cb3a54e7d9c2f81046ad5e100, type: 3}
   outputMat: {fileID: 2100000, guid: c2010ea3254cd4261b0ee5ba5b55eb13, type: 2}
-  compositeWeight: 1
+  compositeWeight: 0.4
   renderPersistence: 0.9
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
@@ -248,19 +248,19 @@ MonoBehaviour:
   scaleDensityToResolution: 1
   umwelt: {fileID: 0}
   firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 0}
-  csvCoordinatesAreNormalized: 0
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  cellResolutionScale: 0.35
+  cellResolutionScale: 0.25
   stepEvery: 4
   publishTarget: {fileID: 1919109757}
   publishChannel: 14
-  publishGain: 1
+  publishGain: 0.34
   publishMode: 2
   couplingSource: {fileID: 0}
-  couplingStrength: 1
+  couplingStrength: 0.373
   couplingThreshold: 0.5
   couplingInvert: 0
   firingIgnitionStrength: 0
@@ -268,16 +268,16 @@ MonoBehaviour:
   centreKeepOut: 0
   centreKeepOutDepth: 0.8
   paramsSO: {fileID: 11400000, guid: 810d061b2743e46208add045e5567b1a, type: 2}
-  caParams: {fileID: 0}
---- !u!4 &159104055
+  caParams: {fileID: 1617571678}
+--- !u!4 &47834218
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 159104053}
+  m_GameObject: {fileID: 47834216}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -414,6 +414,136 @@ MonoBehaviour:
   agentsCount: 1000000
   paramsSO: {fileID: 11400000, guid: ce6059bd37aad4fd682ecdeed0d5adbd, type: 2}
   agentParams: {fileID: 0}
+--- !u!1 &281442301
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 281442304}
+  - component: {fileID: 281442302}
+  - component: {fileID: 281442303}
+  m_Layer: 0
+  m_Name: PhysarumSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &281442302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281442301}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c2bb3fc8c5fa48c1a5f7bd1fcf7d0bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
+  cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
+  outputMat: {fileID: 2100000, guid: a4bf6d9d247cc4ee09b794a24c2bbc1f, type: 2}
+  compositeWeight: 0.85
+  renderPersistence: 0.8
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 30
+  rezX: 2048
+  rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 11400000, guid: 546aef1b5a4834ed6901ed37469c8a60, type: 2}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  agentsCount: 1000000
+  paramsSO: {fileID: 11400000, guid: ce6059bd37aad4fd682ecdeed0d5adbd, type: 2}
+  agentParams: {fileID: 0}
+--- !u!114 &281442303
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281442301}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 610578497}
+  simIndex: 0
+  waypoints: []
+  durationSteps: 20000
+  holdSteps: 5000
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles:
+  - name: moveSpeed
+    enabled: 1
+  - name: senseAngle
+    enabled: 1
+  - name: turnAngle
+    enabled: 1
+  - name: senseDistance
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: eatAmount
+    enabled: 1
+  - name: diffuseRate
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
+--- !u!4 &281442304
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281442301}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 610578496}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &417804407
 GameObject:
   m_ObjectHideFlags: 0
@@ -552,88 +682,9 @@ Transform:
   m_Children:
   - {fileID: 1919109755}
   - {fileID: 2000144459}
+  - {fileID: 610578496}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &564393963
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 564393964}
-  - component: {fileID: 564393965}
-  m_Layer: 0
-  m_Name: CyclicCA
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &564393964
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 564393963}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2000144459}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &564393965
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 564393963}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: caf00002b3a54e7d9c2f81046ad5e100, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.CyclicCASim
-  cs: {fileID: 7200000, guid: caf0000bb3a54e7d9c2f81046ad5e100, type: 3}
-  outputMat: {fileID: 2100000, guid: 64beb75eaf36640288cbed33e9d1e848, type: 2}
-  compositeWeight: 1
-  renderPersistence: 0.9
-  dispersalSpeedMode: 1
-  dispersalSpeedMult: 4
-  dispersalConstantSpeed: 6
-  rezX: 1024
-  rezY: 1024
-  referenceHeight: 2160
-  scaleSpatialToResolution: 1
-  scaleDensityToResolution: 1
-  umwelt: {fileID: 0}
-  firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 0}
-  csvCoordinatesAreNormalized: 0
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
-  cellResolutionScale: 0.35
-  stepEvery: 3
-  publishTarget: {fileID: 1919109757}
-  publishChannel: 13
-  publishGain: 1
-  publishMode: 2
-  couplingSource: {fileID: 159104054}
-  couplingStrength: 1
-  couplingThreshold: 0.5
-  couplingInvert: 0
-  firingIgnitionStrength: 0
-  firingIgnitionRadius: 8
-  centreKeepOut: 0
-  centreKeepOutDepth: 0.8
-  paramsSO: {fileID: 11400000, guid: 89f694a2de2d54d08b5e64a3618cc662, type: 2}
-  caParams: {fileID: 0}
-  resetSeed: 12345
 --- !u!1 &584847074
 GameObject:
   m_ObjectHideFlags: 0
@@ -874,6 +925,134 @@ MonoBehaviour:
   m_ObsoleteUseShadowQualitySettings: 0
   m_ObsoleteCustomShadowResolution: 512
   m_ObsoleteContactShadows: 0
+--- !u!1 &610578495
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 610578496}
+  - component: {fileID: 610578497}
+  - component: {fileID: 610578498}
+  - component: {fileID: 610578499}
+  m_Layer: 0
+  m_Name: SimulationManager (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &610578496
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 610578495}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -7.58071, y: 0.63914, z: -13.88248}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 281442304}
+  - {fileID: 1084851806}
+  - {fileID: 1654849737}
+  - {fileID: 1087281931}
+  - {fileID: 860647030}
+  m_Father: {fileID: 527395917}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &610578497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 610578495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
+  rezX: 3840
+  rezY: 2160
+  simResolutionScale: 1
+  perceptionResScale: 0.75
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  simRate: 60
+  maxAllowedTimestep: 0.1
+  stepsPerTick: 1
+  limitFPS: 1
+  targetFPS: 90
+  ownsGlobalTiming: 1
+  biome: {fileID: 1919109757}
+  injector: {fileID: 1919109756}
+  fusedWriteback: 1
+  metabolismEvery: 1
+  simulations:
+  - {fileID: 281442302}
+  - {fileID: 1084851804}
+  - {fileID: 1654849739}
+  - {fileID: 860647031}
+  - {fileID: 1087281930}
+  externalInput: {fileID: 0}
+  neuronFiring: {fileID: 610578498}
+  m_DebugOverlayVideoOnOutput: 0
+  m_DebugOverlayStrength: 0.5
+  m_NeuronRingOverlay: 0
+  m_RingColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  m_RingRadius: 14
+  m_RingThickness: 4
+  m_RingStrength: 1.5
+  m_RingExpandGain: 2
+  m_RingCoreStrength: 1.5
+  m_RingThreshold: 0.1
+  compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
+  compositeOutMat: {fileID: 2100000, guid: b154ae275d2d241fb8c639183fc53c70, type: 2}
+  compositeOutputQuad: {fileID: 944659780}
+  recordingCamera: {fileID: 907546077}
+  moundOverlayStrength: 0.6
+  moundColor: {r: 0.5294118, g: 0.8078432, b: 0.9215687, a: 1}
+--- !u!114 &610578498
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 610578495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40bb26352978a47488ae7d645d3d6303, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
+  firingBlobFile: biomes11/organoid_firing.f16
+  firingDecaySeconds: 0.5
+  debugLog: 0
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  spawnScale: {x: 0.5, y: 0.6}
+--- !u!114 &610578499
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 610578495}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a81345919d00e415285bf20e1c5b4d5b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolatorGroup
+  interpolators:
+  - {fileID: 281442303}
+  - {fileID: 1084851805}
+  - {fileID: 1654849738}
+  mft: {fileID: 417804410}
+  resumeCooldownSeconds: 8
+  midiOverrideActive: 0
 --- !u!1 &670242431
 GameObject:
   m_ObjectHideFlags: 0
@@ -987,6 +1166,86 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 670242431}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &860647029
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 860647030}
+  - component: {fileID: 860647031}
+  m_Layer: 0
+  m_Name: CyclicCA
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &860647030
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 860647029}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 610578496}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &860647031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 860647029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: caf00002b3a54e7d9c2f81046ad5e100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.CyclicCASim
+  cs: {fileID: 7200000, guid: caf0000bb3a54e7d9c2f81046ad5e100, type: 3}
+  outputMat: {fileID: 2100000, guid: 64beb75eaf36640288cbed33e9d1e848, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 0}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 0}
+  csvCoordinatesAreNormalized: 0
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  cellResolutionScale: 0.35
+  stepEvery: 3
+  publishTarget: {fileID: 1919109757}
+  publishChannel: 13
+  publishGain: 1
+  publishMode: 2
+  couplingSource: {fileID: 1087281930}
+  couplingStrength: 1
+  couplingThreshold: 0.5
+  couplingInvert: 0
+  firingIgnitionStrength: 0
+  firingIgnitionRadius: 8
+  centreKeepOut: 0
+  centreKeepOutDepth: 0.8
+  paramsSO: {fileID: 11400000, guid: 89f694a2de2d54d08b5e64a3618cc662, type: 2}
+  caParams: {fileID: 0}
+  resetSeed: 12345
 --- !u!1 &907546074
 GameObject:
   m_ObjectHideFlags: 0
@@ -1324,6 +1583,7 @@ Transform:
   - {fileID: 1076481739}
   - {fileID: 1470234284}
   - {fileID: 670242432}
+  - {fileID: 1949152089}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1010527582
@@ -1570,6 +1830,219 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1076481738}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1084851803
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1084851806}
+  - component: {fileID: 1084851804}
+  - component: {fileID: 1084851805}
+  m_Layer: 0
+  m_Name: BoidSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1084851804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1084851803}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c26c19193c8bb4298a6d0331d5741d44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidSim
+  cs: {fileID: 7200000, guid: 389d82ac9790342749216aaa0602d941, type: 3}
+  outputMat: {fileID: 2100000, guid: a6f38dce48f0546a6b301b3855df7027, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 30
+  rezX: 2048
+  rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 11400000, guid: fa3ecf38037514e6cb957d7301c43b54, type: 2}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  agentsCount: 20000
+  paramsSO: {fileID: 11400000, guid: 240279da01faf455fbb39cbd1a0dea07, type: 2}
+  agentParams: {fileID: 0}
+--- !u!114 &1084851805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1084851803}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 610578497}
+  simIndex: 1
+  waypoints: []
+  durationSteps: 20000
+  holdSteps: 5000
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles:
+  - name: maxSpeed
+    enabled: 1
+  - name: maxForce
+    enabled: 1
+  - name: separateRange
+    enabled: 1
+  - name: alignRange
+    enabled: 1
+  - name: attractRange
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: eatAmount
+    enabled: 1
+  - name: foodSeek
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
+  - name: diffuseRate
+    enabled: 1
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
+--- !u!4 &1084851806
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1084851803}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 610578496}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1087281929
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1087281931}
+  - component: {fileID: 1087281930}
+  m_Layer: 0
+  m_Name: LookupCA
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1087281930
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1087281929}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: caf00003b3a54e7d9c2f81046ad5e100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.LookupCASim
+  cs: {fileID: 7200000, guid: caf0000cb3a54e7d9c2f81046ad5e100, type: 3}
+  outputMat: {fileID: 2100000, guid: c2010ea3254cd4261b0ee5ba5b55eb13, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 0}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 0}
+  csvCoordinatesAreNormalized: 0
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  cellResolutionScale: 0.35
+  stepEvery: 4
+  publishTarget: {fileID: 1919109757}
+  publishChannel: 14
+  publishGain: 1
+  publishMode: 2
+  couplingSource: {fileID: 0}
+  couplingStrength: 1
+  couplingThreshold: 0.5
+  couplingInvert: 0
+  firingIgnitionStrength: 0
+  firingIgnitionRadius: 8
+  centreKeepOut: 0
+  centreKeepOutDepth: 0.8
+  paramsSO: {fileID: 11400000, guid: 810d061b2743e46208add045e5567b1a, type: 2}
+  caParams: {fileID: 0}
+--- !u!4 &1087281931
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1087281929}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 610578496}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1470234283
 GameObject:
   m_ObjectHideFlags: 0
@@ -1683,6 +2156,183 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1470234283}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &1617571678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: caf00009b3a54e7d9c2f81046ad5e100, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.LookupCAParams
+  nstates: 3
+  seed: 1337
+  lambda: 0.28
+  initMode: 2
+  initSize: 0.15
+  hue: 0.08
+  hueSpread: 0.15
+  saturation: 0.35
+  brightness: 0.85
+  ranges:
+  - name: nstates
+    min: 2
+    max: 6
+  - name: lambda
+    min: 0
+    max: 1
+  - name: seed
+    min: 0
+    max: 65535
+  - name: initSize
+    min: 0.001
+    max: 1
+  - name: hue
+    min: 0
+    max: 1
+  - name: hueSpread
+    min: 0
+    max: 1
+  - name: saturation
+    min: 0
+    max: 1
+  - name: brightness
+    min: 0
+    max: 1
+--- !u!1 &1654849736
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1654849737}
+  - component: {fileID: 1654849739}
+  - component: {fileID: 1654849738}
+  m_Layer: 0
+  m_Name: TermiteSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1654849737
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1654849736}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 610578496}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1654849738
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1654849736}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 610578497}
+  simIndex: 2
+  waypoints: []
+  durationSteps: 20000
+  holdSteps: 5000
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  paramToggles:
+  - name: moveSpeed
+    enabled: 1
+  - name: senseAngle
+    enabled: 1
+  - name: turnAngle
+    enabled: 1
+  - name: senseDistance
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: diffuseRate
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
+--- !u!114 &1654849739
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1654849736}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a989f9dacbef242b79081d4a2c6afcd6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
+  cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
+  outputMat: {fileID: 2100000, guid: 9d65b798522f04d35b969318abe37748, type: 2}
+  compositeWeight: 1.5
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 11400000, guid: 9260846e883da470eae0486aff6c9c78, type: 2}
+  firingThreshold: 0.1
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  csvCoordinatesAreNormalized: 1
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
+  agentsCount: 131
+  turnAngleSpread: 0.8
+  paramsSO: {fileID: 11400000, guid: d26ae63b71e044642bac959ba90e4937, type: 2}
+  agentParams: {fileID: 0}
+  wallBuildAmount: 0.003
+  wallBuildFiringThreshold: 0.1
 --- !u!1 &1825205985
 GameObject:
   m_ObjectHideFlags: 0
@@ -2200,8 +2850,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 095ffec3960c64568b8ad0646a21b5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
-  biomeRezX: 512
-  biomeRezY: 288
+  biomeRezX: 640
+  biomeRezY: 360
   stepEvery: 1
   fieldConfig: {fileID: 11400000, guid: 229ff7e018d364f38b5f8e167140463b, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
@@ -2275,6 +2925,119 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1949152088
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1949152089}
+  - component: {fileID: 1949152092}
+  - component: {fileID: 1949152091}
+  - component: {fileID: 1949152090}
+  m_Layer: 0
+  m_Name: 2DCA
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1949152089
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949152088}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.7, y: 0.692, z: 0}
+  m_LocalScale: {x: 0.3030303, y: 0.3030303, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 944659780}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!64 &1949152090
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949152088}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &1949152091
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949152088}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: c2010ea3254cd4261b0ee5ba5b55eb13, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1949152092
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949152088}
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1 &2000144458
 GameObject:
   m_ObjectHideFlags: 0
@@ -2310,8 +3073,7 @@ Transform:
   - {fileID: 276895386}
   - {fileID: 1825205986}
   - {fileID: 1010527585}
-  - {fileID: 159104055}
-  - {fileID: 564393964}
+  - {fileID: 47834218}
   m_Father: {fileID: 527395917}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2000144460
@@ -2366,8 +3128,7 @@ MonoBehaviour:
   - {fileID: 276895388}
   - {fileID: 1825205988}
   - {fileID: 1010527583}
-  - {fileID: 564393965}
-  - {fileID: 159104054}
+  - {fileID: 47834217}
   externalInput: {fileID: 0}
   neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0
