@@ -190,6 +190,37 @@ cf. `Dispersal` 0.9 vs `Nutrient` 0.995):
 Changed in `BiomeFieldConfig.cs` defaults **and** in the `BiomeFieldConfig_Homeostatic.asset`
 of 11.1, 11.2 and 11.3, so the three scenes do not drift.
 
+### Why two CA channels, and why not just Permeability
+
+Raised during review and worth recording, because the rationale lived only in the CA spec's
+§4 and was not discoverable from the code.
+
+The two channels encode **opposite affordances**, matching the two automata:
+
+| Channel | CA | Intended `UmweltMapping` | Reads as |
+|---|---|---|---|
+| `Excitability` (13) | cyclic | `Chemotaxis` | a medium to **follow** — physarum tracks the spiral arms |
+| `Substrate` (14) | lookup | `SpeedPenalty` / `Avoidance` | a structure to **avoid** — boids stall or steer around the lattice |
+
+`Substrate` overlaps `Permeability` (7) more than it first appears — both say "hard to move
+here", and all three species already read ch7. Folding it in is genuinely tempting: `MinToward`
+exists precisely so a raster can close permeability without stomping termite mounds, and ch7's
+`relaxRate 0.05` already provides the heal-back this spec's §4 otherwise has to add.
+
+**Kept separate anyway**, for reasons of write ownership rather than affordance:
+
+- Termites author ch7 ([[../../adr/0010-permeability-agent-built-topography|ADR-0010]]). A CA
+  publishing `SetToward` there would stomp their work every step.
+- Opposite baselines: Permeability rests *open* (0.7) and relaxes back, so a CA pattern
+  published into it is continuously pulled toward open. Substrate rests at 0.
+- Different reads: Permeability drives the habitat-band gate (species *confinement*);
+  Substrate is intended for steering.
+
+`Excitability` is not redundant with Permeability under any reading — "follow this" is not a
+movement cost. It is, however, **speculative capacity**: as of this spec nothing reads ch13 or
+ch14, so the ADR-0011 coupling claim has never been exercised. Wiring one `UmweltMapping` read
+is the cheapest way to test it and should follow shortly after this work.
+
 ## 5. Testing
 
 EditMode (no GPU):
@@ -223,3 +254,5 @@ dispatches nothing (re-run `Biomes > Perf > Probe CA Cost` and confirm idle ≈ 
 4. **Absolute cell resolution** — replaces `cellResolutionScale` outright.
 5. **Retrigger extends** — resets the clock, keeps the lattice.
 6. **Trace persists and erodes via the channel's own PDE** — decay + diffuse + advect.
+7. **Both CA channels kept** — `Substrate` is not folded into `Permeability`, on write-ownership
+   grounds (termites author ch7, and its baseline relaxes toward open). See above.
