@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: caf00009b3a54e7d9c2f81046ad5e100, type: 3}
   m_Name: LookupCAParams
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.LookupCAParams
-  nstates: 2
+  nstates: 3
   seed: 1337
-  lambda: 0.31
+  lambda: 0.6
   initMode: 2
   initSize: 0.017
   hue: 0.08

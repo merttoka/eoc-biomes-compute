@@ -253,22 +253,30 @@ MonoBehaviour:
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
-  cellRezHeight: 560
-  stepEvery: 3
+  cellRezHeight: 1080
+  stepEvery: 1
   publishTarget: {fileID: 1919109757}
   publishChannel: 14
   publishGain: 1
   publishMode: 2
+  seedFromChannel: 1
+  seedChannel: 1
+  seedThreshold: 0.24
   couplingSource: {fileID: 0}
   couplingStrength: 0.373
   couplingThreshold: 0.5
   couplingInvert: 0
   firingIgnitionStrength: 0
   firingIgnitionRadius: 8
+  burstEnabled: 1
+  burstSustainSteps: 2
+  fadeInSteps: 3
+  fadeOutSteps: 15
+  burstFiringThreshold: 0.35
   centreKeepOut: 0
   centreKeepOutDepth: 0.8
   paramsSO: {fileID: 11400000, guid: 810d061b2743e46208add045e5567b1a, type: 2}
-  caParams: {fileID: 11400000, guid: 810d061b2743e46208add045e5567b1a, type: 2}
+  caParams: {fileID: 0}
 --- !u!4 &47834218
 Transform:
   m_ObjectHideFlags: 0
@@ -413,7 +421,7 @@ MonoBehaviour:
   behaviorMulNeutral: 0.5
   agentsCount: 1000000
   paramsSO: {fileID: 11400000, guid: ce6059bd37aad4fd682ecdeed0d5adbd, type: 2}
-  agentParams: {fileID: 555627632}
+  agentParams: {fileID: 0}
 --- !u!1 &417804407
 GameObject:
   m_ObjectHideFlags: 0
@@ -554,136 +562,6 @@ Transform:
   - {fileID: 2000144459}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &555627632
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cedb5f294328d477cbecb144e33660a9, type: 3}
-  m_Name: Physarum_20260711_201424(Clone)
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumParams
-  typeCount: 8
-  types:
-  - senseAngle: 51
-    senseDistance: 11.118111
-    turnAngle: 99.285034
-    moveSpeed: 0.1
-    depositAmount: 0.24
-    eatAmount: 0.94
-    diffuseRate: 0.9
-    hue: 0
-    saturation: 0.8098313
-    firingSpeedMul: 2
-    firingDepositAmount: 0.7
-  - senseAngle: 96.45118
-    senseDistance: 86.67087
-    turnAngle: 107.78661
-    moveSpeed: 0.88582677
-    depositAmount: 0.93
-    eatAmount: 0.96
-    diffuseRate: 0.9
-    hue: 0
-    saturation: 0.62651634
-    firingSpeedMul: 2
-    firingDepositAmount: 0.7
-  - senseAngle: 42
-    senseDistance: 4.822047
-    turnAngle: 82.28189
-    moveSpeed: 0.1
-    depositAmount: 0.3
-    eatAmount: 0.35
-    diffuseRate: 0.9
-    hue: 0
-    saturation: 0.7882761
-    firingSpeedMul: 2
-    firingDepositAmount: 0.7
-  - senseAngle: 36.94016
-    senseDistance: 85.096855
-    turnAngle: 87.94961
-    moveSpeed: 0.1
-    depositAmount: 0.4
-    eatAmount: 0.44
-    diffuseRate: 0.90236217
-    hue: 0
-    saturation: 0.2913386
-    firingSpeedMul: 2
-    firingDepositAmount: 0.7
-  - senseAngle: 14.1
-    senseDistance: 9
-    turnAngle: 111.54
-    moveSpeed: 0.1
-    depositAmount: 0.02
-    eatAmount: 0.01
-    diffuseRate: 0.985
-    hue: 0
-    saturation: 0.6993895
-    firingSpeedMul: 2
-    firingDepositAmount: 1
-  - senseAngle: 12.6
-    senseDistance: 47.02
-    turnAngle: 39.2
-    moveSpeed: 0.1
-    depositAmount: 0.02
-    eatAmount: 0.01
-    diffuseRate: 0.985
-    hue: 0
-    saturation: 0.4225135
-    firingSpeedMul: 2
-    firingDepositAmount: 1
-  - senseAngle: 27.93
-    senseDistance: 2.2
-    turnAngle: 95.4
-    moveSpeed: -0.1
-    depositAmount: 0.02
-    eatAmount: 0.01
-    diffuseRate: 0.9858268
-    hue: 0
-    saturation: 0.96062994
-    firingSpeedMul: 2
-    firingDepositAmount: 1
-  - senseAngle: 133.29134
-    senseDistance: 26.858267
-    turnAngle: 130.45749
-    moveSpeed: 1.89
-    depositAmount: 0.064566925
-    eatAmount: 0.01
-    diffuseRate: 0.97952753
-    hue: 0.63779527
-    saturation: 0.023622047
-    firingSpeedMul: 2
-    firingDepositAmount: 1
-  ranges:
-  - name: moveSpeed
-    min: 0.1
-    max: 50
-  - name: senseAngle
-    min: 0.1
-    max: 360
-  - name: turnAngle
-    min: 0.1
-    max: 360
-  - name: senseDistance
-    min: 0.1
-    max: 200
-  - name: depositAmount
-    min: 0.01
-    max: 1
-  - name: eatAmount
-    min: 0
-    max: 0.1
-  - name: diffuseRate
-    min: 0.9
-    max: 1
-  - name: hue
-    min: 0
-    max: 1
-  - name: saturation
-    min: 0
-    max: 1
 --- !u!1 &581641506
 GameObject:
   m_ObjectHideFlags: 0
@@ -1037,114 +915,6 @@ MonoBehaviour:
   m_ObsoleteUseShadowQualitySettings: 0
   m_ObsoleteCustomShadowResolution: 512
   m_ObsoleteContactShadows: 0
---- !u!114 &651871271
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8ebcbb7c3a74a4ac984251fcad162e67, type: 3}
-  m_Name: Boid_20260711_200244(Clone)
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidParams
-  typeCount: 4
-  types:
-  - separationRange: 50.3937
-    alignmentRange: 63.767315
-    attractionRange: 49.91167
-    maxSpeed: 2.6850393
-    maxForce: 1.2574804
-    depositAmount: 0.070866145
-    eatAmount: 0.05
-    foodSensorDistance: 10
-    sensorAngleRad: 0.5235988
-    foodSeekingStrength: 0.5
-    diffuseRate: 0.93307084
-    hue: 0.27559054
-    saturation: 0.1496063
-    firingSpeedMul: 1.5
-    firingDepositAmount: 0.5
-  - separationRange: 36.787403
-    alignmentRange: 30.807276
-    attractionRange: 22.784512
-    maxSpeed: 1.6818898
-    maxForce: 1.6818898
-    depositAmount: 0.11811024
-    eatAmount: 0.01
-    foodSensorDistance: 15
-    sensorAngleRad: 0.5235988
-    foodSeekingStrength: 0.5
-    diffuseRate: 0.9519685
-    hue: 0.6456693
-    saturation: 0.47244096
-    firingSpeedMul: 1.5
-    firingDepositAmount: 0.5
-  - separationRange: 26.204725
-    alignmentRange: 17.133858
-    attractionRange: 6.3958497
-    maxSpeed: 1.6433071
-    maxForce: 1.759055
-    depositAmount: 0.10236221
-    eatAmount: 0.01
-    foodSensorDistance: 15
-    sensorAngleRad: 0.5235988
-    foodSeekingStrength: 0.5
-    diffuseRate: 0.9535433
-    hue: 0.27559054
-    saturation: 0.15748031
-    firingSpeedMul: 1.5
-    firingDepositAmount: 0.5
-  - separationRange: 39.307087
-    alignmentRange: 40.863094
-    attractionRange: 61.08412
-    maxSpeed: 1.4889765
-    maxForce: 2.8779528
-    depositAmount: 0.11023622
-    eatAmount: 0.01
-    foodSensorDistance: 15
-    sensorAngleRad: 0.5235988
-    foodSeekingStrength: 0.5
-    diffuseRate: 0.97244096
-    hue: 0.21259843
-    saturation: 0.40944883
-    firingSpeedMul: 1.5
-    firingDepositAmount: 0.5
-  ranges:
-  - name: maxSpeed
-    min: 0.1
-    max: 5
-  - name: maxForce
-    min: 0.1
-    max: 5
-  - name: separateRange
-    min: 0
-    max: 64
-  - name: alignRange
-    min: 0
-    max: 64
-  - name: attractRange
-    min: 0
-    max: 64
-  - name: depositAmount
-    min: 0
-    max: 1
-  - name: eatAmount
-    min: 0
-    max: 1
-  - name: foodSeek
-    min: 0
-    max: 5
-  - name: hue
-    min: 0
-    max: 1
-  - name: saturation
-    min: 0
-    max: 1
-  - name: diffuseRate
-    min: 0.9
-    max: 1
 --- !u!1 &670242431
 GameObject:
   m_ObjectHideFlags: 0
@@ -1258,69 +1028,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 670242431}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &732274701
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c016f41934f544f308052ff23c8e9c7b, type: 3}
-  m_Name: Termite_20260711_200244(Clone)
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteParams
-  typeCount: 1
-  types:
-  - senseAngle: 65.26063
-    senseDistance: 23.710238
-    turnAngle: 21.348032
-    moveSpeed: 1.2251968
-    firingSpeedMul: 2
-    depositAmount: 1
-    firingDepositAmount: 4
-    depositProbability: 0.2
-    firingDepositProbability: 0.4
-    diffuseRate: 0.97
-    hue: 0.56692916
-    saturation: 0.39370078
-  ranges:
-  - name: moveSpeed
-    min: 0.05
-    max: 10
-  - name: senseAngle
-    min: 0.1
-    max: 180
-  - name: turnAngle
-    min: 0.1
-    max: 180
-  - name: senseDistance
-    min: 0.1
-    max: 200
-  - name: depositAmount
-    min: 0.01
-    max: 1
-  - name: firingDepositAmount
-    min: 1
-    max: 4
-  - name: depositProbability
-    min: 0
-    max: 1
-  - name: firingDepositProbability
-    min: 0
-    max: 1
-  - name: firingSpeedMul
-    min: 1
-    max: 5
-  - name: diffuseRate
-    min: 0.9
-    max: 1
-  - name: hue
-    min: 0
-    max: 1
-  - name: saturation
-    min: 0
-    max: 1
 --- !u!1 &773823229
 GameObject:
   m_ObjectHideFlags: 0
@@ -1370,21 +1077,29 @@ MonoBehaviour:
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
   cellRezHeight: 756
-  stepEvery: 3
+  stepEvery: 4
   publishTarget: {fileID: 1919109757}
   publishChannel: 13
   publishGain: 1
   publishMode: 2
+  seedFromChannel: 0
+  seedChannel: 1
+  seedThreshold: 0.5
   couplingSource: {fileID: 47834217}
   couplingStrength: 0.61
   couplingThreshold: 0.282
   couplingInvert: 0
   firingIgnitionStrength: 0
   firingIgnitionRadius: 8
+  burstEnabled: 0
+  burstSustainSteps: 240
+  fadeInSteps: 30
+  fadeOutSteps: 90
+  burstFiringThreshold: 0.35
   centreKeepOut: 0
   centreKeepOutDepth: 0.8
   paramsSO: {fileID: 11400000, guid: 89f694a2de2d54d08b5e64a3618cc662, type: 2}
-  caParams: {fileID: 11400000, guid: 89f694a2de2d54d08b5e64a3618cc662, type: 2}
+  caParams: {fileID: 0}
   resetSeed: 12345
 --- !u!4 &773823231
 Transform:
@@ -1794,7 +1509,7 @@ MonoBehaviour:
   agentsCount: 131
   turnAngleSpread: 0.8
   paramsSO: {fileID: 11400000, guid: d26ae63b71e044642bac959ba90e4937, type: 2}
-  agentParams: {fileID: 732274701}
+  agentParams: {fileID: 0}
   wallBuildAmount: 0.003
   wallBuildFiringThreshold: 0.1
 --- !u!114 &1010527584
@@ -2232,7 +1947,7 @@ MonoBehaviour:
   behaviorMulNeutral: 0.5
   agentsCount: 20000
   paramsSO: {fileID: 11400000, guid: 240279da01faf455fbb39cbd1a0dea07, type: 2}
-  agentParams: {fileID: 651871271}
+  agentParams: {fileID: 0}
 --- !u!1 &1915234168
 GameObject:
   m_ObjectHideFlags: 0
@@ -2874,8 +2589,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 3840
-  rezY: 2160
+  rezX: 1920
+  rezY: 1080
   simResolutionScale: 1
   perceptionResScale: 0.75
   referenceHeight: 2160
