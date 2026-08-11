@@ -52,8 +52,9 @@ namespace Biomes
                  "to their shaders. Leave null to run as a pure composite layer.")]
         public Biome publishTarget;
         [BiomeChannelField]
-        [Tooltip("Channel the state is published into. Give the CA its own channel and leave the " +
-                 "PDE off it (diffuseRate 0, relaxRate 0) unless you want the pattern to bleed.")]
+        [Tooltip("Channel the state is published into. The CA owns this channel while bursting; " +
+                 "once idle it stops publishing and the PDE takes the deposit over (erodes, " +
+                 "spreads, advects). Zero diffuseRate/relaxRate instead to keep it CA-only and inert.")]
         public int publishChannel = BiomeChannel.Excitability;
         [Tooltip("Scales the normalized state before blending into the channel.")]
         [Range(0f, 4f)] public float publishGain = 1f;
@@ -236,8 +237,6 @@ namespace Biomes
 
             // Output lives at cell resolution: the composite UV-samples every layer through a
             // linear-clamp sampler, so a coarse CA upscales without a resample pass here.
-            // outTex = gpu.CreateTexture2D(cellRezX, cellRezY, FilterMode.Trilinear,
-                // RenderTextureFormat.ARGBHalf, SimName + "_out");
             outTex = gpu.CreateTexture2D(cellRezX, cellRezY, FilterMode.Point,
                 RenderTextureFormat.ARGBHalf, SimName + "_out");
 
@@ -354,10 +353,7 @@ namespace Biomes
             Dispatch(resetStateKernel, cellRezX, cellRezY, 1);
             SwapState();
 
-            var prev = RenderTexture.active;
-            RenderTexture.active = outTex;
-            GL.Clear(false, true, Color.clear);
-            RenderTexture.active = prev;
+            ClearOutput();
         }
 
         public override void Step()
@@ -379,7 +375,6 @@ namespace Biomes
                     if (_outputDirty) { ClearOutput(); _outputDirty = false; }
                     return;
                 }
-                _outputDirty = true;
             }
 
             // Rule decimation. Render still runs every step so the composite never stutters.
@@ -390,6 +385,11 @@ namespace Biomes
                 SwapState();
             }
             Render();
+            // Any rendered frame — burst-active or legacy continuous (burstEnabled off) — leaves
+            // outTex with content that must be cleared once idle. Setting this unconditionally
+            // here (rather than only inside the burst branch) is what makes toggling burstEnabled
+            // on mid-Play still clear the last legacy frame on the first idle step.
+            _outputDirty = true;
             PublishToChannel();
         }
 
@@ -432,9 +432,10 @@ namespace Biomes
         /// <summary>
         /// Publish the normalized state into a biome channel so agent sims perceive the CA
         /// through UmweltMapping — no change to any sim's shader, only its mapping asset.
-        /// This is wiring "B1" from the CA design: the CA owns the channel and the PDE is
-        /// expected to leave it alone, which keeps the rule's authoritative state in this
-        /// sim's own RFloat texture rather than in a diffused float layer.
+        /// This is wiring "B1" from the CA design: the CA owns the channel while bursting;
+        /// once idle it stops publishing and the PDE takes the deposit over (erodes, spreads,
+        /// advects). The rule's authoritative state always lives in this sim's own RFloat
+        /// texture, never in the diffused channel.
         /// </summary>
         protected virtual void PublishToChannel()
         {

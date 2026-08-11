@@ -213,7 +213,10 @@ master's aspect, so the automaton's on-screen scale does not move when output re
   `seed`/`lambda`/`nstates` are interpolatable and changing any regenerates the table —
   arc evolution is discrete regenerations, not a continuous morph.
   Pointing a `CyclicCASim.couplingSource` at a `LookupCASim` gates the waves on the lattice,
-  so structure and flow become one coupled system rather than two stacked layers.
+  so structure and flow become one coupled system rather than two stacked layers. The gate
+  reads the partner's live `stateRead`, not its published (and eroding) biome channel, so once
+  a burst goes idle the frozen lattice keeps gating while the deposit erodes on its own —
+  accepted, not synchronized.
 - **`TermiteSim`** — neuron-coupled pheromone-stigmergy swarm (ported from
   `PDE_Nefeli_Termites`). Sense-and-turn like Physarum, minus "eat". Builds persistent
   **permeability mounds** via a dedicated firing-gated `Biome.BuildPermeability` /
