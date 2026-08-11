@@ -283,12 +283,14 @@ namespace Biomes
 
         /// <summary>
         /// Start a burst, or extend the one already running. Only a trigger arriving from idle
-        /// re-seeds the grid — see <see cref="BurstEnvelope.Trigger"/>.
+        /// re-seeds the grid — see <see cref="BurstEnvelope.Trigger"/>. Inert while
+        /// <see cref="burstEnabled"/> is off, so the button cannot wipe a running legacy
+        /// continuous-mode lattice or leave a phantom in-flight burst for later.
         /// </summary>
         [Button("Trigger burst")]
         public void TriggerBurst()
         {
-            if (!IsConfigured) return;
+            if (!IsConfigured || !burstEnabled) return;
 
             if (_burst.Trigger())
             {
