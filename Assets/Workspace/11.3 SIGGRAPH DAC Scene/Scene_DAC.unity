@@ -414,6 +414,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 546aef1b5a4834ed6901ed37469c8a60, type: 2}
+  trailAnisotropy: 0.2
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -1502,6 +1503,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 9260846e883da470eae0486aff6c9c78, type: 2}
+  trailAnisotropy: 0.3
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -1941,6 +1943,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: fa3ecf38037514e6cb957d7301c43b54, type: 2}
+  trailAnisotropy: 1
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1

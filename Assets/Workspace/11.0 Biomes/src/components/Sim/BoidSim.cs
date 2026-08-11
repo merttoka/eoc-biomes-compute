@@ -173,6 +173,7 @@ namespace Biomes
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
+            BindTrailAnisotropy();
             GPUSpatialHashBuild();
             GPUMoveAgentsKernel();
             GPUDiffuseTextureKernel();

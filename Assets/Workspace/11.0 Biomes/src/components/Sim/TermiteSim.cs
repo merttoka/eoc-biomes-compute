@@ -139,6 +139,7 @@ namespace Biomes
             UploadTypeParams();
             BindPerceptionTex(moveAgentsKernel);
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
+            BindTrailAnisotropy();
             cs.SetFloat("turnAngleSpread", turnAngleSpread);
             BindDispersalSpeedParams();
 

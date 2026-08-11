@@ -51,11 +51,17 @@ StructuredBuffer<float4> channelSettings;
 // Parallel per-channel homeostatic relaxation rate (relax toward initialValue baseline, or
 // for permeability toward the recomputed noise terrain). 0 = off (old one-way behaviour).
 StructuredBuffer<float> channelRelax;
+// Parallel per-channel diffusion-kernel shaping: float4(kernelShape, flowAnisotropy,
+// permeabilityInfluence, reserved). An all-zero row reproduces the legacy uniform 3x3
+// box blur exactly — see DiffuseFieldsKernel for what each term does.
+StructuredBuffer<float4> channelKernel;
 
 // Cross-field interaction params
 float wasteToNutrientRate;
 float decompTempSpan;       // Q10 exponent span for decomposition (0 ≈ flat, ~4 = strong fronts)
 float tempToFlowStrength;
+float windX;                // ambient wind added into the flow accumulation each step
+float windY;                // (prevailing drift; flow equilibrium ≈ 10x this, clamped ±1)
 float tempToPermeability;
 float tempToEvaporation;    // Temperature above 0.5 baseline sinks Humidity (evaporation)
 float humidityGradientGain; // |∇Humidity| magnitude gain (raw grad tiny; Humidity diffuseRate smooths it)
@@ -176,11 +182,13 @@ void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
     float existingFX = fieldRead[uint3(id.xy, CH_FLOW_X)];
     float existingFY = fieldRead[uint3(id.xy, CH_FLOW_Y)];
 
-    // Flow = temperature gradient rotated 90° → circulation around hot/cold spots.
-    // Mean-zero (no buoyancy bias), so a uniform field produces zero net transport
-    // and advection does not drift chemicals in any preferred direction.
-    float newFX = existingFX + (-gradY) * tempToFlowStrength;
-    float newFY = existingFY + ( gradX) * tempToFlowStrength;
+    // Flow = temperature gradient rotated 90° → circulation around hot/cold spots,
+    // plus the ambient wind. The curl term is mean-zero (no buoyancy bias): any
+    // preferred drift direction comes ONLY from the wind, which accumulates against
+    // the flow channels' 0.92 diffuse-leak · 0.98 decay to an equilibrium ≈ 10x the
+    // per-step add before the ±1 clamp — so windX/windY live in the ~±0.1 range.
+    float newFX = existingFX + (-gradY) * tempToFlowStrength + windX;
+    float newFY = existingFY + ( gradX) * tempToFlowStrength + windY;
 
     fieldWrite[uint3(id.xy, CH_FLOW_X)] = clamp(newFX, -1, 1);
     fieldWrite[uint3(id.xy, CH_FLOW_Y)] = clamp(newFY, -1, 1);
@@ -285,29 +293,89 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 // ════════════════════════════════════════════════
 // DIFFUSE & DECAY
 // ════════════════════════════════════════════════
+// The 3x3 neighbourhood average feeding both diffusion classes (ADR-0007) is a
+// NORMALIZED weighted average; per-channel channelKernel rows shape the weights:
+//   .x kernelShape          0 = box (legacy), 1 = gaussian 1,2,1 ⊗ 1,2,1 (less
+//                           diagonal bias); fractional values morph between them
+//   .y flowAnisotropy       0..1: elongate the kernel along the local flow vector,
+//                           scaled by |flow| (turbulent eddy diffusivity — plumes
+//                           stretch along the wind). SYMMETRIC up/downwind by design:
+//                           the one-way drift is AdvectFieldsKernel's job.
+//   .z permeabilityInfluence 0..1: gate each neighbour exchange by the interface
+//                           permeability min(perm_here, perm_there) — porous media.
+//                           Termite walls block scent, chambers pool it, corridors
+//                           duct it; a sealed cell keeps its load until it decays.
+// An all-zero row makes every weight 1 → the legacy box blur (identical up to
+// float summation order; wsum is exactly 9.0 there).
+// Weights are NORMALIZED, so a uniform field still maps to itself — the invariant
+// ADR-0007's relax-channel equilibrium (== baseline) depends on. What is lost with
+// spatially varying weights is exact GLOBAL mass conservation (gather ≠ scatter):
+// accepted, since stigmergic channels leak by design and relax channels are pinned
+// to their baseline. See docs/superpowers/specs/2026-08-10-anisotropic-diffusion.
+static const float GAUSS_W[9] = { 1, 2, 1, 2, 4, 2, 1, 2, 1 };
+
 [numthreads(8, 8, 1)]
 void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
+
+    // Channel-independent per-cell tap data, hoisted out of the channel loop.
+    // Taps are TOROIDALLY WRAPPED integer Loads: the field textures are Repeat-wrapped
+    // (GPUResourceManager), so the old SampleLevel blur wrapped at the edges; integer
+    // modulo reproduces that exactly (agents wrap too — the world is a torus).
+    int2  taps[9];     // wrapped coords, row-major (dy outer, dx inner) to match GAUSS_W
+    float align2[9];   // (tap dir · flow dir)^2; 1 for the center tap (never penalized)
+    float permIf[9];   // interface permeability toward each tap; 1 for the center
+
+    float2 flow = float2(fieldRead[uint3(id.xy, CH_FLOW_X)],
+                         fieldRead[uint3(id.xy, CH_FLOW_Y)]);
+    float flowMag = length(flow);
+    float2 flowDir = flowMag > 1e-5 ? flow / flowMag : float2(0, 0);
+    float permHere = fieldRead[uint3(id.xy, CH_PERMEABILITY)];
+
+    uint t = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            int2 xy = (int2(id.xy) + int2(dx, dy) + int2(rezX, rezY)) % int2(rezX, rezY);
+            taps[t] = xy;
+            if (dx == 0 && dy == 0) {
+                align2[t] = 1.0;
+                permIf[t] = 1.0;
+            } else {
+                float2 dir = normalize(float2(dx, dy));
+                float a = dot(dir, flowDir);
+                align2[t] = a * a;
+                permIf[t] = min(permHere, fieldRead[uint3(xy, CH_PERMEABILITY)]);
+            }
+            t++;
+        }
+    }
 
     for (uint c = 0; c < CH_COUNT; c++) {
         float diffuseRate = channelSettings[c].x;
         float decayRate = channelSettings[c].y;
 
-        // Skip channels that don't diffuse (e.g. permeability)
+        // Skip channels that don't diffuse (e.g. permeability, CA-owned channels)
         if (diffuseRate <= 0.0) {
             fieldWrite[uint3(id.xy, c)] = fieldRead[uint3(id.xy, c)];
             continue;
         }
 
-        // 3x3 box blur
-        float avg = 0;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                float3 coord = float3((id.x + dx + 0.5) / (float)rezX, (id.y + dy + 0.5) / (float)rezY, c);
-                avg += fieldRead.SampleLevel(sampler_fieldRead, coord, 0);
-            }
+        float4 kern = channelKernel[c];
+        // Anisotropy scales with flow speed: still air diffuses isotropically no
+        // matter the knob — eddy diffusivity grows with wind shear.
+        float elong = kern.y * saturate(flowMag);
+
+        float acc = 0;
+        float wsum = 0;
+        [unroll]
+        for (uint i = 0; i < 9; i++) {
+            float w = lerp(1.0, GAUSS_W[i], saturate(kern.x))
+                    * lerp(1.0, align2[i], elong)
+                    * lerp(1.0, permIf[i], saturate(kern.z));
+            acc += w * fieldRead[uint3(taps[i], c)];
+            wsum += w;
         }
-        avg /= 9.0;
+        float avg = acc / wsum; // wsum >= 1: the center tap is never down-weighted
 
         float baseline = channelSettings[c].w;
         float relaxRate = channelRelax[c];

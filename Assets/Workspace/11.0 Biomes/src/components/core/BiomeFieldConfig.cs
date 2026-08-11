@@ -45,6 +45,11 @@ namespace Biomes
     /// channel index, so it's GPU- and serialization-compatible with a plain int.</summary>
     public class BiomeChannelFieldAttribute : PropertyAttribute { }
 
+    /// <summary>Base stencil for a channel's 3×3 diffusion neighbourhood. Box is the legacy
+    /// uniform blur; Gaussian (1,2,1 ⊗ 1,2,1) has less diagonal bias, i.e. is closer to
+    /// rotationally symmetric. Packed as a float so the shader can morph between them.</summary>
+    public enum DiffusionKernelShape { Box = 0, Gaussian = 1 }
+
     [Serializable]
     public class FieldChannelSettings
     {
@@ -62,6 +67,23 @@ namespace Biomes
                  "0.5). For Permeability it relaxes toward the recomputed noise terrain (heals digs). " +
                  "0 = off (one-way decay/accumulate, the old behaviour).")]
         [Range(0f, 1f)] public float relaxRate = 0f;
+
+        // ── Non-uniform diffusion (defaults reproduce the legacy uniform box blur) ──
+        [Tooltip("Base 3×3 stencil. Box = legacy uniform blur; Gaussian weights the center/axes " +
+                 "more, reducing the box's diagonal spreading bias.")]
+        public DiffusionKernelShape kernelShape = DiffusionKernelShape.Box;
+
+        [Tooltip("Elongate this channel's diffusion along the LOCAL flow vector, scaled by flow " +
+                 "speed (turbulent eddy diffusivity: scent plumes stretch along the wind — " +
+                 "symmetrically up/downwind; the one-way drift is advection's job, see " +
+                 "advectedByFlow). 0 = isotropic (legacy). Needs a live flow field " +
+                 "(temperatureToFlowStrength and/or ambientWind) to have any effect.")]
+        [Range(0f, 1f)] public float flowAnisotropy = 0f;
+
+        [Tooltip("Gate diffusion by interface permeability min(here, neighbour) — porous media. " +
+                 "1 = termite walls fully block this chemical (mounds become scent containers: " +
+                 "chambers pool it, corridors duct it); 0 = scent ignores walls (legacy).")]
+        [Range(0f, 1f)] public float permeabilityInfluence = 0f;
     }
 
     [CreateAssetMenu(fileName = "BiomeFieldConfig", menuName = "Biomes/BiomeFieldConfig")]
@@ -99,6 +121,11 @@ namespace Biomes
                  "0 ≈ flat; ~4 gives near-frozen-when-cold / explosive-when-hot (travelling fertility fronts).")]
         [Range(0f, 8f)]   public float decompositionTempSpan = 4f;
         [Range(0f, 1f)]   public float temperatureToFlowStrength = 0.5f;   // convection
+        [Tooltip("Ambient wind added into the flow field every step (prevailing drift for advected " +
+                 "channels + the axis flow-anisotropic diffusion elongates along). Flow equilibrium " +
+                 "is ≈10× this per-axis value (flow's diffuse-leak/decay), clamped to ±1 — so " +
+                 "±0.02..0.1 is the useful range and ±0.1 already saturates the flow channel.")]
+        public Vector2 ambientWind = Vector2.zero;
         [Range(0f, 1f)]   public float temperatureToPermeability = 0.3f;   // phase transitions (now a bounded offset, see Biome.compute)
         [Tooltip("Open-ground permeability the field starts at and slowly relaxes toward. Termite mounds build downward from this; replaces the old noise terrain.")]
         [Range(0f, 1f)] public float permeabilityOpenBaseline = 0.9f;
