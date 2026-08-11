@@ -65,8 +65,10 @@ namespace Biomes
         // treat a frame ADVANCE as a burst trigger (see burstOnFrameAdvance) because a
         // dense /index stream pins the intensity high and starves the rising edge.
         [NonSerialized] public int neuronFrame = -1;
-        // Aggregate strength of the current playback frame (0..1, mean of the firing row);
-        // gates frame-advance bursts so a dense stream only ignites on strong/synchronous frames.
+        // Aggregate strength of the current playback frame (0..1): the frame's mean firing
+        // value, normalized to the loaded recording's own peak frame mean (see
+        // NeuronFiringSource.FrameActivity). Gates frame-advance bursts via
+        // burstFiringThreshold so a dense stream only ignites on strong/synchronous frames.
         [NonSerialized] public float neuronFrameActivity;
         [Header("Neuron Firing")]
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
