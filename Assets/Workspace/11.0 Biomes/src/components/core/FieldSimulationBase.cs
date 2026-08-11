@@ -113,9 +113,11 @@ namespace Biomes
         public int fadeOutSteps = 90;
         [Tooltip("Edge mode (default): a rising edge of the neuron firing level past this starts " +
                  "a burst. Frame-advance mode (burstOnFrameAdvance on): the minimum per-frame " +
-                 "aggregate activity (0..1, mean firing strength of the playback frame) a frame " +
-                 "must clear to ignite or extend a burst. A trigger during a live burst extends " +
-                 "it (resets the clock, keeps the lattice).")]
+                 "aggregate activity a frame must clear to ignite or extend a burst — normalized " +
+                 "0..1 against the loaded recording's OWN peak per-frame synchrony (NOT an " +
+                 "absolute mean), so this reads as \"fraction of this recording's strongest " +
+                 "frame\": 0.6 = only the top-tier bursting events in the recording ignite. A " +
+                 "trigger during a live burst extends it (resets the clock, keeps the lattice).")]
         [Range(0f, 1f)] public float burstFiringThreshold = 0.35f;
         [Tooltip("REPLACES the rising-edge trigger (rather than adding to it) with: fire on every " +
                  "neuron playback-frame advance whose aggregate activity clears burstFiringThreshold. " +

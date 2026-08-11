@@ -38,6 +38,11 @@ namespace Biomes
         private ushort[] _firingHalf;   // flat float16 bits: frame*_neuronCount + neuron
         private int _neuronCount;
         private int _frameCount;
+        // Strongest per-frame mean anywhere in the loaded recording (computed once at load —
+        // see ComputeMaxFrameMean). FrameActivity normalizes against this so
+        // burstFiringThreshold reads as "fraction of this recording's peak synchrony", not an
+        // absolute mean that depends on how sparse/dense the source recording happens to be.
+        private float _maxFrameMean;
         private string _loadedBlobFile;   // which firingBlobFile the buffers were built for
 
         // OSC-driven (written on the receive thread)
@@ -70,11 +75,15 @@ namespace Biomes
         public int FrameCount => _frameCount;
         public int CurrentFrame => _currentFrame;
         public float Intensity => _intensity;
-        /// <summary>0..1 aggregate firing strength of the current playback frame (mean of
-        /// _row — see UpdateFiring for why). Distinct from Intensity, which is pure recency
-        /// (always 1 right after a frame change) and carries no information about how strong
-        /// the frame actually was. Gates burstOnFrameAdvance so a dense /index stream only
-        /// ignites on synchronous/strong frames instead of every advance.</summary>
+        /// <summary>0..1 aggregate firing strength of the current playback frame: the frame's
+        /// mean firing value (see UpdateFiring), normalized to the LOADED RECORDING'S strongest
+        /// frame (_maxFrameMean, computed once at load). So burstFiringThreshold reads as
+        /// "fraction of this recording's peak synchrony" — 0.6 means only the top-tier bursting
+        /// events in the recording ignite, regardless of the recording's absolute mean scale.
+        /// Distinct from Intensity, which is pure recency (always 1 right after a frame change)
+        /// and carries no information about how strong the frame actually was. Gates
+        /// burstOnFrameAdvance so a dense /index stream only ignites on synchronous/strong
+        /// frames instead of every advance.</summary>
         public float FrameActivity => _frameActivity;
 
         // ---- Neuron layout mapping -------------------------------------------------
@@ -164,9 +173,14 @@ namespace Biomes
                 // on this data (busiest observed frame: only ~18% of neurons > 0.5), starving
                 // the frame-advance gate. MEAN stays monotone with synchrony (more/stronger
                 // firing -> higher mean) and uses the full continuous range instead of a hard cut.
+                float rawMean = _neuronCount > 0 ? sum / _neuronCount : 0f;
                 _intensity = 1f;
-                _frameActivity = _neuronCount > 0 ? sum / _neuronCount : 0f;
-                if (debugLog) Debug.Log($"NeuronFiringSource: frame={_currentFrame} activity={_frameActivity:F3}");
+                // Normalized to the recording's own peak (_maxFrameMean, one-time pass at load)
+                // rather than an absolute 0..1 scale: the raw mean on organoid_firing.f16 only
+                // ever reaches ~0.21, so an absolute threshold would need per-recording
+                // recalibration. Guard <= 0 for an empty/silent/unloaded blob.
+                _frameActivity = _maxFrameMean > 0f ? Mathf.Clamp01(rawMean / _maxFrameMean) : 0f;
+                if (debugLog) Debug.Log($"NeuronFiringSource: frame={_currentFrame} mean={rawMean:F4} activity={_frameActivity:F3}");
             }
 
             // Decay by real wall-clock time (advances once per rendered frame even if
@@ -184,7 +198,7 @@ namespace Biomes
 
         private void LoadBlob()
         {
-            _firingHalf = null; _frameCount = 0; _neuronCount = 0;
+            _firingHalf = null; _frameCount = 0; _neuronCount = 0; _maxFrameMean = 0f;
             if (string.IsNullOrEmpty(firingBlobFile)) return;
 
             string path = System.IO.Path.Combine(Application.streamingAssetsPath, firingBlobFile);
@@ -214,6 +228,29 @@ namespace Biomes
             var bytes = br.ReadBytes((int)(count * 2));
             _firingHalf = new ushort[count];
             System.Buffer.BlockCopy(bytes, 0, _firingHalf, 0, bytes.Length);
+
+            _maxFrameMean = ComputeMaxFrameMean();
+            if (debugLog) Debug.Log($"NeuronFiringSource: loaded {_frameCount}x{_neuronCount}, maxFrameMean={_maxFrameMean:F4}");
+        }
+
+        // One-time decode pass over the whole recording to find its strongest frame (highest
+        // per-frame mean), so FrameActivity can be normalized to 0..1 against this recording's
+        // own peak synchrony (see _maxFrameMean). Cost: one HalfToFloat per sample —
+        // frameCount * neuronCount, ~23.6M for the committed 131 x 180000 blob — paid once at
+        // blob load, not per frame, so it is not on the per-step hot path.
+        private float ComputeMaxFrameMean()
+        {
+            float max = 0f;
+            for (int f = 0; f < _frameCount; f++)
+            {
+                int baseIdx = f * _neuronCount;
+                float sum = 0f;
+                for (int i = 0; i < _neuronCount; i++)
+                    sum += Mathf.HalfToFloat(_firingHalf[baseIdx + i]);
+                float mean = sum / _neuronCount;
+                if (mean > max) max = mean;
+            }
+            return max;
         }
 
         private void ReleaseBuffers()

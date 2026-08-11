@@ -105,3 +105,83 @@ files, unrelated to this task, per constraint not to stage scene files), and unt
 
 `feat(sim): frame-advance bursts gate on per-frame firing strength — dense streams become
 sporadic bursts` — see git log for SHA.
+
+---
+
+## Follow-up: normalize FrameActivity to the recording's own peak
+
+**Problem.** The initial cut used the raw per-frame mean directly as `FrameActivity` (0..1
+nominal range), but the real blob's per-frame means only ever reach `0.0 .. 0.209` — so
+`burstFiringThreshold`'s useful range was really `0 .. 0.21`, and anything above ~0.21 would
+never fire. That forces the user to hand-calibrate the slider around an opaque, recording-specific
+ceiling instead of an intuitive 0..1 scale.
+
+**Fix.** `NeuronFiringSource` now computes `_maxFrameMean` — the highest per-frame mean anywhere
+in the loaded recording — once at blob load (`ComputeMaxFrameMean()`, called from `LoadBlob()`
+right after the blob bytes are read). `FrameActivity` is then `Clamp01(currentFrameMean /
+_maxFrameMean)`, guarded to `0` when `_maxFrameMean <= 0` (empty/silent/unloaded blob).
+`_maxFrameMean` resets to `0f` at the top of `LoadBlob()` (the same statement that already zeros
+`_firingHalf`/`_frameCount`/`_neuronCount`), so every "unloaded" path — missing file, bad magic,
+size-out-of-range, or simply not yet loaded — leaves `_maxFrameMean` at its 0 guard value. It is
+NOT reset in `Initialize()`'s per-reset envelope clear, since it is a property of the loaded blob
+data (recomputed only when the blob itself reloads), not of the runtime firing envelope.
+
+**Cost.** `ComputeMaxFrameMean()` is one `Mathf.HalfToFloat` call per sample —
+`frameCount * neuronCount` = `180000 * 131` ≈ 23.6M calls for the committed blob — paid once at
+load time inside `LoadBlob()`, not per playback frame. Noted in a comment on the method.
+
+**Transparency.** The per-frame `debugLog` line now prints both the raw mean and the normalized
+value: `"NeuronFiringSource: frame=<n> mean=<f4> activity=<f3>"`. `LoadBlob()` also logs the
+computed `maxFrameMean` once (gated on `debugLog`) so the recording's ceiling is visible without
+guesswork.
+
+**`FrameActivity` xmldoc** now states explicitly: normalized to the loaded recording's strongest
+frame, so `burstFiringThreshold` reads as "fraction of this recording's peak synchrony" — 0.6
+means only the top-tier bursting events in the recording ignite.
+
+**`FieldSimulationBase.cs`** — `burstFiringThreshold`'s tooltip now says the frame-advance
+activity is normalized against the recording's own peak (not an absolute mean), with the same
+"0.6 = top-tier events" framing. **`docs/ARCHITECTURE.md`** §3.4 gained a clause pointing at
+`NeuronFiringSource.FrameActivity` and stating the same normalization.
+
+### Self-review: what does threshold 0.6 select?
+
+Arithmetic: normalized `0.6` corresponds to raw per-frame mean `>= 0.6 * _maxFrameMean`. Measured
+`_maxFrameMean = 0.20928825` (frame 68630 of 180000) on `organoid_firing.f16`, so:
+
+```
+raw threshold at normalized 0.6 = 0.6 * 0.20928825 = 0.12557 (raw per-frame mean)
+```
+
+Counted directly against the real blob's 180000 per-frame means:
+
+| normalized threshold | raw mean threshold | frames selected | % of recording |
+|---|---|---|---|
+| 0.10 | 0.0209 | 163,721 | 90.96% |
+| 0.20 | 0.0419 | 53,677 | 29.82% |
+| 0.35 (old default) | 0.0733 | 17,805 | 9.89% |
+| 0.50 | 0.1046 | 8,202 | 4.56% |
+| **0.60** | **0.1256** | **3,424** | **1.90%** |
+| 0.70 | 0.1465 | 1,235 | 0.69% |
+| 0.80 | 0.1674 | 447 | 0.25% |
+| 0.90 | 0.1884 | 38 | 0.02% |
+
+At `burstFiringThreshold = 0.6`, **3,424 of 180,000 frames (1.9%)** in the committed recording
+clear the gate — genuinely the top-tier synchronous frames, matching the intent ("only strong or
+synchronous frames ignite"). This also confirms the normalized scale now behaves as an intuitive
+0..1 dial: the un-normalized default of 0.35 previously selected essentially nothing (raw mean
+0.35 is never reached — max is 0.209), so frame-advance bursting was silently broken at the
+shipped default until this fix; normalized 0.35 now selects a reasonable 9.9% of frames.
+
+### Files touched (this follow-up)
+
+- `Assets/Workspace/11.0 Biomes/src/components/network/NeuronFiringSource.cs` — `_maxFrameMean`
+  field + `ComputeMaxFrameMean()`, `FrameActivity` normalization + guard, xmldoc, debugLog updates.
+- `Assets/Workspace/11.0 Biomes/src/components/core/FieldSimulationBase.cs` —
+  `burstFiringThreshold` tooltip.
+- `docs/ARCHITECTURE.md` — §3.4 normalization clause.
+
+### Commit (this follow-up)
+
+`feat(sim): FrameActivity normalized to the recording's peak — burstFiringThreshold reads as
+fraction of max synchrony` — see git log for SHA.

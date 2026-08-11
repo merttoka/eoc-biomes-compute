@@ -183,7 +183,10 @@ change** — only a mapping entry. See
 Field sims are **event-driven** by default (`burstEnabled`). A burst is triggered by a rising
 edge of the neuron firing level, or — when `burstOnFrameAdvance` is on, replacing the edge
 trigger — by a playback-frame advance whose aggregate activity clears `burstFiringThreshold`,
-so a dense `/index` stream produces sporadic bursts instead of one that never lets go. It may
+so a dense `/index` stream produces sporadic bursts instead of one that never lets go. That
+activity is normalized to the loaded recording's own peak per-frame synchrony (`NeuronFiringSource.FrameActivity`,
+computed once at blob load), so the threshold reads as "fraction of this recording's strongest
+frame" rather than an absolute mean tied to how sparse the source recording happens to be. It may
 also be triggered directly by `TriggerBurst()`. A burst seeds its grid — optionally from a biome
 channel by threshold, so the automaton grows out of the ecosystem rather than an abstract figure
 — holds for `burstSustainSteps`, then fades. While idle a field sim dispatches nothing at all:
