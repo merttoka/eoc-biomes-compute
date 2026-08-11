@@ -61,6 +61,20 @@ namespace Biomes
                  "MaxToward lets other writers only raise it. Additive accumulates.")]
         public BiomeInjector.BlendMode publishMode = BiomeInjector.BlendMode.SetToward;
 
+        [Header("Seed from a biome channel")]
+        [Tooltip("Seed the grid from a biome channel instead of the rule's own figure, so the " +
+                 "automaton grows out of what the ecosystem is actually doing. Uses the same " +
+                 "Biome as publishTarget. Off = the rule's built-in seeding.")]
+        public bool seedFromChannel = false;
+        [BiomeChannelField]
+        [Tooltip("Channel sampled at reset. Read by UV, so the biome and the CA grid need not " +
+                 "share dimensions.")]
+        public int seedChannel = BiomeChannel.Pheromone0;
+        [Tooltip("Cells at or above this normalized channel value are seeded live. Keep the seed " +
+                 "SPARSE — a lookup CA forces the all-quiescent neighbourhood to stay quiescent, " +
+                 "so scattered seeds grow fronts while a dense seed just boils on step one.")]
+        [Range(0f, 1f)] public float seedThreshold = 0.5f;
+
         [Header("CA-CA coupling")]
         [Tooltip("Optional. Another field sim whose state gates this one — this rule only " +
                  "advances where the other CA is 'alive'. Pointing the cyclic CA at the lookup " +
@@ -151,6 +165,10 @@ namespace Biomes
         protected static readonly int s_CentreKeepOutID = Shader.PropertyToID("centreKeepOut");
         protected static readonly int s_CentreKeepOutDepthID = Shader.PropertyToID("centreKeepOutDepth");
         protected static readonly int s_OutputEnvelopeID = Shader.PropertyToID("outputEnvelope");
+        protected static readonly int s_SeedFieldID = Shader.PropertyToID("seedField");
+        protected static readonly int s_SeedChannelID = Shader.PropertyToID("seedChannelIndex");
+        protected static readonly int s_SeedThresholdID = Shader.PropertyToID("seedThreshold");
+        protected static readonly int s_SeedFromChannelID = Shader.PropertyToID("seedFromChannel");
         #endregion
 
         // ── Agent contract: answered, not implemented ────────────────────────────
@@ -297,6 +315,16 @@ namespace Biomes
         {
             BindCommon(resetStateKernel);
             BindRuleParams(resetStateKernel);
+
+            // Channel seeding. Falls back to the rule's own figure whenever the wiring is
+            // incomplete, so a half-configured sim seeds rather than throwing.
+            bool canSeedFromChannel =
+                seedFromChannel && publishTarget != null && publishTarget.FieldReadArray != null;
+            cs.SetInt(s_SeedFromChannelID, canSeedFromChannel ? 1 : 0);
+            cs.SetInt(s_SeedChannelID, Mathf.Clamp(seedChannel, 0, BiomeChannel.Count - 1));
+            cs.SetFloat(s_SeedThresholdID, seedThreshold);
+            cs.SetTexture(resetStateKernel, s_SeedFieldID,
+                canSeedFromChannel ? publishTarget.FieldReadArray : Texture2D.blackTexture);
 
             // Seed into stateWrite, then swap so stateRead holds the seed — the same
             // write-then-swap discipline every step uses, so there is only one convention.

@@ -69,7 +69,12 @@ void ResetStateKernel(uint3 id : SV_DISPATCHTHREADID)
     if (live == 0) live = 1u;
 
     bool inside = false;
-    if (initMode == 0)                     // line: a single horizontal filament
+    if (seedFromChannel != 0)
+    {
+        // The channel replaces the figure entirely; initMode/initSize are ignored.
+        inside = SeededByChannel(id.xy);
+    }
+    else if (initMode == 0)                // line: a single horizontal filament
         inside = abs(d.y) < (initSize * 0.02);
     else if (initMode == 1)                // rect
         inside = (abs(d.x) < initSize * 0.5) && (abs(d.y) < initSize * 0.5);

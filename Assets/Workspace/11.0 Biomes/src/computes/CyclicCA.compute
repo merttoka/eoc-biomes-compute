@@ -46,7 +46,13 @@ void ResetStateKernel(uint3 id : SV_DISPATCHTHREADID)
     float r = Hash1u(idx * 747796405u + ruleSeed * 2891336453u + time);
 
     // min() guards the r == 1.0 corner, which would otherwise produce an out-of-range state.
-    stateWrite[id.xy] = floor(min(r * (float)nstates, (float)nstates - 1.0));
+    float live = floor(min(r * (float)nstates, (float)nstates - 1.0));
+
+    // With channel seeding the field starts EMPTY except where the channel is above
+    // threshold. A uniformly-0 cyclic field never advances (no neighbour is ever in the
+    // next state), so the waves grow outward from the seeded regions instead of igniting
+    // everywhere at once.
+    stateWrite[id.xy] = (seedFromChannel != 0 && !SeededByChannel(id.xy)) ? 0.0 : live;
 }
 
 

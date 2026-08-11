@@ -52,6 +52,23 @@ float centreKeepOutDepth;   // how much is removed at dead centre
 // enveloped: the picture fades, the trace stays, and the biome PDE erodes it from there.
 float outputEnvelope;
 
+// --- Seeding from a biome channel -------------------------------------------------
+// Sampled by UV, not by index: the biome runs at its own resolution (640x360 in 11.3)
+// while the CA grid is sized independently, so the two never share dimensions. Same
+// rescale the coupling gate performs.
+Texture2DArray<float> seedField;
+int   seedFromChannel;
+int   seedChannelIndex;
+float seedThreshold;
+
+bool SeededByChannel(uint2 id)
+{
+    if (seedFromChannel == 0) return false;
+    float2 uv = (float2(id) + 0.5) / float2((float)cellRezX, (float)cellRezY);
+    float v = seedField.SampleLevel(sampler_point_clamp, float3(uv, (float)seedChannelIndex), 0);
+    return v >= seedThreshold;
+}
+
 #include "neuron_layout.hlsl"
 #include "neuron_firing.hlsl"
 
