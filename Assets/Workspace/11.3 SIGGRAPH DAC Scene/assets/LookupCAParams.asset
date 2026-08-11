@@ -15,8 +15,8 @@ MonoBehaviour:
   nstates: 2
   seed: 1337
   lambda: 0.31
-  initMode: 0
-  initSize: 0.098
+  initMode: 2
+  initSize: 0.017
   hue: 0.08
   hueSpread: 0.15
   saturation: 0
