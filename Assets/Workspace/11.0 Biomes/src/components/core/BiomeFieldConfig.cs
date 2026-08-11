@@ -82,11 +82,12 @@ namespace Biomes
             new() { name = "Dispersal",      diffuseRate = 0.9f,   decayRate = 0.12f,  advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
             new() { name = "Humidity",       diffuseRate = 0.97f,  decayRate = 0.001f, advectedByFlow = true,  initialValue = 0.5f, relaxRate = 0.01f },
             new() { name = "Humidity_Grad",  diffuseRate = 0f,     decayRate = 0f,     advectedByFlow = false, initialValue = 0f,   relaxRate = 0f },
-            // by agent sims through UmweltMapping, so a species responds to a cellular automaton
-            // with no change to its shader — only its mapping asset. A CA owns its channel WHILE
-            // it is bursting (it publishes SetToward at full gain); once the burst goes idle it
-            // stops publishing and the PDE takes the deposit over, so these channels deliberately
-            // do bleed and advect. Zero the rates to get the old inert, CA-only behaviour back.
+            // NOT inert any more. A CA burst publishes its lattice here at full gain and then
+            // stops publishing when it goes idle; from that moment these rates are what turns a
+            // frozen deposit into a trace that erodes, spreads and drifts on the flow field.
+            // decayRate 0.004 is roughly a 3 s half-life at 60 Hz — about double Pheromone
+            // (0.002), far below Dispersal (0.12). Set all three back to 0 to restore CA-owned,
+            // inert channels.
             new() { name = "Excitability",   diffuseRate = 0.96f,  decayRate = 0.004f, advectedByFlow = true,  initialValue = 0f,   relaxRate = 0f },
             new() { name = "Substrate",      diffuseRate = 0.96f,  decayRate = 0.004f, advectedByFlow = true,  initialValue = 0f,   relaxRate = 0f },
         };
