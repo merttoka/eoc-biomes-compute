@@ -144,4 +144,48 @@ public class BurstEnvelopeTests
         Assert.That(edge.Update(0.0f, 0.35f), Is.False);
         Assert.That(edge.Update(0.4f, 0.35f), Is.True,  "crossing again fires again");
     }
+
+    [Test]
+    public void NoFrame_NeverFires()
+    {
+        var f = new FrameAdvance();
+        Assert.That(f.Update(-1), Is.False);
+        Assert.That(f.Update(-1), Is.False);
+        Assert.That(f.Update(-1), Is.False);
+    }
+
+    [Test]
+    public void FirstFrame_Fires()
+    {
+        var f = new FrameAdvance();
+        Assert.That(f.Update(-1), Is.False);
+        Assert.That(f.Update(0), Is.True);
+    }
+
+    [Test]
+    public void SameFrame_DoesNotRefire()
+    {
+        var f = new FrameAdvance();
+        Assert.That(f.Update(3), Is.True);
+        Assert.That(f.Update(3), Is.False);
+        Assert.That(f.Update(3), Is.False);
+    }
+
+    [Test]
+    public void AnyChange_Fires()
+    {
+        var f = new FrameAdvance();
+        Assert.That(f.Update(3), Is.True);
+        Assert.That(f.Update(4), Is.True);
+        Assert.That(f.Update(2), Is.True, "backward counts too -- looped playback");
+    }
+
+    [Test]
+    public void GapResets()
+    {
+        var f = new FrameAdvance();
+        Assert.That(f.Update(5), Is.True);
+        Assert.That(f.Update(-1), Is.False);
+        Assert.That(f.Update(5), Is.True, "stream restart on the same frame fires again");
+    }
 }

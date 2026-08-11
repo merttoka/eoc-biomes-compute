@@ -181,7 +181,8 @@ change** — only a mapping entry. See
 [[adr/0011-field-native-sims-derive-simulationbase|ADR-0011]].
 
 Field sims are **event-driven** by default (`burstEnabled`). A burst is triggered by a rising
-edge of the neuron firing level or by `TriggerBurst()`, seeds its grid — optionally from a biome
+edge of the neuron firing level, by a playback-frame advance when `burstOnFrameAdvance` is on,
+or by `TriggerBurst()`, seeds its grid — optionally from a biome
 channel by threshold, so the automaton grows out of the ecosystem rather than an abstract figure
 — holds for `burstSustainSteps`, then fades. While idle a field sim dispatches nothing at all:
 no rule, no render, no publish. Because it stops publishing on going idle, the lattice it

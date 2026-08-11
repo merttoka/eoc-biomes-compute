@@ -114,6 +114,11 @@ namespace Biomes
         [Tooltip("A rising edge of the neuron firing level past this starts a burst. A trigger " +
                  "during a live burst extends it (resets the clock, keeps the lattice).")]
         [Range(0f, 1f)] public float burstFiringThreshold = 0.35f;
+        [Tooltip("Also trigger on every neuron playback-frame advance, independent of the " +
+                 "intensity threshold. A continuous /index stream then keeps ONE evolving " +
+                 "burst alive (each frame extends it); the fade-out plays when the stream " +
+                 "pauses. The threshold path above stays active alongside this.")]
+        public bool burstOnFrameAdvance = false;
 
         [Header("Centre keep-out (physical screen cutout)")]
         [Tooltip("Normalized width of a centre band where this layer's contribution to the " +
@@ -144,6 +149,7 @@ namespace Biomes
 
         private BurstEnvelope _burst;
         private RisingEdge _firingEdge;
+        private FrameAdvance _frameAdvance;
         private bool _outputDirty;   // outTex holds a frame that must be cleared on going idle
 
         // seedField is declared Texture2DArray in HLSL, and Metal validates the type of every
@@ -362,7 +368,9 @@ namespace Biomes
 
             if (burstEnabled)
             {
-                if (_firingEdge.Update(neuronIntensity, burstFiringThreshold))
+                bool edgeFired  = _firingEdge.Update(neuronIntensity, burstFiringThreshold);
+                bool frameFired = _frameAdvance.Update(neuronFrame);
+                if (edgeFired || (burstOnFrameAdvance && frameFired))
                     TriggerBurst();
 
                 _burst.Advance(fadeInSteps, burstSustainSteps, fadeOutSteps);

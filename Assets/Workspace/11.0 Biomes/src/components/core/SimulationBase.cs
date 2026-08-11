@@ -61,6 +61,10 @@ namespace Biomes
         // detect a rising edge on this to auto-trigger a burst; reading it CPU-side avoids a
         // GPU readback and its sync point.
         [NonSerialized] public float neuronIntensity;
+        // Current playback frame from NeuronFiringSource; -1 = none yet. Field sims can
+        // treat a frame ADVANCE as a burst trigger (see burstOnFrameAdvance) because a
+        // dense /index stream pins the intensity high and starves the rising edge.
+        [NonSerialized] public int neuronFrame = -1;
         [Header("Neuron Firing")]
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
         private ComputeBuffer dummyNeuronFiringBuffer;

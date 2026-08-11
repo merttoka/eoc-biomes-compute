@@ -90,4 +90,25 @@ namespace Biomes
             return fired;
         }
     }
+
+    /// <summary>
+    /// Fires when the neuron playback frame changes, treating the frame stream itself as the
+    /// event source. A continuous /index stream pins the firing intensity near 1, so
+    /// <see cref="RisingEdge"/> fires only once at stream start — this tracker fires on every
+    /// frame ADVANCE instead. Negative stamps mean "no frame yet" and never fire.
+    /// </summary>
+    public struct FrameAdvance
+    {
+        private int _last;
+        private bool _seen;
+
+        public bool Update(int stamp)
+        {
+            if (stamp < 0) { _seen = false; return false; }
+            bool advanced = !_seen || stamp != _last;
+            _last = stamp;
+            _seen = true;
+            return advanced;
+        }
+    }
 }
