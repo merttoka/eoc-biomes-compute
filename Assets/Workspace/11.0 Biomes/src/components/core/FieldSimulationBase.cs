@@ -111,13 +111,18 @@ namespace Biomes
         public int fadeInSteps = 30;
         [Tooltip("Sim steps to ramp the output back down once the sustain ends.")]
         public int fadeOutSteps = 90;
-        [Tooltip("A rising edge of the neuron firing level past this starts a burst. A trigger " +
-                 "during a live burst extends it (resets the clock, keeps the lattice).")]
+        [Tooltip("Edge mode (default): a rising edge of the neuron firing level past this starts " +
+                 "a burst. Frame-advance mode (burstOnFrameAdvance on): the minimum per-frame " +
+                 "aggregate activity (0..1, mean firing strength of the playback frame) a frame " +
+                 "must clear to ignite or extend a burst. A trigger during a live burst extends " +
+                 "it (resets the clock, keeps the lattice).")]
         [Range(0f, 1f)] public float burstFiringThreshold = 0.35f;
-        [Tooltip("Also trigger on every neuron playback-frame advance, independent of the " +
-                 "intensity threshold. A continuous /index stream then keeps ONE evolving " +
-                 "burst alive (each frame extends it); the fade-out plays when the stream " +
-                 "pauses. The threshold path above stays active alongside this.")]
+        [Tooltip("REPLACES the rising-edge trigger (rather than adding to it) with: fire on every " +
+                 "neuron playback-frame advance whose aggregate activity clears burstFiringThreshold. " +
+                 "A dense /index stream of mostly-weak frames then stays quiet and only strong or " +
+                 "synchronous frames ignite/extend a burst; because sustain runs from the LAST " +
+                 "qualifying frame, a run of weak frames mid-burst does not extend it and the burst " +
+                 "still fades on schedule. Off = plain edge trigger, unaffected by frame strength.")]
         public bool burstOnFrameAdvance = false;
 
         [Header("Centre keep-out (physical screen cutout)")]
@@ -368,10 +373,15 @@ namespace Biomes
 
             if (burstEnabled)
             {
-                bool edgeFired  = _firingEdge.Update(neuronIntensity, burstFiringThreshold);
                 bool frameFired = _frameAdvance.Update(neuronFrame);
-                if (edgeFired || (burstOnFrameAdvance && frameFired))
-                    TriggerBurst();
+                bool edgeFired  = _firingEdge.Update(neuronIntensity, burstFiringThreshold);
+                // Frame-advance mode replaces the edge trigger rather than adding to it: the
+                // recency edge always fires at stream start (intensity snaps to 1), which
+                // would defeat the per-frame strength gate below.
+                bool trigger = burstOnFrameAdvance
+                    ? frameFired && neuronFrameActivity >= burstFiringThreshold
+                    : edgeFired;
+                if (trigger) TriggerBurst();
 
                 _burst.Advance(fadeInSteps, burstSustainSteps, fadeOutSteps);
 

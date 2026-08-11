@@ -280,6 +280,7 @@ namespace Biomes
             int firingCount = neuronFiring != null ? neuronFiring.NeuronCount : 0;
             float firingIntensity = neuronFiring != null ? neuronFiring.Intensity : 0f;
             int firingFrame = neuronFiring != null ? neuronFiring.CurrentFrame : -1;
+            float firingFrameActivity = neuronFiring != null ? neuronFiring.FrameActivity : 0f;
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
@@ -287,6 +288,7 @@ namespace Biomes
                 sim.neuronFiringCount = firingCount;
                 sim.neuronIntensity = firingIntensity;
                 sim.neuronFrame = firingFrame;
+                sim.neuronFrameActivity = firingFrameActivity;
             }
 
             // 1. Build perception textures from biome for each sim. The build runs at

@@ -47,6 +47,7 @@ namespace Biomes
         // Runtime state (main thread)
         private int _currentFrame = -1;
         private float _intensity;
+        private float _frameActivity;   // 0..1 aggregate strength of the current frame (see UpdateFiring)
         private float _lastTime;
         private float[] _row;       // decoded current frame
         private float[] _scaled;    // _row * _intensity, uploaded each step
@@ -69,6 +70,12 @@ namespace Biomes
         public int FrameCount => _frameCount;
         public int CurrentFrame => _currentFrame;
         public float Intensity => _intensity;
+        /// <summary>0..1 aggregate firing strength of the current playback frame (mean of
+        /// _row — see UpdateFiring for why). Distinct from Intensity, which is pure recency
+        /// (always 1 right after a frame change) and carries no information about how strong
+        /// the frame actually was. Gates burstOnFrameAdvance so a dense /index stream only
+        /// ignites on synchronous/strong frames instead of every advance.</summary>
+        public float FrameActivity => _frameActivity;
 
         // ---- Neuron layout mapping -------------------------------------------------
         // The math lives in NeuronLayout (Biomes.Core) so it can be unit-tested against the
@@ -115,6 +122,7 @@ namespace Biomes
             _buffer.SetData(_scaled ?? new float[_buffer.count]);
             _currentFrame = -1;
             _intensity = 0f;
+            _frameActivity = 0f;
             _lastTime = Time.unscaledTime;
             _dirty = false;
         }
@@ -142,10 +150,23 @@ namespace Biomes
                 _dirty = false;
                 _currentFrame = Mathf.Clamp(_targetFrame, 0, _frameCount - 1);
                 int baseIdx = _currentFrame * _neuronCount;
+                float sum = 0f;
                 for (int i = 0; i < _neuronCount; i++)
-                    _row[i] = Mathf.HalfToFloat(_firingHalf[baseIdx + i]);
+                {
+                    float v = Mathf.HalfToFloat(_firingHalf[baseIdx + i]);
+                    _row[i] = v;
+                    sum += v;
+                }
+                // Aggregate = MEAN of the row. Measured against organoid_firing.f16: per-neuron
+                // values are continuous 0..1 (not bimodal spikes at 0/1), just heavily
+                // right-skewed — global median ~0.004, only ~2% of individual values exceed
+                // 0.5. A FRACTION-above-0.5 aggregate would rarely clear even a modest threshold
+                // on this data (busiest observed frame: only ~18% of neurons > 0.5), starving
+                // the frame-advance gate. MEAN stays monotone with synchrony (more/stronger
+                // firing -> higher mean) and uses the full continuous range instead of a hard cut.
                 _intensity = 1f;
-                if (debugLog) Debug.Log($"NeuronFiringSource: frame={_currentFrame}");
+                _frameActivity = _neuronCount > 0 ? sum / _neuronCount : 0f;
+                if (debugLog) Debug.Log($"NeuronFiringSource: frame={_currentFrame} activity={_frameActivity:F3}");
             }
 
             // Decay by real wall-clock time (advances once per rendered frame even if
