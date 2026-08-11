@@ -27,19 +27,24 @@ Two designs were built and killed by measurement (JS replica of the kernels):
 ## Decision
 
 Coherence-enhancing diffusion (Weickert): each cell computes the structure tensor of
-the TOTAL trail layer (3×3-averaged central-difference gradients, 5×5 support) and
-elongates every type's blur along the ridge axis (minor eigenvector), gated by
-coherence² = ((λ₁−λ₂)/(λ₁+λ₂))², with a tight angular lobe (alignment⁴, halving the
-diagonal side-leak of alignment²). One per-sim knob: `trailAnisotropy` on
-`SimulationBase` (default 0 = legacy box blur, bit-parity verified). No new textures,
-no deposit changes, no extra layers.
+the TOTAL trail layer (3×3-averaged central-difference gradients over a 5×5 sample
+window) and elongates every type's blur along the ridge axis (minor eigenvector),
+gated by coherence = (λ₁−λ₂)/(λ₁+λ₂) (linear — the squared gate tested weaker
+in-editor), with a tight angular lobe (alignment⁴, halving the diagonal side-leak of
+alignment²). The tensor window's texel spacing is resolution-scaled
+(`trailTensorStride` = 3 · rezY/2160, min 1) like every other spatial param: a fixed
+5-texel window inside a wide trail's flat core reads "no orientation" and mutes the
+effect at production rez. One per-sim knob: `trailAnisotropy` on `SimulationBase`
+(default 0 = legacy box blur, bit-parity verified). No new textures, no deposit
+changes, no extra layers.
 
 ## Consequences
 
 - Orientation derives from the trail itself → it exists exactly where and as long as
-  the trail does. Measured on the slow-agent case: trail width σ⊥ halves (3.55→1.95 px)
-  and aspect rises 4.6→7.4 at full strength; stationary blobs stay exactly round;
-  crossings de-anisotropize (coherence → 0). The 0.5 knob lands midway — smooth control.
+  the trail does. Measured on the slow-agent case: trail width σ⊥ halves (3.55→1.81 px)
+  and aspect rises 4.6→7.3 at full strength; stationary blobs stay exactly round at any
+  stride; crossings de-anisotropize (coherence → 0). The 0.5 knob lands midway.
+  In-editor (2026-08-10): physarum visibly stringier with the knob — confirmed live.
 - Comet tails form by RETENTION (symmetric ridge axis), never drift — agent motion
   stays the only transport, mirroring ADR-0012's advection/diffusion split.
 - Orientation is shared across types (total layer): where two species' trails overlap

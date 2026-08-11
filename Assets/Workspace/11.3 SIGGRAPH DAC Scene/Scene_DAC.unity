@@ -221,7 +221,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &159104054
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -247,6 +247,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 0}
+  trailAnisotropy: 0
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 0}
   csvCoordinatesAreNormalized: 0
@@ -405,6 +406,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 546aef1b5a4834ed6901ed37469c8a60, type: 2}
+  trailAnisotropy: 0.2
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -570,7 +572,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &564393964
 Transform:
   m_ObjectHideFlags: 0
@@ -611,6 +613,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 0}
+  trailAnisotropy: 0
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 0}
   csvCoordinatesAreNormalized: 0
@@ -1369,6 +1372,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 9260846e883da470eae0486aff6c9c78, type: 2}
+  trailAnisotropy: 0.3
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -1808,6 +1812,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: fa3ecf38037514e6cb957d7301c43b54, type: 2}
+  trailAnisotropy: 1
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -2345,8 +2350,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 3840
-  rezY: 2160
+  rezX: 1920
+  rezY: 1080
   simResolutionScale: 1
   perceptionResScale: 0.75
   referenceHeight: 2160
@@ -2361,13 +2366,11 @@ MonoBehaviour:
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}
   fusedWriteback: 1
-  metabolismEvery: 1
+  metabolismEvery: 2
   simulations:
   - {fileID: 276895388}
   - {fileID: 1825205988}
   - {fileID: 1010527583}
-  - {fileID: 564393965}
-  - {fileID: 159104054}
   externalInput: {fileID: 0}
   neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0

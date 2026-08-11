@@ -121,6 +121,8 @@ Then, unchanged from ADR-0007:
   exist at the RECEIVING cells and live as long as the trail; only the trail itself
   satisfies both. Single `trailAnisotropy` knob per sim, default 0 = legacy.
   Measured: σ⊥ halves at 1, stationary blobs stay round, crossings stay isotropic.
+  Post-validation (physarum confirmed stringy in-editor): coherence gate linear (was
+  squared) and tensor window strided by `3 · rezY/2160` for resolution independence.
 
 ## Verification
 

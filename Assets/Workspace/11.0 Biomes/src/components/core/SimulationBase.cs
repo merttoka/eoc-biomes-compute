@@ -132,6 +132,7 @@ namespace Biomes
         protected static readonly int s_NeuronScaleID = Shader.PropertyToID("neuronScale");
         protected static readonly int s_PersistenceID = Shader.PropertyToID("persistence");
         protected static readonly int s_TrailAnisoID = Shader.PropertyToID("trailAnisotropy");
+        protected static readonly int s_TrailTensorStrideID = Shader.PropertyToID("trailTensorStride");
         #endregion
 
         public abstract string SimName { get; }
@@ -395,11 +396,17 @@ namespace Biomes
         }
 
         /// <summary>Push the trail-anisotropy knob (orientation is derived in-kernel from
-        /// the trail's own structure tensor, so there is nothing to bind — just the float).
+        /// the trail's own structure tensor, so there is nothing to bind — just uniforms).
         /// Call each GPUStep, alongside the other per-step binds.</summary>
         protected void BindTrailAnisotropy()
         {
             cs.SetFloat(s_TrailAnisoID, trailAnisotropy);
+            // Texel spacing of the structure-tensor sample window, scaled like every
+            // other spatial param (rezY/referenceHeight): 3 texels at the 2160
+            // reference, never below 1. A fixed 5-texel window reads a wide trail's
+            // flat core as "no orientation" (coherence ~0 -> isotropic), which muted
+            // the whole effect on boid-scale trails.
+            cs.SetInt(s_TrailTensorStrideID, Mathf.Max(1, Mathf.RoundToInt(3f * ResolutionScale)));
         }
 
         protected void BindPerceptionTex(params int[] kernels)

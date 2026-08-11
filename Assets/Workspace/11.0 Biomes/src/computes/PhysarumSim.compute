@@ -15,6 +15,7 @@ RWTexture2D<float4> outTex;
 
 // Coherence-enhancing trail diffusion (see DiffuseTextureKernel).
 float trailAnisotropy;       // 0 = legacy isotropic box blur
+int trailTensorStride;       // texel spacing of the tensor window (rez-scaled, >= 1)
 
 // Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
 Texture2D<float4> perceptionTex;
@@ -213,7 +214,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
 // Coherence-enhancing anisotropic trail diffusion (structure tensor, à la Weickert):
 // measure the local orientation of the TOTAL trail (layer typeCount) and elongate
 // every type's 3x3 blur along the ridge axis — the tensor's minor eigenvector — by
-// trailAnisotropy · coherence². A moving agent then leaves a crisp comet tail instead
+// trailAnisotropy · coherence. A moving agent then leaves a crisp comet tail instead
 // of a round bloom (slow agents no longer drown their short path in their own blur
 // radius; measured on that case, trail width halves at full strength). Orientation
 // derives from the trail itself, so it lives exactly as long as the trail — a
@@ -230,14 +231,19 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     int2 rez = int2(rezX, rezY);
 
-    // 5x5 cache of the total-trail layer -> central-difference gradients at the 3x3
-    // window positions -> averaged structure tensor J = Σ g·gᵀ.
+    // 5x5 sample cache of the total-trail layer, spaced trailTensorStride texels
+    // apart (support = 4·stride+1, resolution-scaled): a stride-1 window inside a
+    // wide trail's flat core reads "no orientation" and mutes the effect. Gradients
+    // are only used as direction + coherence RATIO, so the stride's spatial
+    // denominator cancels. -> central differences at the 3x3 window positions ->
+    // averaged structure tensor J = Σ g·gᵀ.
     float tot[25];
     {
         uint n = 0;
         for (int oy = -2; oy <= 2; oy++)
             for (int ox = -2; ox <= 2; ox++)
-                tot[n++] = trailRead[uint3((int2(id.xy) + int2(ox, oy) + rez) % rez, typeCount)];
+                tot[n++] = trailRead[uint3(
+                    (int2(id.xy) + int2(ox, oy) * trailTensorStride + rez) % rez, typeCount)];
     }
     float jxx = 0, jxy = 0, jyy = 0;
     for (int wy = -1; wy <= 1; wy++) {
@@ -248,8 +254,8 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
         }
     }
 
-    // Eigen-split: l1 >= l2; coherence ((l1-l2)/(l1+l2))² gates the elongation so only
-    // clean ridges sharpen. Ridge axis = minor eigenvector = perp of the major one.
+    // Eigen-split: l1 >= l2; coherence (l1-l2)/(l1+l2) gates the elongation so only
+    // ridges sharpen. Ridge axis = minor eigenvector = perp of the major one.
     float halfTr = (jxx + jyy) * 0.5;
     float det = sqrt(max(0.0, 0.25 * (jxx - jyy) * (jxx - jyy) + jxy * jxy));
     float l1 = halfTr + det, l2 = halfTr - det;
@@ -259,7 +265,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     float mlen = length(major);
     float2 ridge = mlen > 1e-12 ? float2(-major.y, major.x) / mlen : float2(0, 0);
     float elong = (det > 1e-12 && mlen > 1e-12)
-        ? trailAnisotropy * cohBase * cohBase : 0.0;
+        ? trailAnisotropy * cohBase : 0.0;
 
     int2  taps[9];
     float wts[9];

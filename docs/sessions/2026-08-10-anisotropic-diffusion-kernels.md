@@ -42,6 +42,15 @@ main `ca-dev` checkout (CA sims) — no file overlap.
 - Measured (JS kernel replica): trail σ⊥ 3.55→1.95 px at aniso 1; stationary blob
   aspect exactly 1.0; aniso 0 bit-parity with legacy box blur incl. toroidal edges.
 
+## Shipped (part 3, after in-editor validation)
+
+- Second Unity instance on the worktree validated the branch live: physarum goes
+  visibly stringy with `trailAnisotropy`; boid-scale effect was muted → two fixes:
+  coherence gate squared → linear, and the tensor sample window strided by
+  `3 · rezY/2160` (min 1, set in `BindTrailAnisotropy`) so the orientation analysis
+  covers the same sim fraction at any resolution — a fixed 5-texel window reads a wide
+  trail's flat core as unoriented.
+
 ## Decided
 
 - Weighted gather over flux-form tensor diffusion; ADR-0007 downstream untouched →
