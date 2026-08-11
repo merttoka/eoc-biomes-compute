@@ -267,12 +267,13 @@ MonoBehaviour:
   couplingThreshold: 0.5
   couplingInvert: 0
   firingIgnitionStrength: 0
-  firingIgnitionRadius: 8
+  firingIgnitionRadius: 6.9
   burstEnabled: 1
   burstSustainSteps: 2
   fadeInSteps: 3
   fadeOutSteps: 15
-  burstFiringThreshold: 0.35
+  burstFiringThreshold: 0.319
+  burstOnFrameAdvance: 1
   centreKeepOut: 0
   centreKeepOutDepth: 0.8
   paramsSO: {fileID: 11400000, guid: 810d061b2743e46208add045e5567b1a, type: 2}
@@ -1059,7 +1060,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.CyclicCASim
   cs: {fileID: 7200000, guid: caf0000bb3a54e7d9c2f81046ad5e100, type: 3}
   outputMat: {fileID: 2100000, guid: 64beb75eaf36640288cbed33e9d1e848, type: 2}
-  compositeWeight: 0.38
+  compositeWeight: 0
   renderPersistence: 0.9
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
@@ -1082,9 +1083,9 @@ MonoBehaviour:
   publishChannel: 13
   publishGain: 1
   publishMode: 2
-  seedFromChannel: 0
-  seedChannel: 1
-  seedThreshold: 0.5
+  seedFromChannel: 1
+  seedChannel: 14
+  seedThreshold: 0.073
   couplingSource: {fileID: 47834217}
   couplingStrength: 0.61
   couplingThreshold: 0.282
@@ -1096,6 +1097,7 @@ MonoBehaviour:
   fadeInSteps: 30
   fadeOutSteps: 90
   burstFiringThreshold: 0.35
+  burstOnFrameAdvance: 0
   centreKeepOut: 0
   centreKeepOutDepth: 0.8
   paramsSO: {fileID: 11400000, guid: 89f694a2de2d54d08b5e64a3618cc662, type: 2}

@@ -12,15 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: caf00008b3a54e7d9c2f81046ad5e100, type: 3}
   m_Name: CyclicCAParams
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.CyclicCAParams
-  range: 2
-  threshold: 3
+  range: 3
+  threshold: 4
   nstates: 12
   moore: 1
   noiseAmount: 0.15
   hue: 0.55
   hueSpread: 0.35
-  saturation: 0.5
-  brightness: 0.6
+  saturation: 0.3
+  brightness: 0.8
   ranges:
   - name: range
     min: 1
