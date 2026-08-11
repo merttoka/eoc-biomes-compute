@@ -83,6 +83,23 @@ namespace Biomes
         [Tooltip("Radius of a firing neuron's ignition disc, in cells.")]
         [Range(0f, 64f)] public float firingIgnitionRadius = 8f;
 
+        [Header("Burst (event-driven)")]
+        [Tooltip("Off = the legacy continuous layer: the rule runs every step and the output " +
+                 "is always visible. On = the sim is idle until triggered, then seeds, runs, " +
+                 "fades and goes idle again, dispatching nothing in between.")]
+        public bool burstEnabled = true;
+        [Tooltip("How long a burst holds at full output, in SIM steps (not rule steps — " +
+                 "stepEvery decimates only the rule). Measured from the trigger, so the " +
+                 "release begins at fadeInSteps + burstSustainSteps.")]
+        public int burstSustainSteps = 240;
+        [Tooltip("Sim steps to ramp the output up after a trigger.")]
+        public int fadeInSteps = 30;
+        [Tooltip("Sim steps to ramp the output back down once the sustain ends.")]
+        public int fadeOutSteps = 90;
+        [Tooltip("A rising edge of the neuron firing level past this starts a burst. A trigger " +
+                 "during a live burst extends it (resets the clock, keeps the lattice).")]
+        [Range(0f, 1f)] public float burstFiringThreshold = 0.35f;
+
         [Header("Centre keep-out (physical screen cutout)")]
         [Tooltip("Normalized width of a centre band where this layer's contribution to the " +
                  "composite is attenuated. Applied to the RENDER only — the rule keeps evolving " +
@@ -110,6 +127,13 @@ namespace Biomes
         private int _allocCellRezX = -1, _allocCellRezY = -1;
         private int _ruleStep;
 
+        private BurstEnvelope _burst;
+        private RisingEdge _firingEdge;
+        private bool _outputDirty;   // outTex holds a frame that must be cleared on going idle
+
+        /// <summary>Output multiplier for the render kernel. Always 1 when bursts are off.</summary>
+        protected float OutputEnvelope => burstEnabled ? _burst.Value : 1f;
+
         #region Shader property IDs
         protected static readonly int s_StateReadID = Shader.PropertyToID("stateRead");
         protected static readonly int s_StateWriteID = Shader.PropertyToID("stateWrite");
@@ -126,6 +150,7 @@ namespace Biomes
         protected static readonly int s_IgnitionRadiusID = Shader.PropertyToID("ignitionRadius");
         protected static readonly int s_CentreKeepOutID = Shader.PropertyToID("centreKeepOut");
         protected static readonly int s_CentreKeepOutDepthID = Shader.PropertyToID("centreKeepOutDepth");
+        protected static readonly int s_OutputEnvelopeID = Shader.PropertyToID("outputEnvelope");
         #endregion
 
         // ── Agent contract: answered, not implemented ────────────────────────────
@@ -238,6 +263,34 @@ namespace Biomes
             Render();
         }
 
+        /// <summary>
+        /// Start a burst, or extend the one already running. Only a trigger arriving from idle
+        /// re-seeds the grid — see <see cref="BurstEnvelope.Trigger"/>.
+        /// </summary>
+        [Button("Trigger burst")]
+        public void TriggerBurst()
+        {
+            if (!IsConfigured) return;
+
+            if (_burst.Trigger())
+            {
+                if (NeedsAllocation()) Allocate();
+                GPUReset();
+                _ruleStep = 0;
+            }
+            _outputDirty = true;
+        }
+
+        /// <summary>Blank the composited output so an idle sim leaves no stale frame behind.</summary>
+        private void ClearOutput()
+        {
+            if (outTex == null) return;
+            var prev = RenderTexture.active;
+            RenderTexture.active = outTex;
+            GL.Clear(false, true, Color.clear);
+            RenderTexture.active = prev;
+        }
+
         /// <summary>Seed the grid, then render. Subclasses bind their own seeding params via
         /// <see cref="BindRuleParams"/>; the dispatch and the swap are owned here.</summary>
         protected override void GPUReset()
@@ -260,6 +313,26 @@ namespace Biomes
 
         public override void Step()
         {
+            if (!IsConfigured) return;
+
+            if (burstEnabled)
+            {
+                if (_firingEdge.Update(neuronIntensity, burstFiringThreshold))
+                    TriggerBurst();
+
+                _burst.Advance(fadeInSteps, burstSustainSteps, fadeOutSteps);
+
+                if (_burst.IsIdle)
+                {
+                    // Nothing dispatches while idle — not the rule, not the render, not the
+                    // publish. Publishing stops here deliberately: the last lattice stays in
+                    // the biome channel and the PDE erodes it from now on.
+                    if (_outputDirty) { ClearOutput(); _outputDirty = false; }
+                    return;
+                }
+                _outputDirty = true;
+            }
+
             // Rule decimation. Render still runs every step so the composite never stutters.
             _ruleStep++;
             if (_ruleStep % Mathf.Max(1, stepEvery) == 0)
@@ -338,6 +411,7 @@ namespace Biomes
             cs.SetInt(s_NStatesID, StateCount);
             cs.SetFloat(s_CentreKeepOutID, centreKeepOut);
             cs.SetFloat(s_CentreKeepOutDepthID, centreKeepOutDepth);
+            cs.SetFloat(s_OutputEnvelopeID, OutputEnvelope);
         }
 
         /// <summary>Bind the coupling CA's state as a gate on this rule. Reads the other sim's

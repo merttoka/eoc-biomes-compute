@@ -127,5 +127,5 @@ void RenderStateKernel(uint3 id : SV_DISPATCHTHREADID)
     // sampler, so the upscale smooths for display without any smoothed value ever
     // re-entering the rule.
     float keep = CentreKeepOutWeight(id.xy);
-    outTex[id.xy] = hsb2rgb(float3(hue, ccaSaturation, ccaBrightness * keep), 1.0);
+    outTex[id.xy] = hsb2rgb(float3(hue, ccaSaturation, ccaBrightness * keep * outputEnvelope), 1.0);
 }

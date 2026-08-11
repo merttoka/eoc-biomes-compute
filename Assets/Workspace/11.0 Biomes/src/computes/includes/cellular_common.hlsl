@@ -47,6 +47,11 @@ float  ignitionRadius;     // cells
 float centreKeepOut;        // normalized width of the biased band; 0 = off
 float centreKeepOutDepth;   // how much is removed at dead centre
 
+// --- Output envelope (event-driven bursts) ----------------------------------------
+// Multiplied into the RENDER only. The deposit published into the biome channel is NOT
+// enveloped: the picture fades, the trace stays, and the biome PDE erodes it from there.
+float outputEnvelope;
+
 #include "neuron_layout.hlsl"
 #include "neuron_firing.hlsl"
 

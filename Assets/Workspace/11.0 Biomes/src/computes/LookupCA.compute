@@ -141,5 +141,5 @@ void RenderStateKernel(uint3 id : SV_DISPATCHTHREADID)
     float hue = frac(caHue + phase * caHueSpread);
 
     float keep = CentreKeepOutWeight(id.xy);
-    outTex[id.xy] = hsb2rgb(float3(hue, caSaturation, caBrightness * alive * keep), 1.0);
+    outTex[id.xy] = hsb2rgb(float3(hue, caSaturation, caBrightness * alive * keep * outputEnvelope), 1.0);
 }

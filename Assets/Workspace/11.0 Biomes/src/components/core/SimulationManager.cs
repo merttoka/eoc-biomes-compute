@@ -278,11 +278,13 @@ namespace Biomes
             neuronFiring?.UpdateFiring();
             ComputeBuffer firingBuf = neuronFiring != null ? neuronFiring.Buffer : null;
             int firingCount = neuronFiring != null ? neuronFiring.NeuronCount : 0;
+            float firingIntensity = neuronFiring != null ? neuronFiring.Intensity : 0f;
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
                 sim.neuronFiring = firingBuf;
                 sim.neuronFiringCount = firingCount;
+                sim.neuronIntensity = firingIntensity;
             }
 
             // 1. Build perception textures from biome for each sim. The build runs at

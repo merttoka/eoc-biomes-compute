@@ -57,6 +57,10 @@ namespace Biomes
         // Shared neuron firing (assigned by SimulationManager from NeuronFiringSource)
         [NonSerialized] public ComputeBuffer neuronFiring;
         [NonSerialized] public int neuronFiringCount;
+        // CPU-side aggregate of the same source, broadcast alongside the buffer. Field sims
+        // detect a rising edge on this to auto-trigger a burst; reading it CPU-side avoids a
+        // GPU readback and its sync point.
+        [NonSerialized] public float neuronIntensity;
         [Header("Neuron Firing")]
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
         private ComputeBuffer dummyNeuronFiringBuffer;
