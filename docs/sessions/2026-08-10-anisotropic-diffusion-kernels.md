@@ -63,11 +63,15 @@ main `ca-dev` checkout (CA sims) — no file overlap.
 
 ## Open / next session
 
-1. In-editor validation: shader + C# compile, then visual pass — 11.3 DAC config ships
-   live values (pheromone aniso/permInfluence + wind); flip each sim's
-   `trailAnisotropy` to ~0.6 and watch boid trails.
+1. RESOLVED 2026-08-11 — Editor-validated after the merge to `ca-dev`: compiles clean,
+   56/56 EditMode, Play visual pass done. Values in effect: `ambientWind (0.03, 0)`,
+   11.3 per-channel aniso/permInfluence as seeded, `trailAnisotropy` physarum 0.2 /
+   termite 0.3 / boid 1.0 (grafted onto the post-CA-session scene in the merge).
 2. Apply the per-channel table to 11.1/11.2 configs if 11.3 looks right.
 3. Watch trail-following feedback: sharper ridges strengthen SensorTurns gradients.
-4. Not merged: README/ARCHITECTURE untouched per convention (update on merge to main).
-5. EditMode tests not run in worktree (second Unity instance vs open editor); run before
-   merge. Merge waits for the other agent's CA work to land on ca-dev.
+4. PARTIALLY RESOLVED 2026-08-11: README gained a non-uniform-diffusion concept bullet on
+   `ca-dev`; ARCHITECTURE still waits for the merge to main per convention.
+5. RESOLVED 2026-08-11: merged into `ca-dev` (merge commit `106ca43`) after the CA work
+   landed; EditMode ran post-merge, 56/56. The merge dropped this branch's stale scene
+   edits (1080p downres, `metabolismEvery 2`, old-CA deactivation) and kept only the
+   per-species `trailAnisotropy` values.

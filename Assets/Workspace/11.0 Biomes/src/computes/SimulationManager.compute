@@ -49,15 +49,19 @@ float4 ringColor;
 #include "includes/neuron_layout.hlsl"
 
 float4 SampleSim(uint index, float2 uv) {
-    if (index == 0) return simInput0.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 1) return simInput1.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 2) return simInput2.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 3) return simInput3.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 4) return simInput4.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 5) return simInput5.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 6) return simInput6.SampleLevel(sampler_linear_clamp, uv, 0);
-    if (index == 7) return simInput7.SampleLevel(sampler_linear_clamp, uv, 0);
-    return float4(0, 0, 0, 0);  // unreachable: index < sim count
+    // Initialize-first, no early returns: Metal's cross-compiled return slot trips a
+    // "potentially uninitialized" warning on the early-return chain even with a
+    // trailing fallback, so the branches assign into an already-initialized value.
+    float4 c = float4(0, 0, 0, 0);
+    if      (index == 0) c = simInput0.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 1) c = simInput1.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 2) c = simInput2.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 3) c = simInput3.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 4) c = simInput4.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 5) c = simInput5.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 6) c = simInput6.SampleLevel(sampler_linear_clamp, uv, 0);
+    else if (index == 7) c = simInput7.SampleLevel(sampler_linear_clamp, uv, 0);
+    return c;
 }
 
 [numthreads(8, 8, 1)]

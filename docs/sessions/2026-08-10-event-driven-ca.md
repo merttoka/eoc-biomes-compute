@@ -31,13 +31,15 @@ related: [[../ARCHITECTURE]], [[../adr/0011-field-native-sims-derive-simulationb
 - `diffuseRate` 0.96, `decayRate` 0.004, advected — code defaults and all three Homeostatic
   assets. The deposit erodes once the burst goes idle, instead of sitting there inert forever.
 
-**Task 7 — the coupling, wired**
+**Task 7 — the coupling, proved**
 - `UmweltBoid_Alt.asset` gets one new `reads` entry: channel 14 (`Substrate`), weight `1.5`,
   effect `Avoidance` (`UmweltEffect.Avoidance = 2`, confirmed against
   `components/core/UmweltMapping.cs:26` before writing it — not typed blind). This is the first
   species anywhere on this branch wired to perceive a CA channel; ADR-0011's central claim
   (a species can respond to a CA by editing one mapping asset, no shader change) had not
-  actually been exercised until this edit. **Not yet Play-verified** — see Open below.
+  actually been exercised until this edit. **Play-verified 2026-08-11** at the final checkpoint:
+  boids steer off the lattice while the burst is up and keep avoiding the eroding trace until
+  the channel decays.
 
 ## Decided
 
@@ -71,11 +73,10 @@ like and what it means to the ecosystem around it.
 
 ## Open / next session
 
-1. **Boid-avoidance Play verification is pending the user's final checkpoint.** Editor lock
-   this session; Task 7 Step 2 (enter Play, trigger a burst, watch `UmweltBoid_Alt` boids steer
-   off `Substrate` and keep avoiding the eroding trace for a few seconds after it fades) has not
-   been run yet — the coupling is wired, not yet proved.
-2. **Full EditMode suite (51 expected) is deferred to the user** — Test Runner needs the Editor.
+1. **RESOLVED 2026-08-11 — boid avoidance Play-verified** at the final checkpoint: boids steer
+   off `Substrate` during a burst and keep avoiding the eroding trace after the picture fades.
+2. **RESOLVED 2026-08-11 — suite user-verified**: 51/51 at the final checkpoint, then 56/56
+   after the frame-advance + activity-gate follow-ups added `FrameAdvance` tests.
 3. User wants a dedicated test for the `TriggerBurst()` `!burstEnabled` guard specifically.
 4. Look/aesthetics of the CA layers are still being tuned — this session shipped the mechanism,
    not a final look.
