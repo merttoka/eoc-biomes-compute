@@ -335,7 +335,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint t = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            int2 xy = (int2(id.xy) + int2(dx, dy) + int2(rezX, rezY)) % int2(rezX, rezY);
+            int2 xy = int2(uint2(int2(id.xy) + int2(dx, dy) + int2(rezX, rezY)) % uint2(rezX, rezY));
             taps[t] = xy;
             if (dx == 0 && dy == 0) {
                 align2[t] = 1.0;

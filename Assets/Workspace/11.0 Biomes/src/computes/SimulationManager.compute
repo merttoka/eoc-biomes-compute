@@ -57,7 +57,7 @@ float4 SampleSim(uint index, float2 uv) {
     if (index == 5) return simInput5.SampleLevel(sampler_linear_clamp, uv, 0);
     if (index == 6) return simInput6.SampleLevel(sampler_linear_clamp, uv, 0);
     if (index == 7) return simInput7.SampleLevel(sampler_linear_clamp, uv, 0);
-    return float4(0, 0, 0, 0);
+    return float4(0, 0, 0, 0);  // unreachable: index < sim count
 }
 
 [numthreads(8, 8, 1)]

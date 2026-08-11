@@ -243,7 +243,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
         for (int oy = -2; oy <= 2; oy++)
             for (int ox = -2; ox <= 2; ox++)
                 tot[n++] = trailRead[uint3(
-                    (int2(id.xy) + int2(ox, oy) * trailTensorStride + rez) % rez, typeCount)];
+                    uint2(int2(id.xy) + int2(ox, oy) * trailTensorStride + rez) % uint2(rez), typeCount)];
     }
     float jxx = 0, jxy = 0, jyy = 0;
     for (int wy = -1; wy <= 1; wy++) {
@@ -273,7 +273,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint k = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            taps[k] = (int2(id.xy) + int2(dx, dy) + rez) % rez;
+            taps[k] = int2(uint2(int2(id.xy) + int2(dx, dy) + rez) % uint2(rez));
             float a = 1.0;   // center tap: never down-weighted (wsum >= 1)
             if (dx != 0 || dy != 0) {
                 float al = dot(normalize(float2(dx, dy)), ridge);
