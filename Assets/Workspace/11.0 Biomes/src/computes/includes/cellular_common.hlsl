@@ -86,8 +86,8 @@ float CouplingGate(uint2 id)
 {
     if (couplingEnabled == 0) return 1.0;
 
-    // Sampled by UV: the coupling source is a separate sim and may run at its own
-    // cellResolutionScale, so the two grids are not guaranteed to share dimensions.
+    // Sampled by UV: the coupling source is a separate sim, sized by its own cellRezHeight,
+    // so the two grids are not guaranteed to share dimensions.
     float2 uv = (float2(id) + 0.5) / float2((float)cellRezX, (float)cellRezY);
     float raw = couplingState.SampleLevel(sampler_point_clamp, uv, 0);
     float norm = raw / max(1.0, (float)couplingNStates);
@@ -120,9 +120,9 @@ float CentreKeepOutWeight(uint2 id)
 /// clock as the diurnal sun and the dispersal pulses.
 ///
 /// COST: this loops every neuron per cell. It is off by default (ignitionStrength 0) and
-/// when on it is amortised by the two levers field sims already have — cellResolutionScale
-/// (quadratic) and stepEvery (linear). At scale 0.25 + stepEvery 4 it costs ~1/64 of the
-/// naive figure. Do not enable it at full cell resolution on the ultra-wide master.
+/// when on it is amortised by the two levers field sims already have — cellRezHeight being
+/// low relative to master (quadratic) and stepEvery (linear). Both cut cost: lower height or
+/// higher stepEvery. Do not enable it at full cell resolution on the ultra-wide master.
 float NeuronIgnition(uint2 id)
 {
     if (ignitionStrength <= 0.0 || neuronFiringCount <= 0 || neuronCount == 0) return 0.0;

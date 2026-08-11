@@ -16,8 +16,8 @@ namespace Biomes
     {
         [Header("Rule")]
         [Tooltip("Neighbourhood radius in CELLS. Cost is O((2r+1)^2) per cell per step under " +
-                 "Moore, so this is the single most expensive knob here — raise cellResolutionScale " +
-                 "down or stepEvery up before raising this.")]
+                 "Moore, so this is the single most expensive knob here — lower cellRezHeight on " +
+                 "the sim, or raise stepEvery, before raising this.")]
         [Range(1, 10)] public int range = 1;
 
         [Tooltip("How many neighbours must already hold the next state before a cell advances. " +

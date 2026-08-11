@@ -34,12 +34,12 @@ namespace Biomes
     public abstract class FieldSimulationBase : SimulationBase
     {
         [Header("Cellular field")]
-        [Tooltip("State-grid resolution as a fraction of this sim's resolution. CAs are coarse " +
-                 "by nature and a Moore neighbourhood of radius r costs O((2r+1)^2) samples per " +
-                 "cell per step, so running the rule at half res is a ~4x saving that is nearly " +
-                 "invisible — the composite UV-samples every layer, so a smaller outTex upscales " +
-                 "for free. Takes effect on Reset.")]
-        [Range(0.05f, 1f)] public float cellResolutionScale = 0.5f;
+        [Tooltip("State-grid HEIGHT in cells, absolute. Width follows the master's aspect. " +
+                 "Absolute rather than a fraction of master so the automaton's on-screen cell " +
+                 "size does not move when output resolution does — 1080p and 4K give the same " +
+                 "picture, upscaled differently by the composite. On very wide canvases width " +
+                 "scales with the aspect, so lower this there. Takes effect on Reset.")]
+        [Range(64, 2048)] public int cellRezHeight = 540;
 
         [Tooltip("Run the rule only every Nth sim step. CA patterns read as slow structure; " +
                  "decimating the rule decouples its pace from the 60 Hz agent clock without " +
@@ -142,13 +142,11 @@ namespace Biomes
         /// <summary>The live state grid, for another field sim to read as a coupling mask.</summary>
         public RenderTexture StateTexture => stateRead;
 
-        protected int CellRezX => Mathf.Max(8,
-            Mathf.RoundToInt(rezX * Mathf.Clamp(cellResolutionScale, 0.05f, 1f)));
-        protected int CellRezY => Mathf.Max(8,
-            Mathf.RoundToInt(rezY * Mathf.Clamp(cellResolutionScale, 0.05f, 1f)));
+        protected int CellRezX => CellGrid.Width(cellRezHeight, rezX, rezY);
+        protected int CellRezY => CellGrid.Height(cellRezHeight);
 
-        // Cell resolution is an allocation key of its own: it is derived from rezX/rezY but
-        // ALSO from cellResolutionScale, which the base signature knows nothing about.
+        // Cell resolution depends on cellRezHeight, which the base signature does not track.
+        // Width also uses rezX/rezY (already tracked by base), but cellRezHeight is the new lever.
         protected override bool NeedsAllocation() =>
             base.NeedsAllocation() || CellRezX != _allocCellRezX || CellRezY != _allocCellRezY;
 
