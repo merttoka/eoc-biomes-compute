@@ -145,6 +145,25 @@ namespace Biomes
         private RisingEdge _firingEdge;
         private bool _outputDirty;   // outTex holds a frame that must be cleared on going idle
 
+        // seedField is declared Texture2DArray in HLSL, and Metal validates the type of every
+        // bound texture at dispatch even when the kernel never samples it, so the fallback
+        // must be an array too — a 2D black texture here spams binding warnings on every reset.
+        private static Texture2DArray s_BlackArrayFallback;
+        private static Texture2DArray BlackArrayFallback
+        {
+            get
+            {
+                if (s_BlackArrayFallback == null)
+                {
+                    s_BlackArrayFallback = new Texture2DArray(1, 1, 1, TextureFormat.RFloat, false)
+                        { hideFlags = HideFlags.HideAndDontSave };
+                    s_BlackArrayFallback.SetPixels(new[] { Color.clear }, 0);
+                    s_BlackArrayFallback.Apply(false, true);
+                }
+                return s_BlackArrayFallback;
+            }
+        }
+
         /// <summary>Output multiplier for the render kernel. Always 1 when bursts are off.</summary>
         protected float OutputEnvelope => burstEnabled ? _burst.Value : 1f;
 
@@ -326,7 +345,7 @@ namespace Biomes
             cs.SetInt(s_SeedChannelID, Mathf.Clamp(seedChannel, 0, BiomeChannel.Count - 1));
             cs.SetFloat(s_SeedThresholdID, seedThreshold);
             cs.SetTexture(resetStateKernel, s_SeedFieldID,
-                canSeedFromChannel ? publishTarget.FieldReadArray : Texture2D.blackTexture);
+                canSeedFromChannel ? publishTarget.FieldReadArray : BlackArrayFallback);
 
             // Seed into stateWrite, then swap so stateRead holds the seed — the same
             // write-then-swap discipline every step uses, so there is only one convention.
