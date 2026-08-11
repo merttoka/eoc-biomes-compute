@@ -12,6 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[superpowers/specs/2026-08-10-event-driven-ca-design]] — field sims become event-driven (burst on rising-edge firing or `TriggerBurst()`, seed-from-channel, idle dispatches nothing) with absolute cell resolution (`cellRezHeight`); Excitability/Substrate PDE-erode once idle instead of sitting inert
 - [[superpowers/specs/2026-08-04-engine-extraction-design]] — split the reusable sim engine off an abandoned show branch: `main` reset to `origin/main`, engine replayed onto `ca-dev` as four commits, the show preserved whole on `archive/dac-shanghai`
 - [[superpowers/plans/2026-08-02-composer-bioform-validation]] — validation track for the 2026-07-19 merges that never ran (temporal composer, bioform 3D); observe-then-triage, no fixing on sight
 - [[superpowers/specs/2026-08-02-neuron-layout-single-owner-design]] — `spawnScale` collapses to one owner (`NeuronFiringSource`) + one mapping function (`includes/neuron_layout.hlsl`); fixes a live desync where rings + dispersal stamps land off the agents at wide resolutions
@@ -25,6 +26,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-08-10-event-driven-ca]] — field sims go event-driven (burst lifecycle, absolute cell rez, channel seeding); Excitability/Substrate PDE-erode instead of staying inert; first CA↔species coupling proved (`UmweltBoid_Alt` reads `Substrate` as `Avoidance`)
 - [[sessions/2026-08-02-cellular-automata-sims]] — CA lineage lands as field-native sims (`FieldSimulationBase` + CCA + lookup CA, both double-buffered, CA↔CA coupling, new Excitability/Substrate channels, `BiomeChannel.Count` 13 → 15); shaders compile-verified, 31/31 EditMode green ([[adr/0011-field-native-sims-derive-simulationbase|ADR-0011]])
 - [[sessions/2026-07-19-mft-led-legibility]] — MFT LEDs made readable: per-type hue gradients (family CC range lerped by type index, inspector-tunable), 0.7s bank-switch flash (top row = soft bank color-coded, bottom row = HW bank white), full brightness on bound knobs; fixed mislabeled anim constants; merged to main
 - [[sessions/2026-07-15-permeability-mounds]] — termite-built permeability walls partition the field into habitats (Boids open / Physarum edges / Termites walls); wired the dead `preferredPermeabilityMin/Max` gate + firing-gated build kernel + `ResetTermites` melt + composite overlay; speed-floor freeze fix; merged to main ([[adr/0010-permeability-agent-built-topography|ADR-0010]])

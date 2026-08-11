@@ -144,9 +144,10 @@ high-diffusion, flow-advected moisture field that relaxes to an ambient baseline
 evaporated by Temperature; **Permeability** starts at a uniform-open baseline and relaxes
 toward it near-zero — its structure is authored entirely by termites, not static terrain,
 see §3.4 + [[adr/0010-permeability-agent-built-topography|ADR-0010]];
-**Excitability** and **Substrate** are CA-owned publish targets written each step by a
-`FieldSimulationBase` and left alone by the PDE — `diffuseRate`/`relaxRate` 0, or the rule's
-own output blurs back over itself). Per-channel
+**Excitability** and **Substrate** are CA-owned publish targets, written at full gain while
+a `FieldSimulationBase` is bursting; once the burst goes idle it stops publishing and the PDE
+takes the deposit over — these channels deliberately do bleed and advect (`diffuseRate` 0.96,
+`decayRate` 0.004), so the trace erodes rather than sitting inert). Per-channel
 behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
 from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
 hardcoded in two sync'd places — `BiomeChannel.Count/Names` (the C# source of truth; both
@@ -178,6 +179,15 @@ render into `outTex` like any other layer, and may publish their normalized stat
 biome channel so agent species perceive them through `UmweltMapping` with **no shader
 change** — only a mapping entry. See
 [[adr/0011-field-native-sims-derive-simulationbase|ADR-0011]].
+
+Field sims are **event-driven** by default (`burstEnabled`). A burst is triggered by a rising
+edge of the neuron firing level or by `TriggerBurst()`, seeds its grid — optionally from a biome
+channel by threshold, so the automaton grows out of the ecosystem rather than an abstract figure
+— holds for `burstSustainSteps`, then fades. While idle a field sim dispatches nothing at all:
+no rule, no render, no publish. Because it stops publishing on going idle, the lattice it
+deposited stays in its biome channel and is eroded, spread and advected by the PDE from then on.
+Grid size is authored as an absolute cell height (`cellRezHeight`), with width derived from the
+master's aspect, so the automaton's on-screen scale does not move when output resolution does.
 
 > A subclass that overrides `Allocate()` **must** call `MarkAllocated()`. The clear-in-place
 > signature is private and that is the only way to stamp it; skipping it makes
