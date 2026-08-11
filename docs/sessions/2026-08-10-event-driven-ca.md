@@ -31,13 +31,13 @@ related: [[../ARCHITECTURE]], [[../adr/0011-field-native-sims-derive-simulationb
 - `diffuseRate` 0.96, `decayRate` 0.004, advected — code defaults and all three Homeostatic
   assets. The deposit erodes once the burst goes idle, instead of sitting there inert forever.
 
-**Task 7 — the coupling, proved**
-- `UmweltBoid_Alt.asset` gets one new `reads` entry: channel 14 (`Substrate`), weight `-1.5`,
+**Task 7 — the coupling, wired**
+- `UmweltBoid_Alt.asset` gets one new `reads` entry: channel 14 (`Substrate`), weight `1.5`,
   effect `Avoidance` (`UmweltEffect.Avoidance = 2`, confirmed against
   `components/core/UmweltMapping.cs:26` before writing it — not typed blind). This is the first
   species anywhere on this branch wired to perceive a CA channel; ADR-0011's central claim
   (a species can respond to a CA by editing one mapping asset, no shader change) had not
-  actually been exercised until this edit.
+  actually been exercised until this edit. **Not yet Play-verified** — see Open below.
 
 ## Decided
 
@@ -53,6 +53,13 @@ related: [[../ARCHITECTURE]], [[../adr/0011-field-native-sims-derive-simulationb
   instead of through the Inspector — the Editor holds the project lock this session. Read the
   `UmweltEffect` enum from source first (`Avoidance = 2`) and copied the existing `reads:` YAML
   entry shape rather than guessing either.
+- **Avoidance weight must be positive.** `Biome.compute`'s Avoidance branch computes
+  `avoidance += max(0, val * entry.weight)` over channels already clamped to `[0,1]`, so a
+  negative weight always contributes 0 — the entry would be a functional no-op. The brief's
+  `weight: -1.5` was a wrong inference from Chemotaxis's "negative = repel" convention; for
+  Avoidance the sign is meaningless except that negatives zero the branch out. Fixed to `1.5`,
+  matching the asset's existing Avoidance row (channel 6, weight `1`, effect `2`). Recorded here
+  for the next person adding an Avoidance mapping.
 
 ## Measured
 
@@ -64,9 +71,10 @@ like and what it means to the ecosystem around it.
 
 ## Open / next session
 
-1. **Boid-avoidance Play verify is deferred to the user.** Editor lock this session; Task 7
-   Step 2 (enter Play, trigger a burst, watch `UmweltBoid_Alt` boids steer off `Substrate` and
-   keep avoiding the eroding trace for a few seconds after it fades) has not been run yet.
+1. **Boid-avoidance Play verification is pending the user's final checkpoint.** Editor lock
+   this session; Task 7 Step 2 (enter Play, trigger a burst, watch `UmweltBoid_Alt` boids steer
+   off `Substrate` and keep avoiding the eroding trace for a few seconds after it fades) has not
+   been run yet — the coupling is wired, not yet proved.
 2. **Full EditMode suite (51 expected) is deferred to the user** — Test Runner needs the Editor.
 3. User wants a dedicated test for the `TriggerBurst()` `!burstEnabled` guard specifically.
 4. Look/aesthetics of the CA layers are still being tuned — this session shipped the mechanism,
