@@ -28,6 +28,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-08-12-neuron-positions-single-owner]] — per-sim `labelsPositionsCsv` dies; `NeuronFiringSource` owns the layout, manager pushes it (finishes the 2026-08-02 job for real); contract + dataset-pairing warnings at the one parse site; TestScene gains a blob-less source; 56/56, DAC verified ([[adr/0014-neuron-layout-single-owner|ADR-0014]])
 - [[sessions/2026-08-10-event-driven-ca]] — field sims go event-driven (burst lifecycle, absolute cell rez, channel seeding); Excitability/Substrate PDE-erode instead of staying inert; first CA↔species coupling proved in Play (`UmweltBoid_Alt` reads `Substrate` as `Avoidance` — boids dodge the eroding lattice)
 - [[sessions/2026-08-10-anisotropic-diffusion-kernels]] — non-uniform diffusion everywhere: biome `DiffuseFieldsKernel` → shaped weighted average (flow anisotropy, permeability gating, gaussian, ambient wind; toroidal taps) + coherence-enhancing trail diffusion in all 3 agent sims (comet tails, σ⊥ halves); numerically verified, 11.3 config seeded; merged to `ca-dev` and Editor-validated (56/56, Play pass; `ambientWind (0.03, 0)`, `trailAnisotropy` physarum .2 / termite .3 / boid 1) ([[adr/0012-weighted-diffusion-kernels|ADR-0012]], [[adr/0013-coherence-enhancing-trail-diffusion|ADR-0013]])
 - [[sessions/2026-08-02-cellular-automata-sims]] — CA lineage lands as field-native sims (`FieldSimulationBase` + CCA + lookup CA, both double-buffered, CA↔CA coupling, new Excitability/Substrate channels, `BiomeChannel.Count` 13 → 15); shaders compile-verified, 31/31 EditMode green ([[adr/0011-field-native-sims-derive-simulationbase|ADR-0011]])
@@ -46,6 +47,7 @@ tags: [meta, index]
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
 ## ADRs (newest first)
+- [[adr/0014-neuron-layout-single-owner]] — `NeuronFiringSource` owns the neuron layout (positions CSV + scale + blob); manager pushes, sims consume; validated contract at the single parse site; enables clean dataset swaps
 - [[adr/0013-coherence-enhancing-trail-diffusion]] — sim trail anisotropy from the trail's own structure tensor (Weickert-style), not a heading-memory field (two built, measured useless); comet tails via retention, one `trailAnisotropy` knob per sim
 - [[adr/0012-weighted-diffusion-kernels]] — diffusion neighbourhood is a shaped weighted average (flow anisotropy + permeability gating + ambient wind), extending ADR-0007's per-class operators; global mass conservation traded for medium/wind coupling
 - [[adr/0011-field-native-sims-derive-simulationbase]] — field sims (CA) derive `SimulationBase` and seal the agent contract, rather than getting a parallel hierarchy; double buffering mandated at the base

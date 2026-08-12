@@ -1,7 +1,7 @@
 # Neuron Positions Get a Single Owner — Design
 
 **Date:** 2026-08-12
-**Status:** draft
+**Status:** shipped on `ca-dev` 2026-08-12 (`2b940f1`, polish `72d4dd9`; ADR-0014); 11.1/11.2 Play-checks pending
 **Files touched:** `src/components/network/NeuronFiringSource.cs`, `src/components/core/SimulationBase.cs`, `src/components/core/SimulationManager.cs`, all four scenes (11.0 TestScene gains a component; the others shed stale keys on save)
 
 Finishes the job [[2026-08-02-neuron-layout-single-owner-design]] started. That spec collapsed

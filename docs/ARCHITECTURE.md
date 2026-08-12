@@ -203,7 +203,9 @@ master's aspect, so the automaton's on-screen scale does not move when output re
 
 `SimulationBase` is the abstract GPU-agent template: trail texture arrays (per-type
 + total), a perception texture, an external-influence texture, **neuron-position seeding**
-(`BuildNeuronPositions` from `labels_positions.csv`) and **shared neuron firing**
+(`BuildNeuronPositions`, consuming the normalized layout `SimulationManager` pushes from
+`NeuronFiringSource` — the single CSV owner, [[adr/0014-neuron-layout-single-owner|ADR-0014]])
+and **shared neuron firing**
 (`BindNeuronFiring`, `firingThreshold`), and the common kernel set
 (reset/move/write-trails/diffuse/render). Subclasses implement the agent model:
 
