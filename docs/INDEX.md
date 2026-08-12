@@ -12,6 +12,7 @@ tags: [meta, index]
 - [[../Assets/Workspace/11.0 Biomes/docs/PERFORMANCE]] — M4 exhibition perf deep dive (memory, dispatch, agent budgets)
 
 ## Specs / plans
+- [[superpowers/specs/2026-08-12-neuron-positions-single-owner-design]] — finish the 2026-08-02 single-owner job: per-sim `labelsPositionsCsv` dies, `NeuronFiringSource` owns positions and the manager pushes them (mirrors `neuronSpawnScale`); deletes dead `csvCoordinatesAreNormalized`/`PositionsBuffer`; no perf cost, init parses once instead of per sim
 - [[superpowers/specs/2026-08-10-event-driven-ca-design]] — field sims become event-driven (burst on rising-edge firing or `TriggerBurst()`, seed-from-channel, idle dispatches nothing) with absolute cell resolution (`cellRezHeight`); Excitability/Substrate PDE-erode once idle instead of sitting inert
 - [[superpowers/specs/2026-08-10-anisotropic-diffusion-design]] — biome diffusion goes non-uniform: normalized weighted 3×3 average (box→gaussian shape, flow-aligned anisotropy, permeability gating) + `ambientWind`; defaults reproduce the legacy box blur
 - [[superpowers/specs/2026-08-04-engine-extraction-design]] — split the reusable sim engine off an abandoned show branch: `main` reset to `origin/main`, engine replayed onto `ca-dev` as four commits, the show preserved whole on `archive/dac-shanghai`
