@@ -221,7 +221,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &47834217
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -247,6 +247,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 0}
+  trailAnisotropy: 0
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -561,6 +562,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1919109755}
+  - {fileID: 1493074648}
   - {fileID: 2000144459}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1046,7 +1048,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &773823230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1072,6 +1074,7 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 0}
+  trailAnisotropy: 0
   firingThreshold: 0.1
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
   csvCoordinatesAreNormalized: 1
@@ -1818,6 +1821,55 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1470234283}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1493074646
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1493074648}
+  - component: {fileID: 1493074647}
+  m_Layer: 0
+  m_Name: Organoids
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1493074647
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1493074646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40bb26352978a47488ae7d645d3d6303, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
+  firingBlobFile: biomes11/organoid_firing.f16
+  firingDecaySeconds: 0.5
+  debugLog: 0
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  spawnScale: {x: 0.5, y: 0.6}
+--- !u!4 &1493074648
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1493074646}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -7.19107, y: -0.27437997, z: -13.88248}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 527395917}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1825205985
 GameObject:
   m_ObjectHideFlags: 0
@@ -2307,7 +2359,7 @@ MonoBehaviour:
     periodSteps: 7200
     dayFraction: 0.7
     sweepHeight: 0.5
-  firingSource: {fileID: 2000144462}
+  firingSource: {fileID: 1493074647}
   firingDispersalEnabled: 1
   dispersalChannel: 10
   dispersalRadius: 0.02
@@ -2393,7 +2445,7 @@ MonoBehaviour:
   - {fileID: 1825205988}
   - {fileID: 1010527583}
   m_BiomeInjector: {fileID: 1919109756}
-  m_NeuronFiringSource: {fileID: 2000144462}
+  m_NeuronFiringSource: {fileID: 0}
   m_SnPrefix: /sn
   m_EntityBindings: []
 --- !u!4 &1938610678
@@ -2534,7 +2586,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2000144459}
   - component: {fileID: 2000144461}
-  - component: {fileID: 2000144462}
   - component: {fileID: 2000144460}
   m_Layer: 0
   m_Name: SimulationManager
@@ -2615,10 +2666,8 @@ MonoBehaviour:
   - {fileID: 276895388}
   - {fileID: 1825205988}
   - {fileID: 1010527583}
-  - {fileID: 47834217}
-  - {fileID: 773823230}
   externalInput: {fileID: 0}
-  neuronFiring: {fileID: 2000144462}
+  neuronFiring: {fileID: 1493074647}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
   m_NeuronRingOverlay: 0
@@ -2635,23 +2684,6 @@ MonoBehaviour:
   recordingCamera: {fileID: 907546077}
   moundOverlayStrength: 0.6
   moundColor: {r: 0.5294118, g: 0.8078432, b: 0.9215687, a: 1}
---- !u!114 &2000144462
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2000144458}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 40bb26352978a47488ae7d645d3d6303, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
-  firingBlobFile: biomes11/organoid_firing.f16
-  firingDecaySeconds: 0.5
-  debugLog: 0
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  spawnScale: {x: 0.5, y: 0.6}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

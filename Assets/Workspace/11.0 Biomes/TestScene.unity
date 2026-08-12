@@ -178,6 +178,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ExternalTextureSender
   simManager: {fileID: 427713103}
+  sequencer: {fileID: 0}
   resources:
     spout: {fileID: 11400000, guid: f449ebbe2051c2e4d993eaa773a410de, type: 2}
     ndi: {fileID: 11400000, guid: 69304b86950074db7ba8caba75214004, type: 2}
@@ -434,19 +435,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
   cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
   outputMat: {fileID: 2100000, guid: 08c791a04d6e64e13a17db419673ca8c, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
   rezX: 1024
   rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: da5ece7fe0bf54404a20c91839ac865f, type: 2}
+  trailAnisotropy: 0
+  firingThreshold: 0.1
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
   agentsCount: 13100
+  turnAngleSpread: 0.8
   paramsSO: {fileID: 11400000, guid: f356b22c55d30446ca7646dee74dc2f9, type: 2}
   agentParams: {fileID: 0}
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.8, y: 0.9}
-  enableFiring: 1
-  firingBlobFile: biomes11/organoid_firing.f16
-  firingThreshold: 0.1
-  loopFiring: 1
+  wallBuildAmount: 0.02
+  wallBuildFiringThreshold: 0.1
 --- !u!4 &102842654
 Transform:
   m_ObjectHideFlags: 0
@@ -970,8 +980,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
   biomeRezX: 480
   biomeRezY: 270
+  stepEvery: 1
   fieldConfig: {fileID: 11400000, guid: c7161ed1133fe4e2ca88bd779a0cbee8, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
+  habitatAvoidGain: 2
+  habitatSlowGain: 3
+  habitatSpeedFloor: 0.25
+  fusedWriteCS: {fileID: 7200000, guid: 9ce42c0778aa14270950ac44dbcad2b1, type: 3}
   showDebugGrid: 1
   debugQuadSize: 0.65
   debugGridSpacing: 0.2
@@ -982,6 +997,8 @@ MonoBehaviour:
   labelYOffset: 0.4
   debugOutputMat: {fileID: 2100000, guid: 840312fe2aff04b1fadfcdc112b2a3d1, type: 2}
   debugChannel: 0
+  exportFolder: Exports/Biomes
+  exportNormalized: 1
 --- !u!4 &414066867
 Transform:
   m_ObjectHideFlags: 0
@@ -1058,6 +1075,8 @@ MonoBehaviour:
   rightBot: 15
   sendLEDFeedback: 1
   ledUpdateInterval: 0.6
+  typeBrightnessMid: 32
+  bankFlashDuration: 0.7
   logMidi: 0
   ccSideL1: 8
   ccSideL2: 9
@@ -1114,23 +1133,43 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
   rezX: 1920
   rezY: 1080
+  simResolutionScale: 1
+  perceptionResScale: 1
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   simRate: 60
   maxAllowedTimestep: 0.1
   stepsPerTick: 1
   limitFPS: 1
   targetFPS: 60
+  ownsGlobalTiming: 1
   biome: {fileID: 414066866}
+  injector: {fileID: 0}
+  fusedWriteback: 0
+  metabolismEvery: 1
   simulations:
   - {fileID: 1618572301}
   - {fileID: 1063645694}
   - {fileID: 102842653}
   externalInput: {fileID: 0}
+  neuronFiring: {fileID: 1365373550}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
+  m_NeuronRingOverlay: 1
+  m_RingColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  m_RingRadius: 14
+  m_RingThickness: 4
+  m_RingStrength: 1.5
+  m_RingExpandGain: 2
+  m_RingCoreStrength: 1.5
+  m_RingThreshold: 0.1
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
   compositeOutMat: {fileID: 2100000, guid: b34d3ce16b29941bb86a92f7d1b69e9a, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
+  moundOverlayStrength: 0.5
+  moundColor: {r: 0.25, g: 0.18, b: 0.12, a: 1}
 --- !u!4 &427713104
 Transform:
   m_ObjectHideFlags: 0
@@ -2141,9 +2180,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidSim
   cs: {fileID: 7200000, guid: 389d82ac9790342749216aaa0602d941, type: 3}
   outputMat: {fileID: 2100000, guid: e53f1624b50e246e89445d57729ac6b2, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
   rezX: 2048
   rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 83e0e0c5cd5bb45ed98a3e0c9e893e30, type: 2}
+  trailAnisotropy: 0
+  firingThreshold: 0.1
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
   agentsCount: 10000
   paramsSO: {fileID: 11400000, guid: 98853068df7094aa1b067a1902f00260, type: 2}
   agentParams: {fileID: 0}
@@ -2498,6 +2550,55 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &1365373549
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1365373551}
+  - component: {fileID: 1365373550}
+  m_Layer: 0
+  m_Name: Neurons
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1365373550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1365373549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40bb26352978a47488ae7d645d3d6303, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringSource
+  firingBlobFile: biomes11/organoid_firing.f16
+  firingDecaySeconds: 0.5
+  debugLog: 0
+  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
+  spawnScale: {x: 0.8, y: 0.9}
+--- !u!4 &1365373551
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1365373549}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.38964, y: -0.91352, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1470234283
 GameObject:
   m_ObjectHideFlags: 0
@@ -2911,15 +3012,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
   cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
   outputMat: {fileID: 2100000, guid: 6f99dd3881dd147bfaaee20c63f77994, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
   rezX: 2048
   rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: a6ee80ecf5443440cb4462abc00e19ba, type: 2}
+  trailAnisotropy: 0
+  firingThreshold: 0.1
+  behaviorMulMin: 0.25
+  behaviorMulMax: 4
+  behaviorMulNeutral: 0.5
   agentsCount: 100000
   paramsSO: {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
   agentParams: {fileID: 0}
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  neuronScale: {x: 0.8, y: 0.9}
 --- !u!4 &1618572302
 Transform:
   m_ObjectHideFlags: 0
@@ -4490,6 +4601,7 @@ SceneRoots:
   - {fileID: 584847076}
   - {fileID: 128060223}
   - {fileID: 414066867}
+  - {fileID: 1365373551}
   - {fileID: 427713104}
   - {fileID: 417804409}
   - {fileID: 39187334}
