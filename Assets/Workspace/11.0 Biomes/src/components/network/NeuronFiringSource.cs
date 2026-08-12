@@ -130,6 +130,9 @@ namespace Biomes
                 ReleaseBuffers();
                 _buffer = new ComputeBuffer(n, sizeof(float));
                 _loadedBlobFile = firingBlobFile;
+                // Neuron count may have changed with the blob; let the pairing check below
+                // re-announce a mismatch even if it already warned for a prior blob.
+                _warnedDatasetMismatch = false;
             }
 
             // Positions load independently of the blob: no blob is required (lets a
@@ -167,6 +170,11 @@ namespace Biomes
         {
             _posCount = 0;
             _posList = null;
+            // Per-loaded-CSV, not per-component-lifetime: a newly assigned CSV must be able
+            // to re-announce a contract violation or dataset mismatch even if a prior CSV
+            // already warned once.
+            _warnedPositionsOutOfContract = false;
+            _warnedDatasetMismatch = false;
             if (labelsPositionsCsv == null || string.IsNullOrEmpty(labelsPositionsCsv.text)) return;
             var pts = ParseCsvFloat2(labelsPositionsCsv.text); // normalized 0..1, y-flipped
             if (pts == null || pts.Count == 0) return;

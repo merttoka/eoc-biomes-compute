@@ -114,6 +114,10 @@ value-recording step. Order:
   this erases that. The 2026-08-12 audit found none (all four scenes, one guid everywhere).
 - **Rebuild staleness**: a CSV hot-swap mid-Play propagates at the next configure/reset, not
   instantly — identical to today, where the parse is cached per allocation.
+- **Per-type reset buttons skip the reload trigger**: `ResetSimsOnly`/`ResetPhysarum`/etc. call
+  `ConfigureAndReset` directly without re-running `neuronFiring.Initialize()`, so a mid-session
+  CSV swap only propagates on the next full `Reset()` — the same asymmetry the firing blob
+  already has (pre-existing, documented here, not fixed by this spec).
 
 ## Success criteria
 

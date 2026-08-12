@@ -426,10 +426,12 @@ namespace Biomes
             cs.SetFloat(s_IgnitionRadiusID, firingIgnitionRadius);
             cs.SetVector(s_NeuronScaleID,
                 new Vector4(neuronSpawnScale.x, neuronSpawnScale.y, 0, 0));
-            // Field sims have no reset-agents kernel, so the inherited CSV parse/upload is
-            // pointed at the rule kernel instead. It parses once per allocation and rebinds
-            // thereafter, uploading positions pre-multiplied by the SIM resolution — the rule
-            // rescales those into cell space via neuronSrcRez (see cellular_common.hlsl).
+            // Field sims have no reset-agents kernel, so the inherited neuron-position upload
+            // is pointed at the rule kernel instead. It consumes the layout pushed from
+            // NeuronFiringSource (parsing lives solely in the source, once per CSV load),
+            // uploading once per allocation/invalidate and rebinding thereafter — positions
+            // pre-multiplied by the SIM resolution, which the rule rescales into cell space
+            // via neuronSrcRez (see cellular_common.hlsl).
             BuildNeuronPositions(stepRuleKernel);
 
             cs.SetTexture(stepRuleKernel, s_StateReadID, stateRead);
