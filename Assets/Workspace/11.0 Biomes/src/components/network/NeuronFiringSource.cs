@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using EasyButtons;
 
@@ -22,7 +24,9 @@ namespace Biomes
         [Tooltip("Log frame changes to the Console (main thread)")]
         public bool debugLog = false;
 
-        [Tooltip("Same labels_positions.csv as the sims — used to place firing-ring markers in the composite overlay")]
+        [Tooltip("Single owner of neuron seed positions (normalized 0..1, contract enforced — see " +
+                 "LoadPositions). SimulationManager pushes these to every sim (agent spawn seeding, " +
+                 "CA ignition) and to the firing-ring overlay. No sim declares its own copy.")]
         public TextAsset labelsPositionsCsv;
 
         [Tooltip("How much of the canvas the neuron layout fills (0-1). (1,1) = full canvas. " +
@@ -44,6 +48,9 @@ namespace Biomes
         // absolute mean that depends on how sparse/dense the source recording happens to be.
         private float _maxFrameMean;
         private string _loadedBlobFile;   // which firingBlobFile the buffers were built for
+        private TextAsset _loadedPositionsCsv;   // which labelsPositionsCsv PositionsCPU was built for
+        private bool _warnedPositionsOutOfContract;
+        private bool _warnedDatasetMismatch;
 
         // OSC-driven (written on the receive thread)
         private volatile int _targetFrame;
@@ -58,19 +65,20 @@ namespace Biomes
         private float[] _scaled;    // _row * _intensity, uploaded each step
         private ComputeBuffer _buffer;
 
-        // Neuron positions (normalized 0..1, y-flipped) for the firing-ring overlay
-        private ComputeBuffer _posBuffer;
+        // Neuron positions (normalized 0..1, y-flipped) for the firing-ring overlay and,
+        // via SimulationManager, every sim's agent spawn seeding + CA ignition.
         private int _posCount;
-        private System.Collections.Generic.List<Vector2> _posList;
+        private List<Vector2> _posList;
 
         public ComputeBuffer Buffer => _buffer;
-        public ComputeBuffer PositionsBuffer => _posBuffer;
         public int PositionsCount => _posCount;
         /// <summary>Current per-neuron firing values (already intensity-scaled), CPU-side.
         /// Lets the ring overlay compact to active neurons and skip the dispatch when quiet.</summary>
         public float[] ScaledValues => _scaled;
-        /// <summary>Normalized neuron positions (same CSV order as ScaledValues), CPU-side.</summary>
-        public System.Collections.Generic.IReadOnlyList<Vector2> PositionsCPU => _posList;
+        /// <summary>Normalized neuron positions (same CSV order as ScaledValues), CPU-side.
+        /// SINGLE SOURCE OF TRUTH: SimulationManager pushes this to every sim's
+        /// neuronPositionsNorm. No sim parses its own CSV.</summary>
+        public IReadOnlyList<Vector2> PositionsCPU => _posList;
         public int NeuronCount => _neuronCount;
         public int FrameCount => _frameCount;
         public int CurrentFrame => _currentFrame;
@@ -121,8 +129,27 @@ namespace Biomes
                 _scaled = new float[n];
                 ReleaseBuffers();
                 _buffer = new ComputeBuffer(n, sizeof(float));
-                LoadPositions();
                 _loadedBlobFile = firingBlobFile;
+            }
+
+            // Positions load independently of the blob: no blob is required (lets a
+            // blob-less TestScene instance still seed agent spawn + firing-ring positions),
+            // and they (re)load whenever the CSV reference changes, not gated on the
+            // blob-reload branch above.
+            if (labelsPositionsCsv != _loadedPositionsCsv)
+            {
+                LoadPositions();
+                _loadedPositionsCsv = labelsPositionsCsv;
+            }
+
+            // Dataset-pairing check: row k of the CSV IS neuron k of the blob (ADR-0006's
+            // spatial-coherence property). A mismatched (blob, CSV) pair should announce
+            // itself, not silently wrap/truncate downstream.
+            if (!_warnedDatasetMismatch && _neuronCount > 0 && _posCount > 0 && _posCount != _neuronCount)
+            {
+                Debug.LogWarning($"NeuronFiringSource: positions count ({_posCount}) != blob neuron count " +
+                                  $"({_neuronCount}) — labelsPositionsCsv and firingBlobFile look like a mismatched dataset pair");
+                _warnedDatasetMismatch = true;
             }
 
             // Clear the firing envelope (every reset): zero the buffer and reset decay state.
@@ -141,12 +168,52 @@ namespace Biomes
             _posCount = 0;
             _posList = null;
             if (labelsPositionsCsv == null || string.IsNullOrEmpty(labelsPositionsCsv.text)) return;
-            var pts = SimulationBase.ParseCsvFloat2(labelsPositionsCsv.text); // normalized 0..1, y-flipped
+            var pts = ParseCsvFloat2(labelsPositionsCsv.text); // normalized 0..1, y-flipped
             if (pts == null || pts.Count == 0) return;
+            WarnIfOutOfContract(pts);
             _posList = pts;
             _posCount = pts.Count;
-            _posBuffer = new ComputeBuffer(_posCount, sizeof(float) * 2);
-            _posBuffer.SetData(pts.ToArray());
+        }
+
+        // Contract: labelsPositionsCsv coordinates MUST be normalized 0..1 (ParseCsvFloat2
+        // y-flips but does not rescale). Warns once if any point falls outside a small
+        // tolerance band, replacing the old per-sim LooksNormalized01 auto-detect with a
+        // validated contract at this single parse site.
+        private void WarnIfOutOfContract(List<Vector2> pts)
+        {
+            if (_warnedPositionsOutOfContract) return;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var p = pts[i];
+                if (p.x < -0.01f || p.x > 1.01f || p.y < -0.01f || p.y > 1.01f)
+                {
+                    Debug.LogWarning($"NeuronFiringSource: {labelsPositionsCsv.name} has out-of-range " +
+                                      $"point ({p.x:F3},{p.y:F3}) — labelsPositionsCsv must be normalized 0..1");
+                    _warnedPositionsOutOfContract = true;
+                    break;
+                }
+            }
+        }
+
+        // Moved from SimulationBase (2026-08-12 single-owner refactor) — this is now the
+        // only parse site for labels_positions.csv. y-flips (1 - y) so row order matches
+        // the blob's neuron order top-to-bottom in screen space.
+        private static List<Vector2> ParseCsvFloat2(string csv)
+        {
+            var list = new List<Vector2>();
+            var lines = csv.Split('\n');
+            var inv = CultureInfo.InvariantCulture;
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#")) continue;
+                var parts = line.Split(',');
+                if (parts.Length < 3) continue;
+                if (float.TryParse(parts[1], NumberStyles.Float, inv, out float x) &&
+                    float.TryParse(parts[2], NumberStyles.Float, inv, out float y))
+                    list.Add(new Vector2(x, (1 - y)));
+            }
+            return list;
         }
 
         /// <summary>Called once per sim step by SimulationManager (main thread).</summary>
@@ -256,7 +323,6 @@ namespace Biomes
         private void ReleaseBuffers()
         {
             _buffer?.Release(); _buffer = null;
-            _posBuffer?.Release(); _posBuffer = null;
         }
         void OnDisable() => ReleaseBuffers();
         void OnDestroy() => ReleaseBuffers();

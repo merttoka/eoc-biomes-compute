@@ -602,6 +602,16 @@ namespace Biomes
             sim.scaleDensityToResolution = scaleDensityToResolution;
             // Must precede Reset(): BuildNeuronPositions() uploads this to the reset kernel.
             sim.neuronSpawnScale = NeuronLayoutScale;
+            // Same ordering, same reason: BuildNeuronPositions() consumes neuronPositionsNorm
+            // on Reset(). Identity check (not value equality) so an unchanged source costs
+            // nothing every reset, while a runtime CSV swap on NeuronFiringSource (a new
+            // List<Vector2> instance from LoadPositions) propagates at this next configure/reset.
+            var positions = neuronFiring != null ? neuronFiring.PositionsCPU : null;
+            if (!ReferenceEquals(sim.neuronPositionsNorm, positions))
+            {
+                sim.neuronPositionsNorm = positions;
+                sim.InvalidateNeuronPositions();
+            }
             sim.Reset();
         }
     }

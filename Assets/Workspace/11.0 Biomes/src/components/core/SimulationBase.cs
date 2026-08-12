@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using UnityEngine;
 using UnityEngine.Rendering;
 using EasyButtons;
@@ -83,9 +82,11 @@ namespace Biomes
         [Range(0f, 1f)] public float firingThreshold = 0.1f;
         private ComputeBuffer dummyNeuronFiringBuffer;
 
-        [Header("Neuron Positions (optional CSV seeding)")]
-        public TextAsset labelsPositionsCsv;
-        public bool csvCoordinatesAreNormalized = false;
+        // Neuron seed positions, normalized 0..1, pushed by SimulationManager from
+        // NeuronFiringSource; sims convert to their own pixel space (see
+        // BuildNeuronPositions). Not serialized and not authored per sim — NeuronFiringSource
+        // is the single CSV owner (see the 2026-08-12 single-owner refactor).
+        [NonSerialized] public IReadOnlyList<Vector2> neuronPositionsNorm;
         // Neuron layout scale, pushed by SimulationManager from NeuronFiringSource.spawnScale
         // (the single authored copy). Not serialized and not authored per sim: three
         // independent copies of this value silently desynced in 11.2 and 11.3.
@@ -108,12 +109,14 @@ namespace Biomes
         int _allocRezX = -1, _allocRezY = -1, _allocTypeCount = -1, _allocAgentCount = -1;
         float _allocPerceptionScale = float.NaN;
 
-        // Neuron seed positions depend only on rez/CSV (alloc-keyed), so they are parsed +
-        // uploaded once per allocation and merely rebound on each clear-in-place reset.
-        // Previously BuildNeuronPositions re-parsed the CSV and leaked a fresh buffer every
-        // reset (tracked, freed only at the next full Release).
+        // Neuron seed positions depend on rez + the pushed neuronPositionsNorm list, so they
+        // are uploaded once per allocation (or after InvalidateNeuronPositions — e.g. a
+        // runtime CSV swap on NeuronFiringSource) and merely rebound on each clear-in-place
+        // reset. Previously BuildNeuronPositions re-parsed the CSV and leaked a fresh buffer
+        // every reset (tracked, freed only at the next full Release).
         bool _neuronPositionsBuilt;
         int _neuronPositionsCount;
+        bool _warnedNoNeuronPositions;
 
         // Common kernel handles
         protected int resetTexKernel;
@@ -460,9 +463,16 @@ namespace Biomes
             cs.SetFloat("dispersalConstantSpeed", dispersalConstantSpeed);
         }
 
-        // Parse labelsPositionsCsv, upload neuron positions, bind to the given reset
-        // kernel, and set neuronCount/neuronScale globals. Returns the neuron count
-        // (0 => the reset kernel should random-scatter).
+        /// <summary>Force the next BuildNeuronPositions to re-upload from
+        /// neuronPositionsNorm (SimulationManager calls this after pushing a different
+        /// list — e.g. a runtime CSV swap on NeuronFiringSource). Does not touch GPU
+        /// resources itself; the next reset kernel bind reallocates/refills as needed.</summary>
+        public void InvalidateNeuronPositions() => _neuronPositionsBuilt = false;
+
+        // Consume neuronPositionsNorm (pushed by SimulationManager from NeuronFiringSource),
+        // upload into this sim's pixel space, bind to the given reset kernel, and set
+        // neuronCount/neuronScale globals. Returns the neuron count (0 => the reset kernel
+        // should random-scatter).
         protected int BuildNeuronPositions(int resetKernel)
         {
             if (dummyNeuronBuffer == null)
@@ -471,25 +481,28 @@ namespace Biomes
                 dummyNeuronBuffer.SetData(new Vector2[1] { Vector2.zero });
             }
 
-            // Parse + upload once per allocation (positions are rez/CSV-dependent and those
-            // are alloc-keyed). On a clear-in-place reset the buffer already exists, so we
-            // skip the CSV parse and just rebind below. Release() clears _neuronPositionsBuilt.
+            // Upload once per allocation (or after InvalidateNeuronPositions). On a
+            // clear-in-place reset the buffer already exists, so we skip straight to the
+            // rebind below. Release() clears _neuronPositionsBuilt.
             if (!_neuronPositionsBuilt)
             {
                 _neuronPositionsCount = 0;
-                if (labelsPositionsCsv != null && !string.IsNullOrEmpty(labelsPositionsCsv.text))
+                if (neuronPositionsNorm != null && neuronPositionsNorm.Count > 0)
                 {
-                    var positions = ParseCsvFloat2(labelsPositionsCsv.text);
-                    if (csvCoordinatesAreNormalized || LooksNormalized01(positions))
-                        for (int i = 0; i < positions.Count; i++)
-                            positions[i] = new Vector2(positions[i].x * rezX, positions[i].y * rezY);
+                    var positions = new Vector2[neuronPositionsNorm.Count];
+                    for (int i = 0; i < positions.Length; i++)
+                        positions[i] = new Vector2(
+                            neuronPositionsNorm[i].x * rezX, neuronPositionsNorm[i].y * rezY);
 
-                    _neuronPositionsCount = positions.Count;
-                    if (_neuronPositionsCount > 0)
-                    {
-                        neuronPositionsBuffer = gpu.CreateBuffer(_neuronPositionsCount, sizeof(float) * 2);
-                        neuronPositionsBuffer.SetData(positions);
-                    }
+                    _neuronPositionsCount = positions.Length;
+                    neuronPositionsBuffer = gpu.CreateBuffer(_neuronPositionsCount, sizeof(float) * 2);
+                    neuronPositionsBuffer.SetData(positions);
+                }
+                else if (!_warnedNoNeuronPositions)
+                {
+                    Debug.LogWarning($"{SimName}: no neuron positions — no NeuronFiringSource wired to " +
+                                      "SimulationManager (or its labelsPositionsCsv is unset); random-scattering agents");
+                    _warnedNoNeuronPositions = true;
                 }
                 _neuronPositionsBuilt = true;
             }
@@ -499,40 +512,6 @@ namespace Biomes
             cs.SetInt(s_NeuronCountID, _neuronPositionsCount);
             cs.SetVector(s_NeuronScaleID, new Vector4(neuronSpawnScale.x, neuronSpawnScale.y, 0, 0));
             return _neuronPositionsCount;
-        }
-
-        public static List<Vector2> ParseCsvFloat2(string csv)
-        {
-            var list = new List<Vector2>();
-            var lines = csv.Split('\n');
-            var inv = CultureInfo.InvariantCulture;
-            foreach (var raw in lines)
-            {
-                var line = raw.Trim();
-                if (string.IsNullOrEmpty(line) || line.StartsWith("#")) continue;
-                var parts = line.Split(',');
-                if (parts.Length < 3) continue;
-                if (float.TryParse(parts[1], NumberStyles.Float, inv, out float x) &&
-                    float.TryParse(parts[2], NumberStyles.Float, inv, out float y))
-                    list.Add(new Vector2(x, (1 - y)));
-            }
-            return list;
-        }
-
-        protected static bool LooksNormalized01(List<Vector2> points)
-        {
-            if (points == null || points.Count == 0) return false;
-            float maxX = float.MinValue, maxY = float.MinValue;
-            float minX = float.MaxValue, minY = float.MaxValue;
-            int sampleCount = Mathf.Min(points.Count, 2048);
-            for (int i = 0; i < sampleCount; i++)
-            {
-                var p = points[i];
-                if (float.IsNaN(p.x) || float.IsNaN(p.y)) continue;
-                maxX = Mathf.Max(maxX, p.x); maxY = Mathf.Max(maxY, p.y);
-                minX = Mathf.Min(minX, p.x); minY = Mathf.Min(minY, p.y);
-            }
-            return (minX >= -0.01f && maxX <= 1.01f && minY >= -0.01f && maxY <= 1.01f);
         }
 
         public virtual void Release()
