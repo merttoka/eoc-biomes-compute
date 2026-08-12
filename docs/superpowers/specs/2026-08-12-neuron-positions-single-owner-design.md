@@ -51,6 +51,9 @@ pushes it, sims consume without declaring.
 - Contract hardens: coordinates MUST be normalized 0..1. The loader warns once if any point
   falls outside `[-0.01, 1.01]` (replacing the sims' `LooksNormalized01` auto-detect with a
   validated contract at the single parse site).
+- Dataset-pairing check: when both a blob and positions are loaded, warn once if
+  `PositionsCount != NeuronCount` — row *k* = neuron *k* is the ADR-0006 coherence property,
+  and a mismatched (blob, CSV) pair should announce itself the moment it is authored.
 - `ParseCsvFloat2` moves here from `SimulationBase` (private — no other caller remains).
 - `PositionsBuffer` and `_posBuffer` are deleted (zero consumers). `PositionsCPU` and
   `PositionsCount` stay — ring overlay and `BiomeInjector` already read them.
@@ -120,6 +123,25 @@ value-recording step. Order:
    fires at neuron positions; rings and dispersal stamps unchanged.
 4. EditMode suite stays green (56/56 — this change adds no pure logic).
 5. TestScene sims seed via its new blob-less `NeuronFiringSource`.
+
+## Datasets (near-term outlook, 2026-08-12)
+
+Two organoid datasets with different durations and neuron counts are expected soon. This
+refactor is the prerequisite: a dataset swap becomes two fields on one component per scene,
+and every consumer follows at the next configure/reset. Already dataset-adaptive today:
+`FrameActivity` renormalizes to each recording's peak at load; playback duration is
+blob-local (diurnal phasing and frame-advance triggers adapt); `id.x % neuronCount` remaps
+agents to any count. Not covered here, designed when the second dataset arrives:
+
+- An explicit **`NeuronDataset` pairing** (blob + positions CSV in one ScriptableObject) so
+  the two can't be mixed across datasets — until then the count-match warning above is the
+  guard.
+- **`TermiteSim`'s 1:1 agent-per-neuron count** is serialized per scene (131), not derived —
+  a different neuron count wraps via `%` but the 1:1 aesthetic needs a manual retune or a
+  derive-from-source option.
+- **Concurrent sources** (two datasets driving different species at once) — per-sim source
+  routing at the manager level; tractable only because sims now read pushed data instead of
+  owning CSVs.
 
 ## Follow-ups
 
