@@ -402,6 +402,14 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     int2 rez = int2(rezX, rezY);
 
+    // Uniform early-out: at trailAnisotropy 0 the tensor can only produce elong 0,
+    // which makes every weight below 1 — the legacy box blur. Skip the 25-tap window
+    // and eigen work entirely in that case: this kernel runs at sim resolution every
+    // step, and scenes that leave the knob at 0 must not pay for the feature.
+    // trailAnisotropy is a uniform, so the branch is coherent across the dispatch.
+    float2 ridge = float2(0, 0);
+    float elong = 0.0;
+    if (trailAnisotropy > 0.0) {
     // 5x5 sample cache of the total-trail layer, spaced trailTensorStride texels
     // apart (support = 4·stride+1, resolution-scaled): a stride-1 window inside a
     // wide trail's flat core reads "no orientation" and mutes the effect. Gradients
@@ -434,9 +442,10 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     float2 major = float2(jxy, l1 - jxx);
     if (abs(major.x) + abs(major.y) < 1e-12) major = float2(l1 - jyy, jxy);
     float mlen = length(major);
-    float2 ridge = mlen > 1e-12 ? float2(-major.y, major.x) / mlen : float2(0, 0);
-    float elong = (det > 1e-12 && mlen > 1e-12)
+    ridge = mlen > 1e-12 ? float2(-major.y, major.x) / mlen : float2(0, 0);
+    elong = (det > 1e-12 && mlen > 1e-12)
         ? trailAnisotropy * cohBase : 0.0;
+    }
 
     int2  taps[9];
     float wts[9];
