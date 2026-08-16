@@ -53,6 +53,10 @@ kernel + habitat-band confinement + `ResetTermites` melt + composite overlay;
   *additive* main composite (model on the existing post-composite `NeuronRingKernel` overlay).
 - **Injector click-to-place + texture-valued source** — no CustomEditor/OnSceneGUI; `Source.value`
   is scalar-only.
+- **Half-rez trail structure tensor** — cut the `trailAnisotropy > 0` cost ~3–4× by evaluating
+  the (already low-frequency) tensor at half rez with double-angle axis encoding; designed, not
+  built — measure 11.3's knob-on GPU ms first
+  ([[superpowers/specs/2026-08-15-half-rez-trail-tensor-design|spec]]).
 
 ### Low-stakes polish
 - Injector EMA dt-independence (06-10 #4) — constant `Lerp`, no `deltaTime`.
