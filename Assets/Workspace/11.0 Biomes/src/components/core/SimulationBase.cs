@@ -70,12 +70,15 @@ namespace Biomes
         // burstFiringThreshold so a dense stream only ignites on strong/synchronous frames.
         [NonSerialized] public float neuronFrameActivity;
 
-        [Header("Trail Diffusion")]
+        [Header("Trail Diffusion (> 0 = GPU cost, fps warning)")]
         [Tooltip("Coherence-enhancing trail diffusion: elongate each cell's blur along the " +
                  "local trail ridge (from the trail's own structure tensor), so a moving agent " +
                  "leaves a crisp comet tail instead of a round bloom — at 1, trail width " +
                  "roughly halves. Round blobs and trail crossings stay isotropic by " +
-                 "construction. 0 = legacy isotropic box blur.")]
+                 "construction. 0 = legacy isotropic box blur, and FREE — the tensor is " +
+                 "skipped entirely. Any value > 0 pays a 25-tap tensor per pixel per sim " +
+                 "step; at high sim rez that can blow the 60 Hz budget and cascade to " +
+                 "single-digit fps via fixed-timestep catch-up.")]
         [Range(0f, 1f)] public float trailAnisotropy = 0f;
 
         [Header("Neuron Firing")]
