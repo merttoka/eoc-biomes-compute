@@ -49,6 +49,7 @@ tags: [meta, index]
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
 ## ADRs (newest first)
+- [[adr/0015-remove-firing-ring-overlay]] — `NeuronRingKernel` + its eight inspector fields deleted; firing legibility is the ecology's job (dispersal pulses, deposits, mounds); supersedes the ring clause of ADR-0006
 - [[adr/0014-neuron-layout-single-owner]] — `NeuronFiringSource` owns the neuron layout (positions CSV + scale + blob); manager pushes, sims consume; validated contract at the single parse site; enables clean dataset swaps
 - [[adr/0013-coherence-enhancing-trail-diffusion]] — sim trail anisotropy from the trail's own structure tensor (Weickert-style), not a heading-memory field (two built, measured useless); comet tails via retention, one `trailAnisotropy` knob per sim
 - [[adr/0012-weighted-diffusion-kernels]] — diffusion neighbourhood is a shaped weighted average (flow anisotropy + permeability gating + ambient wind), extending ADR-0007's per-class operators; global mass conservation traded for medium/wind coupling

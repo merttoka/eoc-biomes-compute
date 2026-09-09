@@ -63,30 +63,16 @@ namespace Biomes
         [Header("Simulations")]
         public List<SimulationBase> simulations = new();
 
-        [Header("External Input")]
-        [SerializeField] private ExternalTextureReceiver externalInput;
-
         [Header("Neuron Firing")]
         [SerializeField] private NeuronFiringSource neuronFiring;
 
-        [Header("Debug Overlay")]
-        [SerializeField] private bool m_DebugOverlayVideoOnOutput = false;
+        [Header("External Input & Debug Overlay")]
+        [SerializeField] private ExternalTextureReceiver externalInput;
+        [SerializeField] private bool m_DebugOverlayVideoOnOutput = true;
         [SerializeField, Range(0f, 1f)] private float m_DebugOverlayStrength = 0.5f;
-
-        [Header("Neuron Firing Ring Overlay")]
-        [SerializeField] private bool m_NeuronRingOverlay = true;
-        [SerializeField] private Color m_RingColor = new Color(1f, 0.95f, 0.8f, 1f);
-        [SerializeField, Range(1f, 80f)] private float m_RingRadius = 14f;
-        [SerializeField, Range(0.5f, 40f)] private float m_RingThickness = 4f;
-        [SerializeField, Range(0f, 5f)] private float m_RingStrength = 1.5f;
-        [SerializeField, Range(0f, 6f)] private float m_RingExpandGain = 2f;
-        [SerializeField, Range(0f, 4f)] private float m_RingCoreStrength = 1.5f;
-        [SerializeField, Range(0f, 1f)] private float m_RingThreshold = 0.1f;
-
         // Neuron layout scale comes from NeuronFiringSource.spawnScale — the single authored
-        // copy, pushed to the sims in Reset() and to the ring overlay in Render(). Previously
-        // a separate serialized field here, which desynced from the sims in 11.2 SIGGRAPH and
-        // 11.3 DAC (rings landed ~5% of canvas width off at the edges).
+        // copy, pushed to the sims in Reset(). Previously a separate serialized field here,
+        // which desynced from the sims in 11.2 SIGGRAPH and 11.3 DAC (ADR-0014).
         private Vector2 NeuronLayoutScale =>
             neuronFiring != null ? neuronFiring.SpawnScale : NeuronLayout.DefaultScale;
 
@@ -130,18 +116,10 @@ namespace Biomes
 
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
-        private int neuronRingKernel = -1;
         private int moundOverlayKernel = -1;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
 
-        // Compacted firing-ring data: only neurons above threshold are uploaded, so the
-        // per-pixel ring loop runs over the handful of ACTIVE neurons instead of all 131,
-        // and the whole dispatch is skipped while the network is quiet.
-        private ComputeBuffer ringPosCompactBuffer;
-        private ComputeBuffer ringFireCompactBuffer;
-        private Vector2[] _ringPosCache;
-        private float[] _ringFireCache;
         private readonly List<Biome.FusedWrite> _writeScratch = new();
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
@@ -166,17 +144,6 @@ namespace Biomes
         private static readonly int s_SimWeightsID = Shader.PropertyToID("simWeights");
         private static readonly int s_ExternalOverlayTexID = Shader.PropertyToID("externalOverlay");
         private static readonly int s_OverlayStrengthID = Shader.PropertyToID("overlayStrength");
-        private static readonly int s_RingFiringID = Shader.PropertyToID("ringFiring");
-        private static readonly int s_RingPositionsID = Shader.PropertyToID("ringPositions");
-        private static readonly int s_RingCountID = Shader.PropertyToID("ringCount");
-        private static readonly int s_RingThresholdID = Shader.PropertyToID("ringThreshold");
-        private static readonly int s_RingSpawnScaleID = Shader.PropertyToID("ringSpawnScale");
-        private static readonly int s_RingRadiusID = Shader.PropertyToID("ringRadius");
-        private static readonly int s_RingThicknessID = Shader.PropertyToID("ringThickness");
-        private static readonly int s_RingStrengthID = Shader.PropertyToID("ringStrength");
-        private static readonly int s_RingExpandGainID = Shader.PropertyToID("ringExpandGain");
-        private static readonly int s_RingCoreStrengthID = Shader.PropertyToID("ringCoreStrength");
-        private static readonly int s_RingColorID = Shader.PropertyToID("ringColor");
 
         void Awake()
         {
@@ -268,8 +235,6 @@ namespace Biomes
             if (compositeCS != null)
             {
                 compositeRenderKernel = compositeCS.FindKernel("CompositeRenderKernel");
-                neuronRingKernel = compositeCS.HasKernel("NeuronRingKernel")
-                    ? compositeCS.FindKernel("NeuronRingKernel") : -1;
                 moundOverlayKernel = compositeCS.HasKernel("MoundOverlayKernel")
                     ? compositeCS.FindKernel("MoundOverlayKernel") : -1;
             }
@@ -517,65 +482,6 @@ namespace Biomes
                 Mathf.CeilToInt((float)rezY / wy),
                 Mathf.CeilToInt(1f / wz));
 
-            // Neuron firing-ring overlay: count-independent markers at firing neurons,
-            // drawn on top of the composite so termite/boid firing isn't lost in physarum's flood.
-            // Compacted CPU-side to the neurons above threshold: the per-pixel kernel loop
-            // shrinks from all 131 neurons (~540 M iterations/frame at 2×FHD) to the few
-            // active ones, and quiet frames skip the dispatch entirely.
-            if (m_NeuronRingOverlay && neuronRingKernel >= 0 && neuronFiring != null)
-            {
-                var scaled = neuronFiring.ScaledValues;
-                var posCPU = neuronFiring.PositionsCPU;
-                int cap = (scaled != null && posCPU != null) ? Mathf.Min(scaled.Length, posCPU.Count) : 0;
-                int active = 0;
-                if (cap > 0)
-                {
-                    if (_ringFireCache == null || _ringFireCache.Length < cap)
-                    {
-                        _ringFireCache = new float[cap];
-                        _ringPosCache = new Vector2[cap];
-                    }
-                    for (int i = 0; i < cap; i++)
-                    {
-                        float f = scaled[i];
-                        if (f < m_RingThreshold) continue;
-                        _ringFireCache[active] = f;
-                        _ringPosCache[active] = posCPU[i];
-                        active++;
-                    }
-                }
-                if (active > 0)
-                {
-                    if (ringFireCompactBuffer == null || ringFireCompactBuffer.count < cap)
-                    {
-                        ringFireCompactBuffer = gpu.CreateBuffer(cap, sizeof(float));
-                        ringPosCompactBuffer = gpu.CreateBuffer(cap, sizeof(float) * 2);
-                    }
-                    ringFireCompactBuffer.SetData(_ringFireCache, 0, 0, active);
-                    ringPosCompactBuffer.SetData(_ringPosCache, 0, 0, active);
-
-                    compositeCS.SetInt(s_RezXID, rezX);
-                    compositeCS.SetInt(s_RezYID, rezY);
-                    compositeCS.SetTexture(neuronRingKernel, s_CompositeOutTexID, compositeOutTex);
-                    compositeCS.SetBuffer(neuronRingKernel, s_RingFiringID, ringFireCompactBuffer);
-                    compositeCS.SetBuffer(neuronRingKernel, s_RingPositionsID, ringPosCompactBuffer);
-                    compositeCS.SetInt(s_RingCountID, active);
-                    compositeCS.SetFloat(s_RingThresholdID, m_RingThreshold);
-                    var ringScale = NeuronLayoutScale;
-                    compositeCS.SetVector(s_RingSpawnScaleID, new Vector4(ringScale.x, ringScale.y, 0, 0));
-                    compositeCS.SetFloat(s_RingRadiusID, m_RingRadius);
-                    compositeCS.SetFloat(s_RingThicknessID, m_RingThickness);
-                    compositeCS.SetFloat(s_RingStrengthID, m_RingStrength);
-                    compositeCS.SetFloat(s_RingExpandGainID, m_RingExpandGain);
-                    compositeCS.SetFloat(s_RingCoreStrengthID, m_RingCoreStrength);
-                    compositeCS.SetVector(s_RingColorID, m_RingColor);
-                    compositeCS.GetKernelThreadGroupSizes(neuronRingKernel, out uint rwx, out uint rwy, out uint _);
-                    compositeCS.Dispatch(neuronRingKernel,
-                        Mathf.CeilToInt((float)rezX / rwx),
-                        Mathf.CeilToInt((float)rezY / rwy), 1);
-                }
-            }
-
             if (moundOverlayStrength > 0f && moundOverlayKernel >= 0 && biome != null && biome.FieldReadArray != null)
             {
                 compositeCS.SetTexture(moundOverlayKernel, "permField", biome.FieldReadArray);
@@ -607,10 +513,8 @@ namespace Biomes
             if (biome != null)
                 biome.Release();
 
-            gpu?.ReleaseAll();   // frees ring compact buffers too (gpu-tracked)
+            gpu?.ReleaseAll();
             gpu = null;
-            ringPosCompactBuffer = null;
-            ringFireCompactBuffer = null;
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 

@@ -317,12 +317,6 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   frame and **decays firing to quiet** (`firingDecaySeconds`) when silent. Each step it
   emits a shared 131-float buffer (row × decay) that `SimulationManager` broadcasts to every
   sim. Thread-safe intake (field + dirty flag, the `BiomeInjector` pattern).
-- **Firing-ring overlay** — `NeuronRingKernel` (`SimulationManager.compute`) draws one
-  count-independent ring per firing neuron on top of the composite. Needed because the
-  composite is a pure additive sum → physarum's dense firing saturates the canvas and hides
-  termite/boid firing; the rings key off firing intensity directly, not agent counts. The
-  ring is an **expanding shockwave** — radius grows as the firing intensity decays
-  (`ringExpandGain`) with a bright onset core flash (`ringCoreStrength`).
 - **`BiomeInjector`** — paints **Gaussian stamps** into biome channels (thread-safe intake;
   per-source raw→0..1 calibration + EMA smoothing; Additive/MaxToward/SetToward modes). Two
   stamp producers: external **sources** (sensors/OSC → any channel), and **firing-driven

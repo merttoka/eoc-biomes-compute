@@ -50,7 +50,8 @@ kernel + habitat-band confinement + `ResetTermites` melt + composite overlay;
   ([[adr/0010-permeability-agent-built-topography|ADR-0010]]); the *Laplacian-curvature*
   build/dig cue itself is still deferred (build is firing-gated probabilistic, not curvature-driven).
 - **Trails → separate overlaid composite channel** — decouple termite trail thickness from the
-  *additive* main composite (model on the existing post-composite `NeuronRingKernel` overlay).
+  *additive* main composite (model on the post-composite `MoundOverlayKernel`; the firing-ring
+  overlay this was first modelled on is gone — [[adr/0015-remove-firing-ring-overlay|ADR-0015]]).
 - **Injector click-to-place + texture-valued source** — no CustomEditor/OnSceneGUI; `Source.value`
   is scalar-only.
 - **Half-rez trail structure tensor** — cut the `trailAnisotropy > 0` cost ~3–4× by evaluating

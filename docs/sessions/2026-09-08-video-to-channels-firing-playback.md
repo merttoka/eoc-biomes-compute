@@ -61,3 +61,8 @@ reach the ecosystem, and the organoid blob needs to play a fixed range without T
   informative than hoped; parked, kept for later. Usage in `tools/README.md`.
 - Not committed: `ProfilerCaptures/` and `11.2 SIGGRAPH Scene/data/` (TD project, 2.9 GB) — now
   gitignored; un-ignore deliberately if the `.toe` should travel with the repo.
+
+## Removed (same day, after merge)
+- Firing-ring composite overlay — `NeuronRingKernel`, its uniforms, and the eight `m_Ring*` inspector
+  fields + compact buffers in `SimulationManager`. Off in every show scene; ecology paths carry firing
+  now. [[../adr/0015-remove-firing-ring-overlay|ADR-0015]]; ADR-0006 amended.

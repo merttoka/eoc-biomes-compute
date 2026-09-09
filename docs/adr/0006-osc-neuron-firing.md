@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-06-09
 tags: [adr, neurons, firing, osc, rendering]
-related: [[../ARCHITECTURE]], [[../sessions/2026-06-09-osc-neuron-firing]], [[../superpowers/specs/2026-06-08-osc-neuron-firing-design]]
+related: [[../ARCHITECTURE]], [[../sessions/2026-06-09-osc-neuron-firing]], [[../superpowers/specs/2026-06-08-osc-neuron-firing-design]], [[0015-remove-firing-ring-overlay]]
 ---
 # ADR-0006: Neuron firing is an external OSC-driven signal shared by all sims
 
@@ -52,3 +52,6 @@ Options weighed:
 [[../superpowers/specs/2026-06-08-osc-neuron-firing-design]] · [[../superpowers/plans/2026-06-08-osc-neuron-firing]] ·
 [[../sessions/2026-06-09-osc-neuron-firing]] · code: `components/network/NeuronFiringSource.cs`,
 `components/core/SimulationBase.cs`, `computes/includes/neuron_firing.hlsl`, `computes/SimulationManager.compute`.
+
+## Amended
+- 2026-09-08 — the **ring overlay clause is superseded** by [[0015-remove-firing-ring-overlay|ADR-0015]]: `NeuronRingKernel` removed. The rest of this ADR (external playhead, shared buffer, hoisted seeding, direct excitation) stands.

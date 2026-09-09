@@ -351,7 +351,8 @@ nearly free** on the Unity side. Costs to watch:
 2. **TODO: cap boid interaction ranges to ≤ 64 px** in `BoidParams.asset`
    (`separationRange`/`alignmentRange`/`attractionRange` — currently up to ~498 px; the
    neighbour-loop cost is quadratic in count at fixed range, §2/§5).
-3. **TODO: turn the neuron firing-ring overlay off** (`m_NeuronRingOverlay = 0`) — the
+3. ~~**TODO: turn the neuron firing-ring overlay off**~~ → **removed 2026-09-08** (`docs/adr/0015`;
+   item 2 above is now history). Original note: (`m_NeuronRingOverlay = 0`) — the
    rings don't sit well on the evolved composite. Candidate repurposing (don't delete the
    kernel): render rings to a *separate* small texture sent over Syphon as an infographic
    layer for TD, and/or use firing events to pulse a biome channel via the injector instead
