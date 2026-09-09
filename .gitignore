@@ -200,3 +200,7 @@ ProfilerCaptures/
 # TouchDesigner source project for the DAC video cut (2.9 GB, own repo upstream) — keep local
 Assets/Workspace/11.2 SIGGRAPH Scene/data/
 Assets/Workspace/11.2 SIGGRAPH Scene/data.meta
+
+# Unity Recorder output (hundreds of MB per take)
+Assets/Recordings/
+Assets/Recordings.meta
