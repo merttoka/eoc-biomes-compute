@@ -116,8 +116,11 @@ namespace Biomes
                  "PNG encode is synchronous on the main thread, so capture costs real " +
                  "fps — sim/recorded time stays correct, only wall-clock slows.")]
         [Range(1, 10)] public int frameEvery = 1;
-        [Tooltip("Also capture each sim's own output beside the composite, one subfolder " +
-                 "per sim. Multiplies the per-frame encode cost.")]
+        [Tooltip("Capture the composite each frame (Composite/%06d.png). Untick when Unity Recorder " +
+                 "already records the composite (via SimulationManager.recorderTarget) and you only " +
+                 "want the sim / biome-channel sequences from here.")]
+        public bool framesIncludeComposite = true;
+        [Tooltip("Capture each sim's own output, one subfolder per sim. Multiplies the per-frame encode cost.")]
         public bool framesIncludeSims = false;
 
         [Tooltip("Biome channels captured each frame, one subfolder per channel — pick the " +
@@ -185,7 +188,10 @@ namespace Biomes
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string projectRoot = System.IO.Directory.GetParent(Application.dataPath).FullName;
             _framesDir = System.IO.Path.Combine(projectRoot, exportFolder, stamp + "_frames");
-            System.IO.Directory.CreateDirectory(System.IO.Path.Combine(_framesDir, "Composite"));
+            System.IO.Directory.CreateDirectory(framesIncludeComposite
+                ? System.IO.Path.Combine(_framesDir, "Composite") : _framesDir);
+            if (!framesIncludeComposite && !framesIncludeSims && frameBiomeChannels.Count == 0)
+                Debug.LogWarning("[FigureExporter] Nothing selected to export (composite, sims, biome channels all off) — only the capture clock will run.");
             _frameCounter = 0;
             _framesWritten = 0;
             Array.Clear(_simFramesWritten, 0, _simFramesWritten.Length);
@@ -204,7 +210,7 @@ namespace Biomes
                 Time.captureDeltaTime = 0f;   // release the capture clock → realtime again
             float videoFps = (captureFramerate > 0 ? captureFramerate : 60f) / Mathf.Max(1, frameEvery);
             Debug.Log($"[FigureExporter] Frame export stopped: {_framesWritten} frames → {_framesDir}\n" +
-                      $"ffmpeg -framerate {videoFps:F0} -i \"{_framesDir}/Composite/%06d.png\" " +
+                      $"ffmpeg -framerate {videoFps:F0} -i \"{_framesDir}/<subfolder>/%06d.png\" " +
                       "-c:v libx264 -pix_fmt yuv420p -vf \"crop=trunc(iw/2)*2:trunc(ih/2)*2\" out.mp4");
             _framesDir = null;
         }
@@ -218,11 +224,12 @@ namespace Biomes
             if (_frameCounter % Mathf.Max(1, frameEvery) != 0) return;
 
             var composite = simManager.CompositeOutputTexture;
-            if (composite == null || !composite.IsCreated()) return;
+            if (composite == null || !composite.IsCreated()) return;   // manager not reset yet
 
             _framesWritten++;
-            SavePNG(composite, System.IO.Path.Combine(_framesDir, "Composite",
-                _framesWritten.ToString("D6") + ".png"));
+            if (framesIncludeComposite)
+                SavePNG(composite, System.IO.Path.Combine(_framesDir, "Composite",
+                    _framesWritten.ToString("D6") + ".png"));
 
             if (framesIncludeSims)
             {
