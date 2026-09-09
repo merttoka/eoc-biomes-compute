@@ -81,3 +81,5 @@ reach the ecosystem, and the organoid blob needs to play a fixed range without T
   `/stream/quit`; stop-aware loops); `network/OscStreamTrigger` sends them (play-mode start and/or
   `SimTimeline`); `SimTimeline.firingPlayback` + `.streamTrigger` hooks on Play/Stop. Recorded takes
   should use `firingPlayback` (capture-clock-locked), the OSC stream is for realtime.
+- `OscStreamTrigger` + `SimTimeline.streamTrigger` **removed** the same hour: recorded takes use
+  `firingPlayback`; the OSC streamer stays realtime-only, its `--wait` mode kept for TD-side transport.

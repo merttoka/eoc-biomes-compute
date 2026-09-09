@@ -47,9 +47,6 @@ namespace Biomes
                  "the playback window. Advances on Unity's own clock, so it stays frame-locked to FigureExporter / " +
                  "Recorder captures — use this for recorded takes.")]
         public NeuronFiringPlayback firingPlayback;
-        [Tooltip("Tells an armed `tools/osc_index_tester.py --wait` to start streaming on Play and stop on Stop. " +
-                 "Realtime only: under a capture clock the external stream drifts from the recording.")]
-        public OscStreamTrigger streamTrigger;
 
         [Header("Playback")]
         [Tooltip("Begin the timeline as soon as play mode starts. Untick startOnPlay on every sim so the opening state is only what the timeline starts.")]
@@ -100,7 +97,6 @@ namespace Biomes
             if (recordFramesDuringPlayback && figureExporter != null)
                 figureExporter.StartFrameExport();
             if (firingPlayback != null) firingPlayback.Restart();
-            if (streamTrigger != null) streamTrigger.SendStart();
             Debug.Log($"[SimTimeline] Play — {_sorted.Count} cues, " +
                       (endAtSeconds > 0 ? $"ends at {endAtSeconds:F0}s." : "manual stop."));
         }
@@ -113,7 +109,6 @@ namespace Biomes
             if (recordFramesDuringPlayback && figureExporter != null)
                 figureExporter.StopFrameExport();
             if (firingPlayback != null) firingPlayback.Stop();
-            if (streamTrigger != null) streamTrigger.SendStop();
             Debug.Log($"[SimTimeline] Stopped at {CurrentSeconds:F1}s.");
         }
 

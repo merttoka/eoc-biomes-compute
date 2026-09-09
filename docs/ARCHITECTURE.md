@@ -339,9 +339,8 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   pushes frames through `NeuronFiringSource.SetFrame`, identical to the OSC `/index` path.
   Keep `playing` off while TD drives `/index` or the two fight over the frame.
   `SimTimeline.firingPlayback` restarts it on Play and stops it on Stop, so a recorded take's
-  blob range is frame-locked to the capture clock. For *live* runs, `OscStreamTrigger` +
-  `SimTimeline.streamTrigger` instead arm `tools/osc_index_tester.py --wait` (`/stream/start` on
-  Play, `/stream/stop` on Stop) — realtime only, an external stream drifts under a capture clock.
+  blob range is frame-locked to the capture clock. (The external OSC streamer is for realtime
+  viewing only — it paces by wall clock and drifts under a capture clock.)
 - **`ParameterRecorder`** — records per-step parameter *changes* as a JSON event
   track; replays them deterministically against `SimStepCount`.
 - **`ParameterInterpolator`** — eases live params from current state through an
