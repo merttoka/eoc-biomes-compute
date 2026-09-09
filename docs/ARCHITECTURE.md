@@ -374,6 +374,14 @@ packages compile on every platform; availability is gated at runtime
   (clear-in-place — [[adr/0008-clear-in-place-reset]]); `ReleaseAll()` runs only on a
   resolution/structural realloc, disable, or destroy.
 
+- **Recording the composite** (`SimulationManager` › Recording) — two pixel-exact paths, no
+  Game View dependence: (a) `recorderTarget`, a RenderTexture *asset* (sRGB ARGB32) the manager
+  resizes to `rezX×rezY` on Reset and `Graphics.Blit`s the finished composite into every frame —
+  point Unity Recorder → *Render Texture* source at it; (b) `recordingCamera`, made orthographic
+  and fitted square-on to the composite quad on Reset (`FitRecordingCamera`), for Recorder's
+  *Targeted Camera* source at `rezX×rezY`. `Set Game View To Composite Rez` adds/selects a matching
+  Game View size (reflection, best-effort). `FigureExporter` remains the PNG-sequence route.
+
 ### 3.9 Temporal Composer — show sequencer (`11.2 SIGGRAPH Scene`)
 
 A Unity Timeline-driven show sequencer choreographs the SIGGRAPH show — sim

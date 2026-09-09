@@ -73,3 +73,7 @@ reach the ecosystem, and the organoid blob needs to play a fixed range without T
   multipliers" header + `SetBehaviorMultiplier`/`BehaviorLeaf`, the `beh*Mul` hooks in the three
   sims' type-param upload, `OSCMapping` entity bindings + `/sn/<entity>/…` registration, and the
   `BiomeInjector` "Add Example Warmth Sources" button. Plan doc Track D marked dropped.
+- Recording wired into `SimulationManager` (Recording header): `recordingCamera` fitted orthographic
+  to the quad on Reset + `recordingCameraDistance`; `recorderTarget` RT asset kept at composite rez
+  and blitted each frame (Unity Recorder → Render Texture source); buttons to fit the camera,
+  create/resize the asset, and set the Game View size. ARCHITECTURE 3.8.

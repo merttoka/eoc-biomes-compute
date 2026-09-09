@@ -80,7 +80,19 @@ namespace Biomes
         public ComputeShader compositeCS;
         public Material compositeOutMat;
         public Transform compositeOutputQuad;
+
+        [Header("Recording")]
+        [Tooltip("Camera that captures the composite quad (e.g. the 'Recording'-tagged camera). On every " +
+                 "Reset it is made orthographic and placed square-on to the quad so the quad fills its frame " +
+                 "exactly — provided the viewport aspect matches rezX:rezY (see 'Set Game View To Composite Rez', " +
+                 "or record via Unity Recorder → Targeted Camera at rezX×rezY).")]
         public Camera recordingCamera;
+        [Tooltip("Distance the recording camera sits in front of the quad (world units).")]
+        [Range(0.1f, 50f)] public float recordingCameraDistance = 3f;
+        [Tooltip("Optional RenderTexture ASSET the composite is copied into every frame, kept at rezX×rezY. " +
+                 "Point Unity Recorder → Movie/Image → Source: Render Texture at it to record the composite " +
+                 "pixel-exact with no camera or Game View involved. Create one with the button below.")]
+        public RenderTexture recorderTarget;
 
         [Header("Keep-Out (physical screen cutouts)")]
         [Tooltip("Normalized canvas rects (x,y = min corner; y 0 = canvas bottom) that agents " +
@@ -222,6 +234,8 @@ namespace Biomes
                 var s = compositeOutputQuad.localScale;
                 compositeOutputQuad.localScale = new Vector3(s.y * aspect, s.y, s.z);
             }
+            FitRecordingCamera();
+            SyncRecorderTarget();
 
             _dummyBlackTex = gpu.CreateTexture2D(1, 1, FilterMode.Point, name: "composite_dummy");
             var activeRT = RenderTexture.active;
@@ -498,6 +512,135 @@ namespace Biomes
 
             if (compositeOutMat != null)
                 compositeOutMat.SetTexture("_UnlitColorMap", compositeOutTex);
+
+            // Recorder path: copy the finished composite into the RT asset. Blit handles the
+            // linear (ARGBHalf) → sRGB (ARGB32) encode when the asset is flagged sRGB, so the
+            // recording matches what the quad shows.
+            if (recorderTarget != null && recorderTarget.IsCreated())
+                Graphics.Blit(compositeOutTex, recorderTarget);
+        }
+
+        // ── Recording helpers ────────────────────────────────────────────────────
+
+        /// <summary>Make the recording camera frame the composite quad exactly: orthographic,
+        /// square-on, centred, half-height = orthographic size. The horizontal fit depends on the
+        /// viewport aspect (Game View or Recorder output) matching rezX:rezY.</summary>
+        [Button("Fit Recording Camera To Quad")]
+        public void FitRecordingCamera()
+        {
+            if (recordingCamera == null || compositeOutputQuad == null) return;
+            var q = compositeOutputQuad;
+            float quadH = Mathf.Abs(q.lossyScale.y);
+            float quadW = Mathf.Abs(q.lossyScale.x);
+            recordingCamera.orthographic = true;
+            recordingCamera.orthographicSize = quadH * 0.5f;
+            // Unity's Quad faces -Z: it is seen from the side its forward axis points AWAY from.
+            recordingCamera.transform.SetPositionAndRotation(
+                q.position - q.forward * recordingCameraDistance, q.rotation);
+            recordingCamera.nearClipPlane = 0.01f;
+            recordingCamera.farClipPlane = Mathf.Max(recordingCamera.farClipPlane, recordingCameraDistance * 2f);
+
+            float want = quadW / Mathf.Max(1e-5f, quadH);
+            float have = recordingCamera.aspect;
+            if (Mathf.Abs(have - want) > want * 0.01f)
+                Debug.LogWarning($"[SimulationManager] Recording camera viewport aspect {have:F3} ≠ composite {want:F3} " +
+                                 $"({rezX}×{rezY}); the quad will be letter/pillar-boxed. Set the Game View to {rezX}×{rezY} " +
+                                 "or record with Unity Recorder at that output size.");
+        }
+
+        /// <summary>Keep the recorder RT asset at composite resolution (no-op when unset or already right).</summary>
+        public void SyncRecorderTarget()
+        {
+            if (recorderTarget == null) return;
+            if (recorderTarget.width == rezX && recorderTarget.height == rezY && recorderTarget.IsCreated()) return;
+            recorderTarget.Release();
+            recorderTarget.width = rezX;
+            recorderTarget.height = rezY;
+            recorderTarget.Create();
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(recorderTarget);
+#endif
+            Debug.Log($"[SimulationManager] Recorder target '{recorderTarget.name}' → {rezX}×{rezY}");
+        }
+
+        [Button("Create / Resize Recorder Target Asset")]
+        public void CreateRecorderTargetAsset()
+        {
+#if UNITY_EDITOR
+            string scenePath = UnityEngine.SceneManagement.SceneManager.GetActiveScene().path;
+            string folder = string.IsNullOrEmpty(scenePath) ? "Assets" : System.IO.Path.GetDirectoryName(scenePath).Replace('\\', '/');
+            string rtFolder = folder + "/render_textures";
+            if (!UnityEditor.AssetDatabase.IsValidFolder(rtFolder))
+                UnityEditor.AssetDatabase.CreateFolder(folder, "render_textures");
+            string path = rtFolder + "/RT_Composite_Record.renderTexture";
+            var rt = UnityEditor.AssetDatabase.LoadAssetAtPath<RenderTexture>(path);
+            if (rt == null)
+            {
+                // sRGB so the linear composite is gamma-encoded on the way in (matches the quad).
+                rt = new RenderTexture(rezX, rezY, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB)
+                     { name = "RT_Composite_Record", filterMode = FilterMode.Bilinear };
+                UnityEditor.AssetDatabase.CreateAsset(rt, path);
+            }
+            recorderTarget = rt;
+            SyncRecorderTarget();
+            UnityEditor.AssetDatabase.SaveAssets();
+            UnityEditor.EditorUtility.SetDirty(this);
+            Debug.Log($"[SimulationManager] Recorder target asset: {path} ({rezX}×{rezY}). " +
+                      "Unity Recorder → Movie → Source: Render Texture → this asset.");
+#else
+            Debug.LogWarning("[SimulationManager] CreateRecorderTargetAsset is Editor-only.");
+#endif
+        }
+
+        /// <summary>Editor-only: add (if missing) and select a Game View size of rezX×rezY so the
+        /// recording camera's viewport aspect matches the composite. Uses Unity's internal
+        /// GameViewSizes via reflection; logs and does nothing if the internals moved.</summary>
+        [Button("Set Game View To Composite Rez")]
+        public void SetGameViewToCompositeRez()
+        {
+#if UNITY_EDITOR
+            try
+            {
+                var asm = typeof(UnityEditor.Editor).Assembly;
+                var sizesType = asm.GetType("UnityEditor.GameViewSizes");
+                var singleton = typeof(UnityEditor.ScriptableSingleton<>).MakeGenericType(sizesType);
+                var instance = singleton.GetProperty("instance").GetValue(null, null);
+                var groupType = sizesType.GetProperty("currentGroupType").GetValue(instance, null);
+                var group = sizesType.GetMethod("GetGroup").Invoke(instance, new object[] { (int)groupType });
+                var gType = group.GetType();
+                int total = (int)gType.GetMethod("GetTotalCount").Invoke(group, null);
+                var sizeType = asm.GetType("UnityEditor.GameViewSize");
+                int index = -1;
+                for (int i = 0; i < total; i++)
+                {
+                    var sz = gType.GetMethod("GetGameViewSize").Invoke(group, new object[] { i });
+                    int w = (int)sizeType.GetProperty("width").GetValue(sz, null);
+                    int h = (int)sizeType.GetProperty("height").GetValue(sz, null);
+                    if (w == rezX && h == rezY) { index = i; break; }
+                }
+                if (index < 0)
+                {
+                    var kindType = asm.GetType("UnityEditor.GameViewSizeType");
+                    var ctor = sizeType.GetConstructor(new[] { kindType, typeof(int), typeof(int), typeof(string) });
+                    var newSize = ctor.Invoke(new object[] { Enum.Parse(kindType, "FixedResolution"), rezX, rezY, $"Composite {rezX}x{rezY}" });
+                    gType.GetMethod("AddCustomSize").Invoke(group, new[] { newSize });
+                    index = total;   // appended at the end
+                }
+                var gameViewType = asm.GetType("UnityEditor.GameView");
+                var gv = UnityEditor.EditorWindow.GetWindow(gameViewType);
+                var select = gameViewType.GetMethod("SizeSelectionCallback",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+                select.Invoke(gv, new object[] { index, null });
+                Debug.Log($"[SimulationManager] Game View → {rezX}×{rezY}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[SimulationManager] Could not set the Game View size via reflection ({e.GetType().Name}: {e.Message}). " +
+                                 $"Add a Fixed Resolution entry of {rezX}×{rezY} in the Game View size dropdown instead.");
+            }
+#else
+            Debug.LogWarning("[SimulationManager] SetGameViewToCompositeRez is Editor-only.");
+#endif
         }
 
         public void Release()
