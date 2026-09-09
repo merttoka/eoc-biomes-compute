@@ -496,13 +496,18 @@ namespace Biomes
                 Mathf.CeilToInt((float)rezY / wy),
                 Mathf.CeilToInt(1f / wz));
 
-            if (moundOverlayStrength > 0f && moundOverlayKernel >= 0 && biome != null && biome.FieldReadArray != null)
+            // Mound overlay follows the termites: full while they run, fades over their
+            // fadeOutSeconds (smooth, full window — the walls don't decay like trails do), off
+            // once they are stopped. The permeability field itself is untouched, so the
+            // habitat gates still hold and the mounds reappear when termites restart.
+            float moundStrength = moundOverlayStrength * TermitePresence();
+            if (moundStrength > 0f && moundOverlayKernel >= 0 && biome != null && biome.FieldReadArray != null)
             {
                 compositeCS.SetTexture(moundOverlayKernel, "permField", biome.FieldReadArray);
                 compositeCS.SetTexture(moundOverlayKernel, s_CompositeOutTexID, compositeOutTex);
                 compositeCS.SetInt("permChannel", BiomeChannel.Permeability);
                 compositeCS.SetFloat("permOpenBaselineOv", biome.OpenBaseline);
-                compositeCS.SetFloat("moundStrength", moundOverlayStrength);
+                compositeCS.SetFloat("moundStrength", moundStrength);
                 compositeCS.SetVector("moundColor", moundColor);
                 compositeCS.GetKernelThreadGroupSizes(moundOverlayKernel, out uint mwx, out uint mwy, out uint _);
                 compositeCS.Dispatch(moundOverlayKernel,
@@ -641,6 +646,27 @@ namespace Biomes
 #else
             Debug.LogWarning("[SimulationManager] SetGameViewToCompositeRez is Editor-only.");
 #endif
+        }
+
+        /// <summary>0..1 visibility of the termite-built mounds: 1 while any TermiteSim runs,
+        /// the smoothstepped fade fraction while it fades, 0 when all are stopped. 1 when the
+        /// scene has no termite sim at all (nothing to follow).</summary>
+        private float TermitePresence()
+        {
+            float best = -1f;
+            foreach (var sim in simulations)
+            {
+                if (sim is not TermiteSim t) continue;
+                float v = t.runState switch
+                {
+                    SimRunState.Running => 1f,
+                    SimRunState.Fading  => Mathf.SmoothStep(0f, 1f,
+                        Mathf.Clamp01(t.fadeRemaining / Mathf.Max(0.001f, t.fadeOutSeconds))),
+                    _ => 0f,
+                };
+                best = Mathf.Max(best, v);
+            }
+            return best < 0f ? 1f : best;
         }
 
         public void Release()
