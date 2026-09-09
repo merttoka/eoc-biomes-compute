@@ -168,6 +168,9 @@ namespace Biomes
                 cs.SetBuffer(k, s_TypeParamsID, typeParamsBuffer);
         }
 
+        // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
+        protected override void BindFadeParams() => UploadTypeParams();
+
         protected override void GPUStep()
         {
             UploadTypeParams();

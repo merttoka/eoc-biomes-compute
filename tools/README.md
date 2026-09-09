@@ -140,3 +140,25 @@ data    : frameCount × neuronCount  float16   (row-major: frame, then neuron)
 `labels_positions.csv` (assigned on the sims + `NeuronFiringSource`) — row *k* of the CSV is
 neuron *k* of the blob. The committed `.f16` is `131 × 180000`; re-run this only if the source
 recording changes. The blob is large (~47 MB, tracked via Git LFS).
+
+## `channel_wiring.py` — channel-wiring boards for `DAC_params` sets
+
+Reads one `DAC_params/<NN_Name>/` folder (BiomeFieldConfig + the three UmweltMapping assets +
+`Scene_DAC_*.unity`) and emits Paper-ready HTML for a wiring board: who writes into which biome
+channel (seeder routes, injector firing dispersal and sources, species deposits, metabolic heat /
+O2, termite mound building), each channel's config (diffuse / decay / relax / init / kernel /
+advection), the PDE couplings from the config globals, and each species' reads (effect + weight,
+habitat band). Rows are bright when a species or input touches them, mid when only the PDE does,
+dim when nothing does. Death is not drawn — no kernel reads it. No third-party deps.
+
+```bash
+tools/.venv/bin/python tools/channel_wiring.py "Assets/Workspace/11.2 SIGGRAPH Scene/assets/DAC_params/01_Trace" --out /tmp/wiring/01_Trace
+tools/.venv/bin/python tools/channel_wiring.py --all "Assets/Workspace/11.2 SIGGRAPH Scene/assets/DAC_params" --out /tmp/wiring
+```
+
+Per set: `preview.html` (standalone, open in a browser), plus `header.html`, `body_shell.html`,
+`lane_*.html` (writers · gutter_writes · channels · gutter_pde · gutter_reads · readers) and
+`legend.html`. To put a board in Paper: create an artboard (width printed by the script, dark
+`#0F0F0F`, 72px padding, column flex, 56px gap), `write_html` the header, the body shell, the six
+lanes into the shell in that order, then the legend. Retune the assets → rerun → replace the lanes.
+Boards live in the Paper file *SIGGRAPH DAC Shanghai*, page *EoC Interaction Map*.

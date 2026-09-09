@@ -193,3 +193,10 @@ Assets/_Recovery.meta
 *\ 2.asset
 *\ 3.asset
 .superpowers/
+
+# Unity profiler captures (tens of MB each)
+ProfilerCaptures/
+
+# TouchDesigner source project for the DAC video cut (2.9 GB, own repo upstream) — keep local
+Assets/Workspace/11.2 SIGGRAPH Scene/data/
+Assets/Workspace/11.2 SIGGRAPH Scene/data.meta

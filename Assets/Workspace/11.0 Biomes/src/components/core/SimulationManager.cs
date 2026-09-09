@@ -51,6 +51,9 @@ namespace Biomes
         [Tooltip("Optional: routes external drivers (plants/robot/neurons) into biome channels at mapped locations.")]
         public BiomeInjector injector;
 
+        [Tooltip("Optional: seeds biome channels from a whole raster every step (video clip, Syphon/NDI, a PNG) through per-route R/G/B/luma → channel mappings. Same pre-Step seam as the injector.")]
+        public TextureChannelSeeder textureSeeder;
+
         [Tooltip("Use the fused single-dispatch write-back (one dispatch applies all of a sim's channel deposits) instead of one dispatch per channel. Requires BiomeWriteFused.compute assigned to Biome.fusedWriteCS. Off = default per-channel path.")]
         [SerializeField] private bool fusedWriteback = false;
 
@@ -92,6 +95,32 @@ namespace Biomes
         public Material compositeOutMat;
         public Transform compositeOutputQuad;
         public Camera recordingCamera;
+
+        [Header("Keep-Out (physical screen cutouts)")]
+        [Tooltip("Normalized canvas rects (x,y = min corner; y 0 = canvas bottom) that agents " +
+                 "steer around, spawns avoid, and the composite + biome channel views mask to " +
+                 "black. For displays with holes. Up to 4 are used (KEEPOUT_MAX in keepout.hlsl).")]
+        public List<Rect> keepOutRects = new();
+        [Tooltip("Falloff width OUTSIDE each rect (normalized). This is the gradient agent " +
+                 "sensors turn on before reaching the edge; it also soft-edges the mask.")]
+        [Range(0.005f, 0.3f)] public float keepOutFeather = 0.04f;
+        [Tooltip("Avoidance added across the feather/interior via perception — composes with " +
+                 "habitat avoidance, so all sims steer around the hole with no shader changes.")]
+        [Range(0f, 8f)] public float keepOutAvoidGain = 4f;
+
+        private readonly Vector4[] _keepOutScratch = new Vector4[4];
+
+        // Pack the authored rects into the fixed-size shader array (xMin,yMin,xMax,yMax).
+        private int PackKeepOut()
+        {
+            int n = Mathf.Min(keepOutRects.Count, _keepOutScratch.Length);
+            for (int i = 0; i < n; i++)
+            {
+                var r = keepOutRects[i];
+                _keepOutScratch[i] = new Vector4(r.xMin, r.yMin, r.xMax, r.yMax);
+            }
+            return n;
+        }
 
         [Header("Mound overlay")]
         [Tooltip("How strongly termite-built walls are painted over the composite (0 = off).")]
@@ -198,11 +227,16 @@ namespace Biomes
             if (biome != null)
                 biome.Reset();
 
-            // Reset sims
+            // Reset sims. Only sims opted in (startOnPlay) or already live are (re)started;
+            // a sim never started stays unallocated — black on the canvas, no VRAM — until
+            // its Start button / StartSim(). A play-mode entry always lands here with every
+            // runState at Stopped (not serialized), so startOnPlay alone decides then.
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
+                if (!sim.startOnPlay && sim.runState != SimRunState.Running) continue;
                 ConfigureAndReset(sim);
+                sim.runState = SimRunState.Running;
             }
 
             Render();
@@ -291,6 +325,11 @@ namespace Biomes
                 sim.neuronFrameActivity = firingFrameActivity;
             }
 
+            // 0c. Push keep-out rects to the biome (steering + channel-view mask).
+            //     Every step so live inspector edits apply immediately; a few copies.
+            if (biome != null)
+                biome.SetKeepOut(_keepOutScratch, PackKeepOut(), keepOutFeather, keepOutAvoidGain);
+
             // 1. Build perception textures from biome for each sim. The build runs at
             //    the perception texture's own resolution (perceptionResScale × sim res);
             //    sims read it by UV so the sizes need not match.
@@ -298,17 +337,32 @@ namespace Biomes
             {
                 foreach (var sim in simulations)
                 {
-                    if (sim == null || sim.umwelt == null || sim.perceptionTex == null) continue;
+                    if (sim == null || sim.runState != SimRunState.Running
+                        || sim.umwelt == null || sim.perceptionTex == null) continue;
                     biome.BuildPerceptionTex(sim.perceptionTex, sim.umwelt,
                         sim.perceptionTex.width, sim.perceptionTex.height);
                 }
             }
 
-            // 2. Step each sim
+            // 2. Step each running sim; tick fading sims down instead (trail decay + render
+            //    only — see SimulationBase.FadeStep). Fade counts in sim time (fixedDeltaTime
+            //    per Step), so it tracks stepsPerTick like everything else the sim does.
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
-                sim.Step();
+                switch (sim.runState)
+                {
+                    case SimRunState.Running:
+                        sim.Step();
+                        break;
+                    case SimRunState.Fading:
+                        sim.fadeRemaining -= Time.fixedDeltaTime;
+                        if (sim.fadeRemaining <= 0f)
+                            sim.runState = SimRunState.Stopped;
+                        else
+                            sim.FadeStep();
+                        break;
+                }
             }
 
             // 3. Sims write back to biome. Metabolic heat / oxygen feed slow PDE channels,
@@ -323,7 +377,9 @@ namespace Biomes
                 for (int i = 0; i < simulations.Count; i++)
                 {
                     var sim = simulations[i];
-                    if (sim == null || sim.umwelt == null) continue;
+                    // Running only: a Fading sim's agents are frozen — letting them keep
+                    // depositing would pin hot spots into the biome at their last positions.
+                    if (sim == null || sim.runState != SimRunState.Running || sim.umwelt == null) continue;
 
                     var posBuffer = sim.GetAgentPositionBuffer();
                     int agentCount = sim.GetAgentCount();
@@ -374,6 +430,11 @@ namespace Biomes
             if (biome != null)
                 injector?.Inject(biome, SimStepCount);
 
+            // 3.6 Raster sources (video / received texture) → biome channels, whole-frame.
+            //     Same seam: writes into fieldReadArray before the PDE takes it over.
+            if (biome != null)
+                textureSeeder?.Seed(biome, SimStepCount);
+
             // 4. Step biome (diffusion, interactions, advection). Biome self-decimates the
             //    PDE internally via its stepEvery (the field is slow-changing). Deposits from
             //    sims accumulate into the field every step regardless (WriteField above).
@@ -393,7 +454,11 @@ namespace Biomes
             for (int i = 0; i < 8; i++)
             {
                 string propName = "simInput" + i;
-                if (i < simulations.Count && simulations[i] != null)
+                // Stopped sims composite as black: a never-started sim has no outTex anyway,
+                // and a stopped-after-fade sim may hold residue (decay-less presets) that
+                // must not pop back if its weight were nonzero.
+                if (i < simulations.Count && simulations[i] != null
+                    && simulations[i].runState != SimRunState.Stopped)
                 {
                     var outTex = simulations[i].GetOutputTexture();
                     compositeCS.SetTexture(compositeRenderKernel, propName, outTex ?? _dummyBlackTex);
@@ -406,10 +471,29 @@ namespace Biomes
 
             compositeCS.SetTexture(compositeRenderKernel, s_CompositeOutTexID, compositeOutTex);
 
-            // Per-sim composite weights (index matches simInput0..7)
+            // Keep-out mask (composite + mound overlay share these shader-scope uniforms).
+            compositeCS.SetInt("keepOutCount", PackKeepOut());
+            compositeCS.SetVectorArray("keepOutRects", _keepOutScratch);
+            compositeCS.SetFloat("keepOutFeather", keepOutFeather);
+
+            // Per-sim composite weights (index matches simInput0..7). Fading sims scale
+            // theirs by FadeWeight (agent sims: floor-ease over the last quarter, the trail
+            // decay is the visible fade; field sims: full-window smooth fade).
             for (int i = 0; i < 8; i++)
-                _simWeightsCache[i] = (i < simulations.Count && simulations[i] != null)
-                    ? simulations[i].compositeWeight : 1f;
+            {
+                float w = 1f;
+                if (i < simulations.Count && simulations[i] != null)
+                {
+                    var sim = simulations[i];
+                    w = sim.compositeWeight;
+                    if (sim.runState == SimRunState.Fading)
+                        w *= sim.FadeWeight(Mathf.Clamp01(
+                            sim.fadeRemaining / Mathf.Max(0.001f, sim.fadeOutSeconds)));
+                    else if (sim.runState == SimRunState.Stopped)
+                        w = 0f;
+                }
+                _simWeightsCache[i] = w;
+            }
             simWeightsBuffer.SetData(_simWeightsCache);
             compositeCS.SetBuffer(compositeRenderKernel, s_SimWeightsID, simWeightsBuffer);
 
@@ -542,13 +626,10 @@ namespace Biomes
         public void ExportPNG()
         {
             if (compositeOutTex == null) return;
-            var tex = new Texture2D(rezX, rezY, TextureFormat.RGBA32, false);
-            RenderTexture.active = compositeOutTex;
-            tex.ReadPixels(new Rect(0, 0, rezX, rezY), 0, 0);
-            tex.Apply();
-            byte[] bytes = tex.EncodeToPNG();
-            System.IO.File.WriteAllBytes($"Recordings/Biomes-{DateTime.Now.ToFileTime()}.png", bytes);
-            Destroy(tex);
+            string path = System.IO.Path.Combine(PngExport.Dir("Exports/Figures"),
+                $"Composite-{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            PngExport.Save(compositeOutTex, path);   // sRGB-encoded, matches the screen
+            Debug.Log($"[SimulationManager] Exported composite → {path}");
         }
 
         [Button("Reset Sims Only (preserve biome)")]
@@ -557,29 +638,85 @@ namespace Biomes
             _simStepCount = 0;
             foreach (var sim in simulations)
             {
-                if (sim == null) continue;
+                if (sim == null || sim.runState != SimRunState.Running) continue;
                 ConfigureAndReset(sim);
             }
+        }
+
+        // ── Independent start/stop ───────────────────────────────────────────────
+
+        /// <summary>Configure + (re)start one sim now. Routes through ConfigureAndReset so
+        /// the manager-owned settings land before the respawn (see that method's comment).
+        /// Also the restart path for a Fading/Stopped sim. Public so MIDI/OSC bindings can
+        /// drive it, same contract as ApplySimRate.</summary>
+        public void StartSim(SimulationBase sim)
+        {
+            if (sim == null) return;
+            ConfigureAndReset(sim);
+            sim.runState = SimRunState.Running;
+        }
+
+        /// <summary>Begin one sim's fade-out (sim.fadeOutSeconds; 0 = instant cut). Motion
+        /// and biome deposits stop immediately; agent trails dissolve via FadeStep, field
+        /// sims fade by composite weight. No-op unless the sim is Running.</summary>
+        public void StopSim(SimulationBase sim)
+        {
+            if (sim == null || sim.runState != SimRunState.Running) return;
+            if (sim.fadeOutSeconds <= 0f) { sim.runState = SimRunState.Stopped; return; }
+            sim.runState = SimRunState.Fading;
+            sim.fadeRemaining = sim.fadeOutSeconds;
+        }
+
+        [Button("Start Physarum")] public void StartPhysarum() => StartSimsOfType<PhysarumSim>();
+        [Button("Stop Physarum")]  public void StopPhysarum()  => StopSimsOfType<PhysarumSim>();
+        [Button("Start Boids")]    public void StartBoids()    => StartSimsOfType<BoidSim>();
+        [Button("Stop Boids")]     public void StopBoids()     => StopSimsOfType<BoidSim>();
+        [Button("Start Termites")] public void StartTermites() => StartSimsOfType<TermiteSim>();
+        [Button("Stop Termites")]  public void StopTermites()  => StopSimsOfType<TermiteSim>();
+        // Field sims (both CA rules) as one family, same reasoning as ResetCellular.
+        [Button("Start Cellular")] public void StartCellular() => StartSimsOfType<FieldSimulationBase>();
+        [Button("Stop Cellular")]  public void StopCellular()  => StopSimsOfType<FieldSimulationBase>();
+
+        private void StartSimsOfType<T>() where T : SimulationBase
+        {
+            foreach (var sim in simulations)
+                if (sim is T) StartSim(sim);
+        }
+
+        private void StopSimsOfType<T>() where T : SimulationBase
+        {
+            foreach (var sim in simulations)
+                if (sim is T) StopSim(sim);
         }
 
         // Per-type resets: respawn only one family of sim (each sim's own Reset()).
         // Unlike ResetSimsOnly(), these leave _simStepCount alone — it's a global
         // metabolism cadence shared by the sims still running, so zeroing it here
-        // would disrupt them.
+        // would disrupt them. Non-Running sims are skipped: a reset must never
+        // sneak-start a sim (use the Start buttons for that).
         [Button("Reset Physarum Only")] public void ResetPhysarum() => ResetSimsOfType<PhysarumSim>();
         [Button("Reset Boids Only")]    public void ResetBoids()    => ResetSimsOfType<BoidSim>();
-        [Button("Reset Termites Only")] public void ResetTermites() { ResetSimsOfType<TermiteSim>(); biome?.ClearPermeability(); }
+        [Button("Reset Termites Only")] public void ResetTermites()
+        {
+            // Clear the built mounds only when a termite sim actually reset — clearing on a
+            // stopped-termite click would erase topography no live sim is rebuilding.
+            if (ResetSimsOfType<TermiteSim>())
+                biome?.ClearPermeability();
+        }
         // Re-seeds every field sim (both CA rules) in one go. Typed on the shared base rather
         // than on each rule so a future field sim is covered without touching this line.
         [Button("Reset Cellular Only")] public void ResetCellular() => ResetSimsOfType<FieldSimulationBase>();
 
-        private void ResetSimsOfType<T>() where T : SimulationBase
+        private bool ResetSimsOfType<T>() where T : SimulationBase
         {
+            bool any = false;
             foreach (var sim in simulations)
             {
-                if (sim is not T) continue;
+                if (sim is not T || sim.runState != SimRunState.Running) continue;
                 ConfigureAndReset(sim);
+                any = true;
             }
+            return any;
         }
 
         /// <summary>
@@ -606,6 +743,10 @@ namespace Biomes
             // on Reset(). Identity check (not value equality) so an unchanged source costs
             // nothing every reset, while a runtime CSV swap on NeuronFiringSource (a new
             // List<Vector2> instance from LoadPositions) propagates at this next configure/reset.
+            // Keep-out rects for spawn exclusion (normalized; same array the shaders get).
+            sim.keepOutCount = PackKeepOut();
+            sim.keepOutRects = _keepOutScratch;
+            sim.keepOutFeather = keepOutFeather;
             var positions = neuronFiring != null ? neuronFiring.PositionsCPU : null;
             if (!ReferenceEquals(sim.neuronPositionsNorm, positions))
             {

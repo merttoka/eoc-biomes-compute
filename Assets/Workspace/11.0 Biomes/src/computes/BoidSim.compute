@@ -60,6 +60,8 @@ float persistence;   // per-frame retention of outTex (set from SimulationBase.r
 #include "includes/neuron_layout.hlsl"
 #include "includes/neuron_firing.hlsl"
 #include "includes/dispersal_speed_response.hlsl"
+#include "includes/keepout.hlsl"
+#include "includes/spawn.hlsl"
 
 // Neuron-position seeding (bound by SimulationBase.BuildNeuronPositions)
 StructuredBuffer<float2> neuronPositions;
@@ -104,17 +106,32 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
 
     Agent a;
-    if (neuronCount > 0) {
+    if (spawnMode != 0) {
+        // Alt spawn (bottom edge / scatter): position from spawn.hlsl, clear of
+        // keep-out rects. Firing stays index-mapped, so neuron coupling is unchanged.
+        a.position = AltSpawnPosition(id.x, time);
+    } else if (neuronCount > 0) {
         uint idx = id.x % neuronCount;
         float2 p = NeuronPxToFieldPx(neuronPositions[idx], neuronScale, float2(rezX, rezY));
         p.x = clamp(p.x, 0.0, (float)rezX - 1.0);
         p.y = clamp(p.y, 0.0, (float)rezY - 1.0);
+        // Neuron layouts ignore keep-outs, so a spawn can land inside one — where the
+        // saturated avoidance field is flat and gives sensors no way out. Evict to the
+        // nearest open edge instead of birthing hidden agents in the hole.
+        if (keepOutCount > 0)
+            p = EvictFromKeepOut(p / float2((float)rezX, (float)rezY))
+                * float2((float)rezX, (float)rezY);
         a.position = p;
     } else {
         float2 c = Random2(id.x * .0001 + time * .001);
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
-    a.velocity = RandomDirection2(id.xy * .001 + sin(time));
+    if (spawnMode == 1 || spawnMode == 3) {
+        float ang0 = SpawnAngle(Hash1u(id.x * 747796405u + time));
+        a.velocity = float2(cos(ang0), sin(ang0));
+    } else {
+        a.velocity = RandomDirection2(id.xy * .001 + sin(time));
+    }
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
 }

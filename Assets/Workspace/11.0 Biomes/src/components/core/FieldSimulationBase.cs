@@ -413,6 +413,15 @@ namespace Biomes
             PublishToChannel();
         }
 
+        /// <summary>Field sims have no trail arrays to decay — the base FadeStep would
+        /// dispatch trail kernels this shader never declared. The frozen lattice output is
+        /// faded entirely by the composite weight (see FadeWeight override).</summary>
+        public override void FadeStep() { }
+
+        /// <summary>Full-window smooth opacity fade: with no trail decay doing the visual
+        /// work, the agent sims' tail-only ease would read as a delayed hard cut here.</summary>
+        public override float FadeWeight(float fade01) => Mathf.SmoothStep(0f, 1f, fade01);
+
         protected override void GPUStep()
         {
             BindCommon(stepRuleKernel);

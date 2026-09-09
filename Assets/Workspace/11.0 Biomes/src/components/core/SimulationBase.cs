@@ -6,6 +6,17 @@ using EasyButtons;
 
 namespace Biomes
 {
+    /// <summary>Lifecycle of one sim under SimulationManager's per-tick loop. Stopped sims
+    /// are skipped by every manager loop and composited as black; Fading sims run
+    /// FadeStep() (trail decay + render, no agent motion, no biome write-back) until the
+    /// fade window expires and they drop to Stopped.</summary>
+    public enum SimRunState { Stopped, Running, Fading }
+
+    /// <summary>Where agents (re)spawn on Reset. Firing coupling is by agent INDEX
+    /// (see neuron_firing.hlsl), so neuron-driven behavior is identical in every mode —
+    /// only the birth geometry changes.</summary>
+    public enum SpawnMode { NeuronPositions = 0, BottomEdge = 1, Scatter = 2, TopEdge = 3 }
+
     public abstract class SimulationBase : MonoBehaviour
     {
         [Header("Setup")]
@@ -17,6 +28,43 @@ namespace Biomes
 
         [Tooltip("Per-frame retention of the rendered output (was hardcoded 0.9). Raising toward 0.95-0.98 makes trails linger and fill the canvas — the main lever to keep the dense look with fewer agents.")]
         [Range(0.5f, 0.995f)] public float renderPersistence = 0.9f;
+
+        [Header("Run Control")]
+        [Tooltip("Start this sim when the manager resets (play-mode entry / global Reset). " +
+                 "Off = the sim stays unallocated and off the canvas until a Start button/API call.")]
+        public bool startOnPlay = true;
+        [Tooltip("Seconds a Stop takes to fade the sim off the canvas. Agent sims keep their " +
+                 "trail diffusion running so trails dissolve organically (diffuseRate < 1 " +
+                 "decays them each step) while agents freeze and biome deposits stop; the " +
+                 "composite weight eases out over the final quarter as a floor for decay-less " +
+                 "presets (diffuseRate 1 conserves trail mass and would never vanish). Field " +
+                 "sims fade by composite weight over the whole window. 0 = instant cut.")]
+        [Range(0f, 30f)] public float fadeOutSeconds = 6f;
+
+        /// <summary>Run gate, owned by SimulationManager (Start/Stop buttons + Reset). Not
+        /// serialized: every play-mode entry starts from Stopped and startOnPlay decides.</summary>
+        [NonSerialized] public SimRunState runState = SimRunState.Stopped;
+        /// <summary>Sim-time seconds left in the Fading state (counted down by the manager).</summary>
+        [NonSerialized] public float fadeRemaining;
+
+        [Header("Spawn")]
+        [Tooltip("NeuronPositions = the organoid layout (default; random scatter when no CSV is " +
+                 "wired; spawns landing inside a keep-out rect are evicted to its nearest open " +
+                 "edge). BottomEdge/TopEdge = a band along that canvas edge with headings coned " +
+                 "toward the canvas interior — for thin/wide strips where the organoid layout " +
+                 "makes no spatial sense. Scatter = uniform random. Firing is index-mapped, so " +
+                 "neuron coupling behaves identically in every mode. Takes effect on Reset.")]
+        public SpawnMode spawnMode = SpawnMode.NeuronPositions;
+        [Tooltip("BottomEdge/TopEdge only: spawn band height as a fraction of canvas height.")]
+        [Range(0.01f, 0.5f)] public float spawnBandFraction = 0.08f;
+
+        // Keep-out rects (normalized xMin,yMin,xMax,yMax; up to 4 used), pushed by
+        // SimulationManager via ConfigureAndReset — single owner, like neuronSpawnScale.
+        // Spawns resample to land clear of them (see spawn.hlsl).
+        [NonSerialized] public Vector4[] keepOutRects;
+        [NonSerialized] public int keepOutCount;
+        [NonSerialized] public float keepOutFeather;
+        private static readonly Vector4[] s_NoKeepOut = new Vector4[4];
 
         // Dispersal speed response — shared by all sims (consumes perception.a = SpeedBoost).
         public enum DispersalSpeedMode { Multiplier = 0, Constant = 1 }
@@ -151,6 +199,11 @@ namespace Biomes
         protected static readonly int s_NeuronCountID = Shader.PropertyToID("neuronCount");
         protected static readonly int s_NeuronScaleID = Shader.PropertyToID("neuronScale");
         protected static readonly int s_PersistenceID = Shader.PropertyToID("persistence");
+        protected static readonly int s_SpawnModeID = Shader.PropertyToID("spawnMode");
+        protected static readonly int s_SpawnBandFractionID = Shader.PropertyToID("spawnBandFraction");
+        protected static readonly int s_KeepOutCountID = Shader.PropertyToID("keepOutCount");
+        protected static readonly int s_KeepOutRectsID = Shader.PropertyToID("keepOutRects");
+        protected static readonly int s_KeepOutFeatherID = Shader.PropertyToID("keepOutFeather");
         protected static readonly int s_TrailAnisoID = Shader.PropertyToID("trailAnisotropy");
         protected static readonly int s_TrailTensorStrideID = Shader.PropertyToID("trailTensorStride");
         #endregion
@@ -381,6 +434,41 @@ namespace Biomes
             Render();
         }
 
+        /// <summary>
+        /// One fade tick (runState == Fading): the diffuse kernel keeps running so trails
+        /// decay toward black exactly as they do behind a live agent (blur × diffuseRate per
+        /// step), and Render keeps draining outTex via persistence — but agents do not move
+        /// and nothing deposits, so the picture dissolves instead of cutting. Field sims
+        /// override to a no-op: no trail arrays, their frozen output fades by composite
+        /// weight alone (see FadeWeight).
+        /// </summary>
+        public virtual void FadeStep()
+        {
+            _simStep++;
+            cs.SetInt(s_TimeID, WrappedStep);
+            cs.SetFloat(s_PersistenceID, renderPersistence);
+            cs.SetInt(s_RezXID, rezX);
+            cs.SetInt(s_RezYID, rezY);
+            BindFadeParams();
+            BindTrailAnisotropy();
+            cs.SetTexture(diffuseTextureKernel, s_TrailReadID, trailReadArray);
+            cs.SetTexture(diffuseTextureKernel, s_TrailWriteID, trailWriteArray);
+            Dispatch(diffuseTextureKernel, rezX, rezY, 1);
+            SwapTrailArrays();
+            Render();
+        }
+
+        /// <summary>Re-bind what the diffuse/render kernels read beyond the base uniforms —
+        /// each agent sim's typeParams buffer (diffuseRate lives there). Called every
+        /// FadeStep, mirroring the per-step UploadTypeParams the normal GPUStep does.</summary>
+        protected virtual void BindFadeParams() { }
+
+        /// <summary>Composite-weight multiplier while Fading (fade01 runs 1 → 0). Agent sims
+        /// hold full weight for the first three quarters — the visible fade is the trail
+        /// decay — then ease to 0 as a floor for decay-less presets. Field sims override to
+        /// a full-window smooth fade.</summary>
+        public virtual float FadeWeight(float fade01) => Mathf.Min(1f, fade01 * 4f);
+
         protected RenderTexture CreateTrailArray(int layers, string name)
         {
             return gpu.CreateTextureArray(rezX, rezY, layers, FilterMode.Point,
@@ -514,6 +602,16 @@ namespace Biomes
                 _neuronPositionsCount > 0 ? neuronPositionsBuffer : dummyNeuronBuffer);
             cs.SetInt(s_NeuronCountID, _neuronPositionsCount);
             cs.SetVector(s_NeuronScaleID, new Vector4(neuronSpawnScale.x, neuronSpawnScale.y, 0, 0));
+
+            // Spawn mode + keep-out exclusion for the reset kernel (spawn.hlsl /
+            // keepout.hlsl). Bound here because this is the one bind point every sim's
+            // reset already funnels through. No-ops on shaders without the uniforms
+            // (the field sims bind this to their rule kernel instead).
+            cs.SetInt(s_SpawnModeID, (int)spawnMode);
+            cs.SetFloat(s_SpawnBandFractionID, spawnBandFraction);
+            cs.SetInt(s_KeepOutCountID, keepOutCount);
+            cs.SetVectorArray(s_KeepOutRectsID, keepOutRects ?? s_NoKeepOut);
+            cs.SetFloat(s_KeepOutFeatherID, keepOutFeather);
             return _neuronPositionsCount;
         }
 
@@ -541,13 +639,10 @@ namespace Biomes
         public void ExportPNG()
         {
             if (outTex == null) return;
-            var tex = new Texture2D(rezX, rezY, TextureFormat.RGBA32, false);
-            RenderTexture.active = outTex;
-            tex.ReadPixels(new Rect(0, 0, rezX, rezY), 0, 0);
-            tex.Apply();
-            byte[] bytes = tex.EncodeToPNG();
-            System.IO.File.WriteAllBytes($"Recordings/Sim{SimName}-{DateTime.Now.ToFileTime()}.png", bytes);
-            Destroy(tex);
+            string path = System.IO.Path.Combine(PngExport.Dir("Exports/Figures"),
+                $"{SimName}-{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            PngExport.Save(outTex, path);   // sRGB-encoded, matches the screen
+            Debug.Log($"[{SimName}] Exported → {path}");
         }
 
         protected float MapAndClamp(float value, float minValue, float maxValue, float min = 0, float max = 1)

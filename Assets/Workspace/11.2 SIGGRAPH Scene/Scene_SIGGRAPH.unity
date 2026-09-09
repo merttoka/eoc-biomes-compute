@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6818a9f501d184540bc3d3ac166336e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ExternalTextureReceiver
-  enableReceive: 1
+  enableReceive: 0
   protocol: 1
   streamName: TouchDesigner/TDSyphonSpoutOut
   resources:
@@ -317,6 +317,10 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: e2dbf57532b4d46a9abbafab295b24af, type: 2}
   compositeWeight: 0.85
   renderPersistence: 0.8
+  startOnPlay: 1
+  fadeOutSeconds: 10
+  spawnMode: 0
+  spawnBandFraction: 0.08
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
   dispersalConstantSpeed: 30
@@ -326,10 +330,8 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: 63c180cf80e5b49ca94b4648442b7add, type: 2}
+  trailAnisotropy: 0
   firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.5, y: 0.6}
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
@@ -398,12 +400,7 @@ MonoBehaviour:
   rightBot: 15
   sendLEDFeedback: 1
   ledUpdateInterval: 0.3
-  physarumHueStart: 20
-  physarumHueEnd: 40
-  boidHueStart: 78
-  boidHueEnd: 98
-  termiteHueStart: 57
-  termiteHueEnd: 70
+  typeBrightnessMid: 32
   bankFlashDuration: 0.7
   logMidi: 0
   ccSideL1: 8
@@ -1207,6 +1204,10 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: a8b87068c20e34a1684d14ed69a635f3, type: 2}
   compositeWeight: 1.5
   renderPersistence: 0.9
+  startOnPlay: 1
+  fadeOutSeconds: 10
+  spawnMode: 0
+  spawnBandFraction: 0.08
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
   dispersalConstantSpeed: 6
@@ -1216,10 +1217,8 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: e75260013159b4e70a29a1ff89a37950, type: 2}
+  trailAnisotropy: 0
   firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.5, y: 0.6}
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
@@ -1647,6 +1646,10 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: 3f0456f3dec144a1bbd92051d176d40c, type: 2}
   compositeWeight: 1
   renderPersistence: 0.9
+  startOnPlay: 1
+  fadeOutSeconds: 10
+  spawnMode: 0
+  spawnBandFraction: 0.08
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
   dispersalConstantSpeed: 30
@@ -1656,10 +1659,8 @@ MonoBehaviour:
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
   umwelt: {fileID: 11400000, guid: ad7466382b28644daa8d0f4190b4e647, type: 2}
+  trailAnisotropy: 0
   firingThreshold: 0.1
-  labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  csvCoordinatesAreNormalized: 1
-  spawnScale: {x: 0.5, y: 0.6}
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
@@ -2023,13 +2024,14 @@ MonoBehaviour:
   firingSource: {fileID: 2000144462}
   firingDispersalEnabled: 1
   dispersalChannel: 10
-  firingSpawnScale: {x: 0.4, y: 0.75}
   dispersalRadius: 0.02
   dispersalExpandGain: 2
   dispersalFalloff: 0.4
   dispersalBaseline: 0.025
   dispersalAmount: 0.95
   dispersalFireThreshold: 0.1
+  centreKeepOut: 0
+  centreKeepOutDepth: 0.8
   firingDispersalSource: 1
   firingAgentSim: {fileID: 1010527583}
   firingAgentStampCap: 262
@@ -2069,6 +2071,7 @@ MonoBehaviour:
   debugChannel: 6
   exportFolder: Exports/Biomes
   exportNormalized: 1
+  exportSRGB: 1
 --- !u!1 &1938610676
 GameObject:
   m_ObjectHideFlags: 0
@@ -2191,13 +2194,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 3840
-  rezY: 2160
+  rezX: 3100
+  rezY: 1000
   simResolutionScale: 1
   perceptionResScale: 0.75
   referenceHeight: 2160
   scaleSpatialToResolution: 1
-  scaleDensityToResolution: 1
+  scaleDensityToResolution: 0
   simRate: 60
   maxAllowedTimestep: 0.1
   stepsPerTick: 1
@@ -2212,7 +2215,7 @@ MonoBehaviour:
   - {fileID: 276895388}
   - {fileID: 1825205988}
   - {fileID: 1010527583}
-  externalInput: {fileID: 0}
+  externalInput: {fileID: 39187332}
   neuronFiring: {fileID: 2000144462}
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
@@ -2224,11 +2227,13 @@ MonoBehaviour:
   m_RingExpandGain: 2
   m_RingCoreStrength: 1.5
   m_RingThreshold: 0.1
-  m_RingSpawnScale: {x: 0.4, y: 0.75}
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
   compositeOutMat: {fileID: 2100000, guid: 3e812a8bed0cf4881bce47a8fab00566, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
+  keepOutRects: []
+  keepOutFeather: 0.04
+  keepOutAvoidGain: 4
   moundOverlayStrength: 0.6
   moundColor: {r: 0.5294118, g: 0.8078432, b: 0.9215687, a: 1}
 --- !u!114 &2000144462

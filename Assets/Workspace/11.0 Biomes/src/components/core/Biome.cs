@@ -5,6 +5,10 @@ using EasyButtons;
 
 namespace Biomes
 {
+    /// <summary>Which component of a raster <see cref="Biome.SeedChannelFromTexture"/> reads.
+    /// Must match <c>seedSwizzle</c> in Biome.compute.</summary>
+    public enum SeedSource { Red = 0, Green = 1, Blue = 2, Alpha = 3, Luminance = 4 }
+
     public class Biome : MonoBehaviour
     {
         [Header("Resolution (independent of sim resolution)")]
@@ -62,6 +66,8 @@ namespace Biomes
         public string exportFolder = "Exports/Biomes";
         [Tooltip("Per-channel contrast stretch (each channel's min..max -> full range) so faint fields are visible. Export-only — realtime rendering is unaffected.")]
         public bool exportNormalized = true;
+        [Tooltip("Encode exported PNGs as sRGB so files match the on-screen debug quads. The debug kernel writes linear values, which the display gamma-encodes when showing — a raw dump reads as crushed-dark in image viewers. Off = raw linear values.")]
+        public bool exportSRGB = true;
 
         private GPUResourceManager gpu;
 
@@ -134,6 +140,35 @@ namespace Biomes
         private static readonly int s_SeedChannelID = Shader.PropertyToID("seedChannel");
         private static readonly int s_SeedGainID = Shader.PropertyToID("seedGain");
         private static readonly int s_SeedModeID = Shader.PropertyToID("seedMode");
+        private static readonly int s_SeedSwizzleID = Shader.PropertyToID("seedSwizzle");
+
+        private static readonly int s_KeepOutCountID = Shader.PropertyToID("keepOutCount");
+        private static readonly int s_KeepOutRectsID = Shader.PropertyToID("keepOutRects");
+        private static readonly int s_KeepOutFeatherID = Shader.PropertyToID("keepOutFeather");
+        private static readonly int s_KeepOutAvoidGainID = Shader.PropertyToID("keepOutAvoidGain");
+
+        // Keep-out rects (screen cutouts), pushed by SimulationManager each step.
+        // Consumed by the perception build (steering via avoidance) and the channel
+        // renders (masked to black in debug quads + PNG/frame exports).
+        private readonly Vector4[] _keepOutRects = new Vector4[4];
+        private int _keepOutCount;
+        private float _keepOutFeather, _keepOutAvoidGain;
+
+        public void SetKeepOut(Vector4[] rects, int count, float feather, float avoidGain)
+        {
+            _keepOutCount = Mathf.Clamp(count, 0, _keepOutRects.Length);
+            for (int i = 0; i < _keepOutCount; i++) _keepOutRects[i] = rects[i];
+            _keepOutFeather = feather;
+            _keepOutAvoidGain = avoidGain;
+        }
+
+        private void BindKeepOut()
+        {
+            cs.SetInt(s_KeepOutCountID, _keepOutCount);
+            cs.SetVectorArray(s_KeepOutRectsID, _keepOutRects);
+            cs.SetFloat(s_KeepOutFeatherID, _keepOutFeather);
+            cs.SetFloat(s_KeepOutAvoidGainID, _keepOutAvoidGain);
+        }
 
         public RenderTexture FieldReadArray => fieldReadArray;
         public float OpenBaseline => fieldConfig != null ? fieldConfig.permeabilityOpenBaseline : 0.9f;
@@ -397,6 +432,7 @@ namespace Biomes
             cs.SetInt(s_RezYID, biomeRezY);
             cs.SetInt(s_DebugChannelID, channel);
             cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
+            BindKeepOut();
             cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
             Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
@@ -412,6 +448,7 @@ namespace Biomes
             cs.SetInt(s_RezYID, biomeRezY);
             cs.SetInt(s_DebugChannelID, channel);
             cs.SetInt(s_DebugNormalizeID, 1);
+            BindKeepOut();
             cs.SetFloat(s_DebugNormMinID, min);
             cs.SetFloat(s_DebugNormInvRangeID, invRange);
             cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
@@ -491,9 +528,21 @@ namespace Biomes
                     RenderChannelTo(i, tmp);
                 }
 
-                RenderTexture.active = tmp;
+                // Linear→sRGB encode via a pooled sRGB target, so the PNG matches the
+                // on-screen quads (ReadPixels alone copies linear values → crushed-dark).
+                RenderTexture readSrc = tmp;
+                RenderTexture srgbTmp = null;
+                if (exportSRGB)
+                {
+                    srgbTmp = RenderTexture.GetTemporary(biomeRezX, biomeRezY, 0,
+                        RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+                    Graphics.Blit(tmp, srgbTmp);
+                    readSrc = srgbTmp;
+                }
+                RenderTexture.active = readSrc;
                 readback.ReadPixels(new Rect(0, 0, biomeRezX, biomeRezY), 0, 0);
                 readback.Apply();
+                if (srgbTmp != null) RenderTexture.ReleaseTemporary(srgbTmp);
 
                 string path = System.IO.Path.Combine(dir, $"{i:D2}_{ChannelNames[i]}.png");
                 System.IO.File.WriteAllBytes(path, readback.EncodeToPNG());
@@ -530,6 +579,7 @@ namespace Biomes
             {
                 cs.SetInt(s_DebugChannelID, debugChannel);
                 cs.SetInt(s_DebugNormalizeID, 0);
+                BindKeepOut();
                 cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
                 cs.SetTexture(renderDebugKernel, s_DebugOutTexID, debugOutTex);
                 Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
@@ -681,13 +731,17 @@ namespace Biomes
         /// be any resolution — the kernel samples by UV through a linear-clamp sampler.</para>
         /// </summary>
         /// <param name="channel">Target channel index (see BiomeChannel).</param>
-        /// <param name="src">Source raster; its RED channel carries the value.</param>
+        /// <param name="src">Source raster; <paramref name="source"/> picks the component.</param>
         /// <param name="gain">Multiplies the sampled value before the blend (result saturated).</param>
         /// <param name="mode">How the value combines with what is already in the channel.</param>
+        /// <param name="source">Which component of the raster carries the value. Red is the
+        /// legacy default (CA state, transect masks); a colour video routes R/G/B to three
+        /// channels with three calls.</param>
         public void SeedChannelFromTexture(int channel, Texture src, float gain,
-            BiomeInjector.BlendMode mode)
+            BiomeInjector.BlendMode mode, SeedSource source = SeedSource.Red)
         {
             if (gpu == null || cs == null || src == null || fieldReadArray == null) return;
+            if (src is RenderTexture rt && !rt.IsCreated()) return;
             if (seedChannelKernel < 0) return;
             if (channel < 0 || channel >= BiomeChannel.Count) return;
 
@@ -696,6 +750,7 @@ namespace Biomes
             cs.SetInt(s_SeedChannelID, channel);
             cs.SetFloat(s_SeedGainID, gain);
             cs.SetInt(s_SeedModeID, (int)mode);
+            cs.SetInt(s_SeedSwizzleID, (int)source);
             cs.SetTexture(seedChannelKernel, s_SeedTexID, src);
             cs.SetTexture(seedChannelKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(seedChannelKernel, biomeRezX, biomeRezY, 1);
@@ -746,6 +801,7 @@ namespace Biomes
             cs.SetFloat(s_HabitatAvoidGainID, habitatAvoidGain);
             cs.SetFloat(s_HabitatSlowGainID, habitatSlowGain);
             cs.SetFloat(s_HabitatSpeedFloorID, habitatSpeedFloor);
+            BindKeepOut();
             cs.SetBuffer(readFieldKernel, "readEntries", perceptionEntryBuffer);
             cs.SetTexture(readFieldKernel, s_FieldReadID, fieldReadArray);
             cs.SetTexture(readFieldKernel, "perceptionTex", perceptionTex);

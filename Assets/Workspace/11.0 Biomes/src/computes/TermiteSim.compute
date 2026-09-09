@@ -49,6 +49,8 @@ float turnAngleSpread;  // per-neuron-group turn-angle variation (0 = global, 1 
 #include "includes/neuron_layout.hlsl"
 #include "includes/neuron_firing.hlsl"
 #include "includes/dispersal_speed_response.hlsl"
+#include "includes/keepout.hlsl"
+#include "includes/spawn.hlsl"
 
 // Neuron-group index an agent belongs to: agents sharing a group share their heading
 // and turn-angle character. Falls back to per-agent when no neuron CSV is wired.
@@ -70,11 +72,21 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
 
     Agent a;
-    if (neuronCount > 0) {
+    if (spawnMode != 0) {
+        // Alt spawn (bottom edge / scatter): position from spawn.hlsl, clear of
+        // keep-out rects. Firing stays index-mapped, so neuron coupling is unchanged.
+        a.position = AltSpawnPosition(id.x, time);
+    } else if (neuronCount > 0) {
         uint idx = id.x % neuronCount;
         float2 p = NeuronPxToFieldPx(neuronPositions[idx], neuronScale, float2(rezX, rezY));
         p.x = clamp(p.x, 0.0, (float)rezX - 1.0);
         p.y = clamp(p.y, 0.0, (float)rezY - 1.0);
+        // Neuron layouts ignore keep-outs, so a spawn can land inside one — where the
+        // saturated avoidance field is flat and gives sensors no way out. Evict to the
+        // nearest open edge instead of birthing hidden agents in the hole.
+        if (keepOutCount > 0)
+            p = EvictFromKeepOut(p / float2((float)rezX, (float)rezY))
+                * float2((float)rezX, (float)rezY);
         a.position = p;
     } else {
         float2 c = Random2(id.x * .0001 + time * .001);
@@ -83,7 +95,7 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     // Per-neuron heading: agents sharing a neuron index get ONE fixed heading →
     // coherent directional streams (one per neuron).
-    float ang0 = Hash1u(NeuronGroup(id.x) * 747796405u + time) * 6.28318530718;
+    float ang0 = SpawnAngle(Hash1u(NeuronGroup(id.x) * 747796405u + time));
     a.direction = float2(cos(ang0), sin(ang0));
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;

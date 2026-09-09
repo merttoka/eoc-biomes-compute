@@ -47,6 +47,7 @@ float  ringCoreStrength; // bright center flash at onset (strong only while inte
 float4 ringColor;
 
 #include "includes/neuron_layout.hlsl"
+#include "includes/keepout.hlsl"
 
 float4 SampleSim(uint index, float2 uv) {
     // Initialize-first, no early returns: Metal's cross-compiled return slot trips a
@@ -82,6 +83,9 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         color.rgb = lerp(color.rgb, overlay.rgb, overlayStrength * overlay.a);
     }
 
+    // Mask screen cutouts last so every layer honors the physical hole, even a
+    // stray agent that beat the steering.
+    color.rgb *= 1.0 - KeepOutField(uv);
     compositeOut[id.xy] = saturate(color);
 }
 
@@ -141,6 +145,7 @@ void MoundOverlayKernel(uint3 id : SV_DISPATCHTHREADID) {
     float perm = permField.SampleLevel(sampler_linear_clamp, float3(uv, permChannel), 0);
     float wall = saturate((permOpenBaselineOv - perm) / max(1e-4, permOpenBaselineOv));  // 0 open, 1 solid
     wall = smoothstep(0.0, 1.0, wall);   // soften the wall edge
+    wall *= 1.0 - KeepOutField(uv);      // mounds never paint into a screen cutout
     float4 c = compositeOut[id.xy];
     c.rgb = lerp(c.rgb, moundColor.rgb, wall * moundStrength);
     compositeOut[id.xy] = c;

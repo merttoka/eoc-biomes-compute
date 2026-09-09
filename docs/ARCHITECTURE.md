@@ -124,6 +124,8 @@ render is **not** part of it — it runs separately in `LateUpdate`):
 1. Biome.BuildPerceptionTex(sim)    → biome fields sampled through each sim's Umwelt
 2. sim.Step()  (for each sim)       → agents sense perception + move + write trails
 3. Biome.WriteField(sim agents)     → sims deposit/consume biome channels (per Umwelt)
+3.5 BiomeInjector.Inject()          → Gaussian stamps (sensors/OSC/firing) into channels
+3.6 TextureChannelSeeder.Seed()     → whole rasters (video/received texture) into channels
 4. Biome.Step()                     → flow gen → advect → cross-field react → diffuse/decay
 5. Render()                         → composite all sim outputs (+ optional overlay)
 ```
@@ -329,6 +331,19 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   termites — `i % neuronCount` selects the firing neuron). Runs after sim write-back, before
   `Biome.Step()`, so stamps ride the full field evolution. Spec:
   [[superpowers/specs/2026-06-11-termite-biome-features-design]].
+- **`TextureChannelSeeder`** — routes a **whole raster** into biome channels every step
+  (step 3.6, right after the injector): one route per source component (R/G/B/A/luminance →
+  channel, gain, blend mode) via `Biome.SeedChannelFromTexture(..., SeedSource)` and the
+  `seedSwizzle` in `SeedChannelKernel`. Source is an `ExternalTextureReceiver`'s
+  `OutputTexture` (stream or debug video clip) or an explicit `textureOverride`. A colour
+  video thus becomes up to three independent fields the agents perceive through their
+  Umwelt mappings. Note the 11.0 sims **do not read** `externalInfluenceTex` (only the 10.0
+  computes did); the receiver's texture reaches agents only through this seeder — the
+  manager's per-sim assignment is vestigial plumbing.
+- **`NeuronFiringPlayback`** — local transport over the firing blob: plays an inclusive
+  frame range over a wall-clock duration (`FramePlayhead`, pure, in `Biomes.Core`) and
+  pushes frames through `NeuronFiringSource.SetFrame`, identical to the OSC `/index` path.
+  Keep `playing` off while TD drives `/index` or the two fight over the frame.
 - **`ParameterRecorder`** — records per-step parameter *changes* as a JSON event
   track; replays them deterministically against `SimStepCount`.
 - **`ParameterInterpolator`** — eases live params from current state through an
@@ -346,8 +361,9 @@ packages compile on every platform; availability is gated at runtime
   behind `ITextureSenderBackend`/`ITextureReceiverBackend`, plus `IsAvailable` and
   `EnumerateSources` (discovery). The only file touching `Klak.*`.
 - **`ExternalTextureReceiver`** — receives one external texture (Syphon/NDI/Spout, or a
-  debug video clip) into an `OutputTexture` fed to sims as external influence. Replaces
-  `ExternalInputProvider`. `selfDrive` + a custom inspector preview/source-picker let
+  debug video clip) into an `OutputTexture`. In 11.0 that texture feeds the composite
+  overlay and `TextureChannelSeeder` (→ biome channels); no 11.0 sim kernel samples it as
+  steering influence. Replaces `ExternalInputProvider`. `selfDrive` + a custom inspector preview/source-picker let
   you verify reception standalone. Note: receive needs the source's *exact* canonical
   name (NDI `"<MACHINE> (Name)"`, Syphon `"App/Name"`) — hence the discovery dropdown.
 - **`ExternalTextureSender`** — sends selected textures (composite, per-sim outputs,
