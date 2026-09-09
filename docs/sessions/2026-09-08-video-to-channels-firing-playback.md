@@ -66,3 +66,6 @@ reach the ecosystem, and the organoid blob needs to play a fixed range without T
 - Firing-ring composite overlay — `NeuronRingKernel`, its uniforms, and the eight `m_Ring*` inspector
   fields + compact buffers in `SimulationManager`. Off in every show scene; ecology paths carry firing
   now. [[../adr/0015-remove-firing-ring-overlay|ADR-0015]]; ADR-0006 amended.
+- The ten generated `DAC_params/<NN_Name>/` sets + their README were **dropped** the same evening
+  (ecology too entangled to read); replaced by `DAC_params/0-minimal-test/` — a blank
+  `_DAC Empty Test` scene + zeroed config/umwelt/sim assets for manual one-field-at-a-time tests.

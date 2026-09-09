@@ -350,14 +350,14 @@ MonoBehaviour:
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 77afe21285fb44993966aca6d7b60b51, type: 2}
+  umwelt: {fileID: 11400000, guid: 2e3b07aee2e7b4e67b0d2fd7df1742ff, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
   agentsCount: 1000000
-  paramsSO: {fileID: 11400000, guid: 898d9cc325b964ff0974c486223a1751, type: 2}
+  paramsSO: {fileID: 11400000, guid: 90283a5cdc541445a8b2ba6bfc47d347, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
 GameObject:
@@ -516,7 +516,7 @@ MonoBehaviour:
   simManager: {fileID: 2000144461}
   figureExporter: {fileID: 39187335}
   recordFramesDuringPlayback: 0
-  playOnStart: 1
+  playOnStart: 0
   endAtSeconds: 120
   events:
   - atSeconds: 0
@@ -1266,27 +1266,27 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: a8b87068c20e34a1684d14ed69a635f3, type: 2}
   compositeWeight: 1.5
   renderPersistence: 0.9
-  startOnPlay: 0
+  startOnPlay: 1
   fadeOutSeconds: 10
   spawnMode: 0
   spawnBandFraction: 0.08
-  dispersalSpeedMode: 1
-  dispersalSpeedMult: 4
+  dispersalSpeedMode: 0
+  dispersalSpeedMult: 1.5
   dispersalConstantSpeed: 6
   rezX: 1024
   rezY: 1024
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 554aa317479f54f90be0b066927d9d69, type: 2}
+  umwelt: {fileID: 11400000, guid: 66b1e699361ce4587be4a42aa98d3863, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
   agentsCount: 131
-  turnAngleSpread: 0.8
-  paramsSO: {fileID: 11400000, guid: 7b3071f619a154ed5a8d3d116d2f29aa, type: 2}
+  turnAngleSpread: 0
+  paramsSO: {fileID: 11400000, guid: fcec856dc0246481c86b0d23250eab71, type: 2}
   agentParams: {fileID: 0}
   wallBuildAmount: 0.003
   wallBuildFiringThreshold: 0.1
@@ -1757,10 +1757,10 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: 3f0456f3dec144a1bbd92051d176d40c, type: 2}
   compositeWeight: 0.8
   renderPersistence: 0.8
-  startOnPlay: 0
+  startOnPlay: 1
   fadeOutSeconds: 10
-  spawnMode: 0
-  spawnBandFraction: 0.08
+  spawnMode: 2
+  spawnBandFraction: 0.43
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
   dispersalConstantSpeed: 30
@@ -1769,14 +1769,14 @@ MonoBehaviour:
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 6caa3b65b01e8456d8ea9f793c1aa10c, type: 2}
+  umwelt: {fileID: 11400000, guid: 34bcf310b241e445b875fa4f8d3d4d70, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
   behaviorMulMin: 0.25
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
   agentsCount: 20000
-  paramsSO: {fileID: 11400000, guid: aba70bb468ed3481bb407f8be9a787b3, type: 2}
+  paramsSO: {fileID: 11400000, guid: 6f6230f8f4b384b37a43dbceb94fe3ed, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &1915234168
 GameObject:
@@ -2165,7 +2165,7 @@ MonoBehaviour:
   biomeRezX: 1024
   biomeRezY: 330
   stepEvery: 1
-  fieldConfig: {fileID: 11400000, guid: 203c8bb8fb3564268a9b6fb62e254ce2, type: 2}
+  fieldConfig: {fileID: 11400000, guid: e823cf6190d7e4bb7901c6f2a05fbf52, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   habitatAvoidGain: 2
   habitatSlowGain: 3
@@ -2204,20 +2204,20 @@ MonoBehaviour:
     enabled: 1
     from: 0
     channel: 13
-    gain: 1
-    mode: 2
+    gain: 0.22
+    mode: 0
   - name: Green
     enabled: 0
     from: 1
-    channel: 13
-    gain: 1
-    mode: 1
+    channel: 6
+    gain: 0.31
+    mode: 0
   - name: Blue
     enabled: 0
     from: 2
-    channel: 13
-    gain: 1
-    mode: 1
+    channel: 14
+    gain: 0.46
+    mode: 0
   - name: Luminance
     enabled: 0
     from: 4

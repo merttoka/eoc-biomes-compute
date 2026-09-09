@@ -10,52 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6ca1367129a96429c8c977fbb8a2efdc, type: 3}
-  m_Name: UmweltTermite_DAC
+  m_Name: UmweltBoid_0
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.UmweltMapping
   reads:
-  - channel: 0
-    weight: 1
-    effect: 0
-  - channel: 7
-    weight: -0.24
-    effect: 0
   - channel: 1
-    weight: 0.8
-    effect: 0
-  - channel: 2
-    weight: -0.65
-    effect: 0
-  - channel: 10
-    weight: -0.5
-    effect: 0
-  - channel: 10
     weight: 1
-    effect: 3
-  - channel: 11
-    weight: 0.6
-    effect: 0
-  - channel: 12
-    weight: 1
-    effect: 0
-  - channel: 12
-    weight: 0.6
-    effect: 1
+    effect: 2
   - channel: 13
     weight: 2
     effect: 3
   writes:
-  - channel: 3
-    amount: 1
-  - channel: 6
+  - channel: 2
     amount: 0.01
-  - channel: 0
-    amount: -0.01
-  - channel: 11
-    amount: -0.004
-  preferredPermeabilityMin: 0.05
-  preferredPermeabilityMax: 0.5
-  metabolicHeat: 0.045
-  oxygenConsumption: 0.035
+  preferredPermeabilityMin: 0.6
+  preferredPermeabilityMax: 1
+  metabolicHeat: 0.02
+  oxygenConsumption: 0.09
   enableDeath: 0
   deathThresholdOxygen: 0.05
   deathThresholdPermeability: 0.1
