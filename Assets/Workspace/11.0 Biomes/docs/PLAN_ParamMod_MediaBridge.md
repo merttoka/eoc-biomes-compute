@@ -1,3 +1,5 @@
+> **2026-09-08 — Track D (media-agent bridge) removed from the codebase**: behavior multipliers, OSC entity bindings and the warmth-source helper were built but never driven by a media agent; deleted to declutter the inspectors. This plan's Track D sections are historical.
+
 ---
 status: proposed
 implements: [INTERACTION_DESIGN_II.md, INTEGRATION_DESIGN.md]

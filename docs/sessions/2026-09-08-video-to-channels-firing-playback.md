@@ -69,3 +69,7 @@ reach the ecosystem, and the organoid blob needs to play a fixed range without T
 - The ten generated `DAC_params/<NN_Name>/` sets + their README were **dropped** the same evening
   (ecology too entangled to read); replaced by `DAC_params/0-minimal-test/` — a blank
   `_DAC Empty Test` scene + zeroed config/umwelt/sim assets for manual one-field-at-a-time tests.
+- Media-agent bridge **removed** (never progressed): `SimulationBase` "Media-agent behavior
+  multipliers" header + `SetBehaviorMultiplier`/`BehaviorLeaf`, the `beh*Mul` hooks in the three
+  sims' type-param upload, `OSCMapping` entity bindings + `/sn/<entity>/…` registration, and the
+  `BiomeInjector` "Add Example Warmth Sources" button. Plan doc Track D marked dropped.
