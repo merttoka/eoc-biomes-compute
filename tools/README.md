@@ -56,6 +56,24 @@ tools/.venv/bin/python tools/osc_index_tester.py --random --count 10 --hold 0.5
 tools/.venv/bin/python tools/osc_index_tester.py 1234 --host 10.0.0.5 --port 9001 --addr /index
 ```
 
+### Armed mode — start the stream from Unity
+
+`--wait [PORT]` (default 9101) starts the tester **idle**: it listens for OSC and only begins the
+mode given by the other flags when Unity sends `/stream/start`. `/stream/stop` halts the run and
+re-arms; `/stream/quit` exits; `--once` exits after the first run. `/stream/start START END FPS`
+overrides the range/fps for that run (`OscStreamTrigger.sendRange`), no args = the CLI settings.
+
+```bash
+# arm with your usual settings, then press Play in Unity
+tools/.venv/bin/python tools/osc_index_tester.py --wait --stream 125000 131000 --fps 50
+```
+
+Unity side: `OscStreamTrigger` (network/) sends the messages — tick `startOnPlayMode`, or assign it
+to `SimTimeline.streamTrigger` so timeline Play/Stop drive it. **Realtime only:** under a capture
+clock (FigureExporter `captureFramerate`, Unity Recorder) Unity runs slower than wall time and the
+external stream drifts ahead of the recording — for recorded takes assign `NeuronFiringPlayback`
+to `SimTimeline.firingPlayback` instead (same range, advances on Unity's clock, frame-locked).
+
 | Mode | What it does | Use for |
 |------|--------------|---------|
 | *(no args)* | full-range 60fps loop + `resetSimsOnly` at each pass start + 5× `resetPhysarum` | the installation default |
@@ -64,6 +82,7 @@ tools/.venv/bin/python tools/osc_index_tester.py 1234 --host 10.0.0.5 --port 900
 | `--stream [START END] --fps F [--loop]` | every frame at F fps | sustained firing (intensity stays ~1) — tuning the ring overlay / visual balance |
 | `--stream … --resets N [--reset-addr A]` | fire reset `A` at N evenly-spaced interior frames during the stream | scripted resets mid-playback (e.g. clear one sim family partway through a run) |
 | `--stream … --reset-start A` | fire reset `A` once at the start of each stream pass | reset state before each loop (e.g. `resetSimsOnly`) |
+| `--wait [PORT] [--once]` | idle until `/stream/start` from Unity, then run the chosen mode; re-arms after | one-press starts with a live Unity take |
 | `--random --count N --hold S` | N random frames | stress / variety |
 
 `--resets N` / `--reset-start` only apply to `--stream`. `--resets` splits the streamed span

@@ -77,3 +77,7 @@ reach the ecosystem, and the organoid blob needs to play a fixed range without T
   to the quad on Reset + `recordingCameraDistance`; `recorderTarget` RT asset kept at composite rez
   and blitted each frame (Unity Recorder → Render Texture source); buttons to fit the camera,
   create/resize the asset, and set the Game View size. ARCHITECTURE 3.8.
+- `osc_index_tester.py --wait [PORT] [--once]` armed mode (`/stream/start [START END FPS]`, `/stream/stop`,
+  `/stream/quit`; stop-aware loops); `network/OscStreamTrigger` sends them (play-mode start and/or
+  `SimTimeline`); `SimTimeline.firingPlayback` + `.streamTrigger` hooks on Play/Stop. Recorded takes
+  should use `firingPlayback` (capture-clock-locked), the OSC stream is for realtime.

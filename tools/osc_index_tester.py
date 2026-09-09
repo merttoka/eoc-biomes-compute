@@ -40,6 +40,8 @@ import sys
 import time
 
 from pythonosc.udp_client import SimpleUDPClient
+import copy
+import threading
 
 MAX_FRAME = 179999  # 180000 frames, 0-based
 
@@ -79,6 +81,12 @@ def main():
     p.add_argument("--reset-start", default=None, dest="reset_start", metavar="ADDR",
                    help="OSC address sent once at the start of each --stream pass (e.g. /sim_resetSimsOnly)")
 
+    p.add_argument("--wait", nargs="?", const=9101, type=int, default=None, metavar="PORT",
+                   help="ARMED mode: don't send yet — listen on PORT (default 9101) for /stream/start "
+                        "[START END FPS] from Unity (OscStreamTrigger / SimTimeline), then run the mode "
+                        "given by the other flags; /stream/stop halts it, /stream/quit exits. Re-arms after "
+                        "each run unless --once.")
+    p.add_argument("--once", action="store_true", help="with --wait: exit after the first run finishes")
     p.add_argument("--random", action="store_true", help="send random frames")
     p.add_argument("--count", type=int, default=10, help="number of frames for --random (default 10)")
 
@@ -111,98 +119,174 @@ def main():
         print("WARNING: --fps only applies to --stream; --sweep/--random pace with --hold", file=sys.stderr)
     client = SimpleUDPClient(args.host, args.port)
     hi = args.max_frame
+    print("OSC -> %s:%d  addr=%s  range=0..%d" % (args.host, args.port, args.addr, hi))
 
+    no_mode_at_all = (args.index is None and args.stream is None and args.sweep is None and not args.random)
+    if no_mode_at_all:
+        p.print_help()
+        return 1
+
+    if args.wait is not None:
+        return armed(args, client, reset_specs, hi)
+
+    stop = threading.Event()
+    try:
+        run_mode(args, client, reset_specs, hi, stop)
+    except KeyboardInterrupt:
+        print("\nstopped")
+    return 0
+
+
+def run_mode(args, client, reset_specs, hi, stop):
+    """Execute the selected mode until it completes or `stop` is set (checked per frame)."""
     def send(frame):
         frame = clamp(int(frame), 0, hi)
         client.send_message(args.addr, frame)
         print("  %s %d" % (args.addr, frame))
         return frame
 
-    print("OSC -> %s:%d  addr=%s  range=0..%d" % (args.host, args.port, args.addr, hi))
+    def send_reset(addr):
+        client.send_message(addr, 1)
+        print("  %s (reset)" % addr)
 
-    try:
-        if args.stream is not None:
-            start = args.stream[0] if len(args.stream) >= 1 else 0
-            end = args.stream[1] if len(args.stream) >= 2 else hi
-            fps = args.fps if args.fps is not None else 60.0
-            dt = 1.0 / fps if fps > 0 else 0.0
-            step = 1 if end >= start else -1
-            # Evenly spaced interior reset points per schedule (N resets split the span into
-            # N+1 parts). Schedules merge into one frame -> [addr, ...] map; if two land on
-            # the same frame, both fire.
-            span = end - start
-            frame_resets = {}
-            for addr, count in reset_specs:
-                if count <= 0:
-                    continue
-                for i in range(1, count + 1):
-                    fr = round(start + span * i / (count + 1))
-                    frame_resets.setdefault(fr, []).append(addr)
+    if args.stream is not None:
+        start = args.stream[0] if len(args.stream) >= 1 else 0
+        end = args.stream[1] if len(args.stream) >= 2 else hi
+        fps = args.fps if args.fps is not None else 60.0
+        dt = 1.0 / fps if fps > 0 else 0.0
+        step = 1 if end >= start else -1
+        # Evenly spaced interior reset points per schedule (N resets split the span into
+        # N+1 parts). Schedules merge into one frame -> [addr, ...] map; if two land on
+        # the same frame, both fire.
+        span = end - start
+        frame_resets = {}
+        for addr, count in reset_specs:
+            if count <= 0:
+                continue
+            for i in range(1, count + 1):
+                fr = round(start + span * i / (count + 1))
+                frame_resets.setdefault(fr, []).append(addr)
 
-            def send_reset(addr):
-                client.send_message(addr, 1)
-                print("  %s (reset)" % addr)
-
-            print("stream %d..%d @ %.0ffps%s" % (start, end, fps, "  (loop)" if args.loop else ""))
+        print("stream %d..%d @ %.0ffps%s" % (start, end, fps, "  (loop)" if args.loop else ""))
+        if args.reset_start:
+            print("reset-start @ frame %d: %s" % (start, args.reset_start))
+        for addr, count in reset_specs:
+            print("resets x%d -> %s" % (count, addr))
+        # Absolute-deadline pacing: sleep until next_t, not sleep(dt) after each
+        # send — otherwise send/print overhead accumulates and the actual rate
+        # undershoots the requested fps (~18% low at 30fps).
+        next_t = time.monotonic()
+        rate_t0, rate_n = next_t, 0
+        while not stop.is_set():
             if args.reset_start:
-                print("reset-start @ frame %d: %s" % (start, args.reset_start))
-            for addr, count in reset_specs:
-                print("resets x%d -> %s" % (count, addr))
-            # Absolute-deadline pacing: sleep until next_t, not sleep(dt) after each
-            # send — otherwise send/print overhead accumulates and the actual rate
-            # undershoots the requested fps (~18% low at 30fps).
-            next_t = time.monotonic()
-            rate_t0, rate_n = next_t, 0
-            while True:
-                if args.reset_start:
-                    send_reset(args.reset_start)
-                for f in range(start, end + step, step):
-                    send(f)
-                    if f in frame_resets:
-                        for addr in frame_resets[f]:
-                            send_reset(addr)
-                    rate_n += 1
-                    now = time.monotonic()
-                    if now - rate_t0 >= 2.0:
-                        print("  [rate: %.1f msg/s]" % (rate_n / (now - rate_t0)))
-                        rate_t0, rate_n = now, 0
-                    if dt:
-                        next_t += dt
-                        delay = next_t - now
-                        if delay > 0:
-                            time.sleep(delay)
-                        else:
-                            next_t = now  # fell behind (fps > achievable); resync
-                if not args.loop:
+                send_reset(args.reset_start)
+            for f in range(start, end + step, step):
+                if stop.is_set():
                     break
+                send(f)
+                if f in frame_resets:
+                    for addr in frame_resets[f]:
+                        send_reset(addr)
+                rate_n += 1
+                now = time.monotonic()
+                if now - rate_t0 >= 2.0:
+                    print("  [rate: %.1f msg/s]" % (rate_n / (now - rate_t0)))
+                    rate_t0, rate_n = now, 0
+                if dt:
+                    next_t += dt
+                    delay = next_t - now
+                    if delay > 0:
+                        stop.wait(delay)
+                    else:
+                        next_t = now  # fell behind (fps > achievable); resync
+            if not args.loop:
+                break
 
-        elif args.sweep is not None:
-            start = args.sweep[0] if len(args.sweep) >= 1 else 0
-            end = args.sweep[1] if len(args.sweep) >= 2 else hi
-            n = max(1, args.steps)
-            frames = [round(start + (end - start) * i / max(1, n - 1)) for i in range(n)]
-            print("sweep %d..%d in %d steps, hold %.2fs%s" % (start, end, n, args.hold, "  (loop)" if args.loop else ""))
-            while True:
-                for f in frames:
-                    send(f)
-                    time.sleep(args.hold)
-                if not args.loop:
+    elif args.sweep is not None:
+        start = args.sweep[0] if len(args.sweep) >= 1 else 0
+        end = args.sweep[1] if len(args.sweep) >= 2 else hi
+        n = max(1, args.steps)
+        frames = [round(start + (end - start) * i / max(1, n - 1)) for i in range(n)]
+        print("sweep %d..%d in %d steps, hold %.2fs%s" % (start, end, n, args.hold, "  (loop)" if args.loop else ""))
+        while not stop.is_set():
+            for f in frames:
+                if stop.is_set():
                     break
+                send(f)
+                stop.wait(args.hold)
+            if not args.loop:
+                break
 
-        elif args.random:
-            print("random x%d, hold %.2fs" % (args.count, args.hold))
-            for _ in range(args.count):
-                send(random.randint(0, hi))
-                time.sleep(args.hold)
+    elif args.random:
+        print("random x%d, hold %.2fs" % (args.count, args.hold))
+        for _ in range(args.count):
+            if stop.is_set():
+                break
+            send(random.randint(0, hi))
+            stop.wait(args.hold)
 
-        elif args.index is not None:
-            send(args.index)
+    elif args.index is not None:
+        send(args.index)
 
-        else:
-            p.print_help()
-            return 1
+    print("run finished" if not stop.is_set() else "run stopped")
+
+
+def armed(args, client, reset_specs, hi):
+    """--wait: sit idle until Unity sends /stream/start, run the mode, re-arm (or exit with --once)."""
+    from pythonosc.dispatcher import Dispatcher
+    from pythonosc.osc_server import ThreadingOSCUDPServer
+
+    stop = threading.Event()
+    quit_evt = threading.Event()
+    worker = [None]
+    runs = [0]
+
+    def on_start(address, *vals):
+        if worker[0] is not None and worker[0].is_alive():
+            print("  %s ignored: already running (send /stream/stop first)" % address)
+            return
+        a = copy.copy(args)
+        # Optional overrides from Unity: START END [FPS]. Anything else keeps the CLI settings.
+        if len(vals) >= 2:
+            try:
+                a.stream = [int(vals[0]), int(vals[1])]
+                if len(vals) >= 3 and float(vals[2]) > 0:
+                    a.fps = float(vals[2])
+                a.sweep, a.random, a.index = None, False, None
+            except (TypeError, ValueError):
+                print("  bad args on %s: %r (using CLI settings)" % (address, vals))
+        stop.clear()
+        runs[0] += 1
+        print("\n=== /stream/start #%d %s" % (runs[0], "(%s)" % (vals,) if vals else "(CLI settings)"))
+        worker[0] = threading.Thread(target=run_mode, args=(a, client, reset_specs, hi, stop), daemon=True)
+        worker[0].start()
+
+    def on_stop(address, *vals):
+        print("=== /stream/stop")
+        stop.set()
+
+    def on_quit(address, *vals):
+        print("=== /stream/quit")
+        stop.set()
+        quit_evt.set()
+
+    disp = Dispatcher()
+    disp.map("/stream/start", on_start)
+    disp.map("/stream/stop", on_stop)
+    disp.map("/stream/quit", on_quit)
+    server = ThreadingOSCUDPServer(("0.0.0.0", args.wait), disp)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    print("ARMED on udp :%d — waiting for /stream/start [START END FPS] · /stream/stop · /stream/quit%s"
+          % (args.wait, "  (--once: exit after first run)" if args.once else ""))
+    try:
+        while not quit_evt.is_set():
+            quit_evt.wait(0.25)
+            if args.once and runs[0] > 0 and worker[0] is not None and not worker[0].is_alive():
+                break
     except KeyboardInterrupt:
         print("\nstopped")
+    stop.set()
+    server.shutdown()
     return 0
 
 
