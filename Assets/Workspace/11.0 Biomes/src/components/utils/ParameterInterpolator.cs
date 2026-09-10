@@ -66,6 +66,7 @@ namespace Biomes
         private bool _umweltLegActive;   // this leg has an umwelt target
         private bool _umweltLegFinished; // end-of-leg cleanup done (remove faded entries, snap bools)
         private UmweltMapping _umweltInstance; // the clone _fromUmwelt was taken from
+        private IParamSet _liveInstance;       // the agentParams clone _from was taken from (re-cloned on every sim Reset)
         private List<string> _umweltKeys = new();                                 // union of from/to keys, cached per leg
         private readonly Dictionary<string, string> _umweltToggleNames = new();    // key -> toggle name, cached
         private int _legStartStep;
@@ -140,8 +141,10 @@ namespace Biomes
         public void Play()
         {
             var sim = Sim;
-            if (sim == null || sim.LiveParamSet == null) { Debug.LogWarning("ParameterInterpolator: no sim/live params (enter Play mode and Reset sims first)"); return; }
+            if (sim == null) { Debug.LogWarning("ParameterInterpolator: no sim resolved (check simManager/simIndex)"); return; }
             if (LegCount == 0) { Debug.LogWarning("ParameterInterpolator: no waypoints assigned"); return; }
+            if (sim.LiveParamSet == null)
+                Debug.Log("ParameterInterpolator: sim has no live params yet (not started) — the timer runs now; values apply from wherever the leg has reached once the sim starts.");
 
             currentWaypoint = 0;
             _warnedWrongType = false;
@@ -200,7 +203,7 @@ namespace Biomes
         {
             if (_overridePausedPhase == Phase.Idle) return;
             var sim = Sim;
-            if (sim == null || sim.LiveParamSet == null) { _overridePausedPhase = Phase.Idle; return; }
+            if (sim == null) { _overridePausedPhase = Phase.Idle; return; }
 
             if (_overridePausedPhase == Phase.Interpolating)
             {
@@ -222,9 +225,16 @@ namespace Biomes
 
         void Update()
         {
-            if (phase != Phase.Interpolating && phase != Phase.Holding) return;
+            if (phase == Phase.Idle) return;
             var sim = Sim;
-            if (sim == null || sim.LiveParamSet == null) return;
+            if (sim == null) return;
+
+            // The timer runs whether or not the sim has been started. A sim that is Reset later
+            // (StartSim, or a timeline Start cue) gets a fresh clone from its preset: take the
+            // pending 'from' snapshot then, and re-impose the reached waypoint so a sim started
+            // after the leg finished still shows the interpolated state. Runs in Done too.
+            SyncLiveInstances(sim);
+            if (phase == Phase.Done) return;
 
             // Sim reset: SimStepCount went backwards (Reset/ResetSimsOnly zero it). Without this the
             // leg would stall until the counter climbed back past _legStartStep.
@@ -275,6 +285,7 @@ namespace Biomes
 
         private void ApplyParamLeg(IParamSet live, float te)
         {
+            if (live == null || _from.Count == 0) return; // sim not started yet — nothing to write to
             var target = waypoints != null && currentWaypoint < waypoints.Count
                 ? waypoints[currentWaypoint] as IParamSet : null;
             if (target == null)
@@ -309,14 +320,7 @@ namespace Biomes
             if (!_umweltLegActive) return;
             var liveU = Sim != null ? Sim.liveUmwelt : null;
             if (liveU == null) return;
-            if (liveU != _umweltInstance)
-            {
-                // Reset() re-cloned the umwelt from the asset mid-leg: continue this leg from the
-                // fresh clone's values (anything an earlier leg removed is back, and now fades out again).
-                liveU.Snapshot(_fromUmwelt);
-                _umweltInstance = liveU;
-                _umweltKeys = KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt);
-            }
+            // A re-cloned umwelt (sim Reset mid-leg) is re-snapshotted by SyncLiveInstances before this runs.
             foreach (var key in _umweltKeys)
             {
                 if (!IsEnabled(UmweltToggleNameCached(key))) continue;
@@ -357,20 +361,8 @@ namespace Biomes
 
         private void SnapshotFrom()
         {
-            _from.Clear();
             var sim = Sim;
-            var live = sim.LiveParamSet;
-            if (live != null)
-            {
-                int typeCount = live.TypeCount;
-                foreach (var name in sim.ModulatableParams)
-                {
-                    var arr = new float[typeCount];
-                    for (int i = 0; i < typeCount; i++)
-                        arr[i] = live.GetValue(name, i);
-                    _from[name] = arr;
-                }
-            }
+            SnapshotParams(sim, sim.LiveParamSet); // empty _from when the sim has no clone yet (not started)
 
             // Umwelt leg: snapshot both ends now (target asset is read once per leg).
             _fromUmwelt.Clear();
@@ -387,6 +379,60 @@ namespace Biomes
                 _umweltKeys = KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt);
             }
             _umweltInstance = liveU;
+        }
+
+        private void SnapshotParams(SimulationBase sim, IParamSet live)
+        {
+            _from.Clear();
+            _liveInstance = live;
+            if (live == null) return;
+            int typeCount = live.TypeCount;
+            foreach (var name in sim.ModulatableParams)
+            {
+                var arr = new float[typeCount];
+                for (int i = 0; i < typeCount; i++)
+                    arr[i] = live.GetValue(name, i);
+                _from[name] = arr;
+            }
+        }
+
+        /// <summary>Reconcile with the sim's CURRENT clones. Every sim Reset (StartSim, ResetAll,
+        /// ResetSimsOnly) re-clones agentParams and liveUmwelt from the preset assets, and a sim
+        /// that was not started when Play() ran has none at all. When an instance is new:
+        /// take the pending 'from' snapshot if there is none, and — unless a leg is actively
+        /// interpolating (it re-writes every frame anyway) — re-impose the reached waypoint so a
+        /// sim started after the transition shows the interpolated state, not its preset.</summary>
+        private void SyncLiveInstances(SimulationBase sim)
+        {
+            var live = sim.LiveParamSet;
+            if (live != null && !ReferenceEquals(live, _liveInstance))
+            {
+                if (_from.Count == 0) SnapshotParams(sim, live);   // Play() ran before the sim existed
+                _liveInstance = live;
+                if (phase != Phase.Interpolating) ApplyParamLeg(live, 1f);
+            }
+
+            var liveU = sim.liveUmwelt; // clone only — never the asset
+            var targetU = UmweltTargetFor(currentWaypoint);
+            if (liveU != null && targetU != null && !ReferenceEquals(liveU, _umweltInstance))
+            {
+                // Fresh clone from the asset: its values are the new 'from'; anything the target
+                // lacks (incl. entries an earlier leg removed) is back and fades / is removed again.
+                _umweltInstance = liveU;
+                liveU.Snapshot(_fromUmwelt);
+                if (!_umweltLegActive)
+                {
+                    targetU.Snapshot(_toUmwelt);
+                    _umweltLegActive = true;
+                }
+                _umweltKeys = KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt);
+                if (phase != Phase.Interpolating)
+                {
+                    ApplyUmweltLeg(1f);
+                    _umweltLegFinished = false;
+                    FinishUmweltLeg();
+                }
+            }
         }
 
         /// <summary>Shortest-arc hue interpolation on 0..1 (wraps through 1/0).</summary>

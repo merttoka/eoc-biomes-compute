@@ -24,6 +24,7 @@ namespace Biomes
             StopTermites, StopBoids, StopPhysarum, StopCellular,
             ResetAll, ResetSimsOnly,
             StartDebugVideo, PauseDebugVideo, StopDebugVideo,
+            PlayInterpolators, StopInterpolators, SkipInterpolators,
         }
 
         [Serializable]
@@ -57,6 +58,14 @@ namespace Biomes
         public ExternalTextureReceiver externalReceiver;
         [Tooltip("Start the debug clip at 0 s on Play (otherwise wait for a StartDebugVideo cue).")]
         public bool startDebugVideoOnPlay = false;
+
+        [Header("Parameter interpolation (optional)")]
+        [Tooltip("Group whose interpolators the PlayInterpolators / StopInterpolators / SkipInterpolators cues drive. " +
+                 "Timeline Play and Stop call StopAll so every take starts from the presets. The interpolator timer " +
+                 "does not need the sims to be running: sims started later join the leg where it has reached, and a " +
+                 "sim started after the transition gets the reached waypoint re-imposed. Typical: presets = set A, " +
+                 "waypoints = set B, durationSteps = seconds × simRate, cue PlayInterpolators at the transition time.")]
+        public ParameterInterpolatorGroup interpolatorGroup;
 
         [Header("Playback")]
         [Tooltip("Begin the timeline as soon as play mode starts. Untick startOnPlay on every sim so the opening state is only what the timeline starts.")]
@@ -113,6 +122,7 @@ namespace Biomes
                 externalReceiver.StopDebugVideo();           // frame 0, transparent
                 if (startDebugVideoOnPlay) externalReceiver.RestartDebugVideo();
             }
+            if (interpolatorGroup != null) interpolatorGroup.StopAll(); // fresh take: presets until a PlayInterpolators cue
             Debug.Log($"[SimTimeline] Play — {_sorted.Count} cues, " +
                       (endAtSeconds > 0 ? $"ends at {endAtSeconds:F0}s." : "manual stop."));
         }
@@ -126,6 +136,7 @@ namespace Biomes
                 figureExporter.StopFrameExport();
             if (firingPlayback != null) firingPlayback.Stop();
             if (externalReceiver != null && externalReceiver.DebugUseVideoInput) externalReceiver.StopDebugVideo();
+            if (interpolatorGroup != null) interpolatorGroup.StopAll();
             Debug.Log($"[SimTimeline] Stopped at {CurrentSeconds:F1}s.");
         }
 
@@ -169,6 +180,9 @@ namespace Biomes
                 case TimelineAction.StartDebugVideo: VideoCue(r => r.RestartDebugVideo()); break;
                 case TimelineAction.PauseDebugVideo: VideoCue(r => r.PauseDebugVideo()); break;
                 case TimelineAction.StopDebugVideo:  VideoCue(r => r.StopDebugVideo()); break;
+                case TimelineAction.PlayInterpolators: GroupCue(g => g.PlayAll()); break;
+                case TimelineAction.StopInterpolators: GroupCue(g => g.StopAll()); break;
+                case TimelineAction.SkipInterpolators: GroupCue(g => g.SkipAllToNext()); break;
             }
         }
 
@@ -187,6 +201,16 @@ namespace Biomes
                 if (fadeOverride > 0f) sim.fadeOutSeconds = fadeOverride;
                 simManager.StopSim(sim);
             }
+        }
+
+        private void GroupCue(Action<ParameterInterpolatorGroup> act)
+        {
+            if (interpolatorGroup == null)
+            {
+                Debug.LogWarning("[SimTimeline] interpolator cue fired but no interpolatorGroup is assigned.");
+                return;
+            }
+            act(interpolatorGroup);
         }
 
         private void VideoCue(Action<ExternalTextureReceiver> act)

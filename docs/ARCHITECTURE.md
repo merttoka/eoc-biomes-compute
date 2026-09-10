@@ -372,7 +372,15 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   from the fresh clone and finishes the leg from there. Sim resets also zero `SimStepCount`:
   `keepRunningOnSimReset` (default on) rebases the leg clock so the queue continues where it
   was; off restarts from waypoint 0. `ParameterInterpolatorGroup` gains `playOnStart` and pushes
-  its own `keepRunningOnSimReset` to every member. Spec:
+  its own `keepRunningOnSimReset` to every member. The timer does **not** need the sim to be
+  running or even started: `Play()` on a never-started sim (startOnPlay off) runs the clock, the
+  'from' snapshot is taken from the clone the moment `StartSim` creates it, and — in Holding /
+  Done too — a re-cloned `agentParams`/`liveUmwelt` gets the reached waypoint re-imposed
+  (`SyncLiveInstances`), so a sim started after the transition shows the interpolated state,
+  not its preset. `SimTimeline.interpolatorGroup` + `PlayInterpolators` / `StopInterpolators` /
+  `SkipInterpolators` cues schedule it (timeline Play/Stop call `StopAll`): e.g. presets = set A,
+  `waypoints` = set B, `durationSteps = 4·simRate`, cue `PlayInterpolators @ 70 s` → A until 70,
+  4 s crossfade, B from 74 regardless of when sims start/stop. Spec:
   [[superpowers/specs/2026-09-09-umwelt-interpolation-and-timeline-video-design]].
 
 ### 3.8 External texture I/O & GPU resources
