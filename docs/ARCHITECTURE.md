@@ -273,6 +273,15 @@ how it perceives and affects the field:
   accelerate out of it).
 - **writes** — `(channel, amount)` deposits/consumptions at agent positions.
 - **metabolicHeat / oxygenConsumption** — implicit writes to Temperature / Oxygen.
+- **Runtime clone** — `SimulationBase.umwelt` is the assigned asset; `Reset()` clones it into
+  `liveUmwelt` and everything at runtime (`SimulationManager` perception build + writeback,
+  MFT Bank 3, `ParameterInterpolator`) goes through `LiveUmwelt`. The asset is never mutated
+  in Play mode; `SaveLiveParamsToPreset` copies `liveUmwelt` back on request. MFT Bank 3's
+  umwelt knobs write only to the live clone, so they no-op (guarded null check) before the
+  sim's first `Reset()`.
+- **Flat keys** — `UmweltKeys` (`Biomes.Core`) names every field: 8 scalars plus
+  `read:<ch>:<effect>.weight` / `write:<ch>.amount`; `UmweltMapping.Keys/GetValue/SetValue/
+  RemoveEntry/Snapshot` implement them (SetValue adds a missing entry).
 - **death** params (oxygen/permeability thresholds, corpse waste) — agent mortality;
   defined but not yet executed (deferred — see README Roadmap).
 
@@ -339,14 +348,26 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   pushes frames through `NeuronFiringSource.SetFrame`, identical to the OSC `/index` path.
   Keep `playing` off while TD drives `/index` or the two fight over the frame.
   `SimTimeline.firingPlayback` restarts it on Play and stops it on Stop, so a recorded take's
-  blob range is frame-locked to the capture clock. (The external OSC streamer is for realtime
-  viewing only — it paces by wall clock and drifts under a capture clock.)
+  blob range is frame-locked to the capture clock. `SimTimeline.externalReceiver` likewise
+  owns the receiver's *debug clip*: Play rewinds it transparent (autoplay off at runtime),
+  `StartDebugVideo` / `PauseDebugVideo` / `StopDebugVideo` cues drive it, Stop clears it — so
+  a video coda can start at an authored sim second and influence the composite only from
+  there. The clip runs on wall time, not the sim clock; both the Play/Stop hooks and the cues
+  are no-ops unless `externalReceiver.DebugUseVideoInput` is on, so a live-receive receiver is
+  never touched. (The external OSC streamer is for realtime viewing only — it paces by wall
+  clock and drifts under a capture clock.)
 - **`ParameterRecorder`** — records per-step parameter *changes* as a JSON event
   track; replays them deterministically against `SimStepCount`.
 - **`ParameterInterpolator`** — eases live params from current state through an
   ordered queue of preset `.asset` waypoints, sim-step driven, per-param-name enable
   toggles, shortest-arc hue, global duration/hold/easing, stop-and-hold at end. For
   long-running installations. Spec: [[superpowers/specs/2026-06-07-parameter-interpolator-design]].
+  Also crossfades the sim's `LiveUmwelt` toward `umweltWaypoints[i]` (index-paired with
+  `waypoints`, null = untouched; leg count is `max(waypoints.Count, umweltWaypoints.Count)`,
+  so an umwelt-only queue is valid): `KeyedCrossfade` over the union of keys, so reads/writes
+  only in the target fade in from 0 and ones only in the source fade to 0 and are removed at
+  leg end; `enableDeath` snaps at leg end. Toggles: `umwelt.<scalar>`, `umwelt.reads`,
+  `umwelt.writes`. Spec: [[superpowers/specs/2026-09-09-umwelt-interpolation-and-timeline-video-design]].
 
 ### 3.8 External texture I/O & GPU resources
 
@@ -358,7 +379,11 @@ packages compile on every platform; availability is gated at runtime
   behind `ITextureSenderBackend`/`ITextureReceiverBackend`, plus `IsAvailable` and
   `EnumerateSources` (discovery). The only file touching `Klak.*`.
 - **`ExternalTextureReceiver`** — receives one external texture (Syphon/NDI/Spout, or a
-  debug video clip) into an `OutputTexture`. In 11.0 that texture feeds the composite
+  debug video clip (`debugVideoAutoPlay`; `RestartDebugVideo`/`PauseDebugVideo`/
+  `StopDebugVideo` — Stop clears the RT to transparent black because the composite overlay
+  is `lerp(color, overlay, strength*overlay.a)`; any transport call marks the clip
+  transport-owned so autoplay never revives a paused/stopped clip, and `Prepare()` fires once
+  when autoplay is off)) into an `OutputTexture`. In 11.0 that texture feeds the composite
   overlay and `TextureChannelSeeder` (→ biome channels); no 11.0 sim kernel samples it as
   steering influence. Replaces `ExternalInputProvider`. `selfDrive` + a custom inspector preview/source-picker let
   you verify reception standalone. Note: receive needs the source's *exact* canonical
