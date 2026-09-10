@@ -22,6 +22,9 @@ namespace Biomes
         [SerializeField] private VideoClip m_DebugVideoClip = null;
         [SerializeField] private bool m_DebugLoopVideo = true;
         [SerializeField, Range(0f, 2f)] private float m_DebugPlaybackSpeed = 1f;
+        [Tooltip("Start the clip on the first sim step (legacy). Untick when SimTimeline cues it: the clip then " +
+                 "waits, transparent, until RestartDebugVideo() / a StartDebugVideo cue.")]
+        public bool debugVideoAutoPlay = true;
         [SerializeField] private bool m_DebugApplyGaussianBlur = false;
         [SerializeField, Range(1, 31)] private int m_BlurKernelSize = 9;
         [SerializeField, Range(0.1f, 10f)] private float m_BlurStrength = 2.5f;
@@ -29,6 +32,7 @@ namespace Biomes
 
         private GPUResourceManager gpu;
         private VideoPlayer m_DebugVideoPlayer;
+        private bool m_DebugPrepareRequested;
         private RenderTexture m_DebugVideoTexture;
         private RenderTexture m_DebugBlurTemp;
         private RenderTexture _outputTexture;
@@ -46,6 +50,8 @@ namespace Biomes
         private static readonly int s_BlurSigmaID = Shader.PropertyToID("Sigma");
 
         public RenderTexture OutputTexture => _outputTexture;
+        public bool DebugUseVideoInput => m_DebugUseVideoInput;
+        public bool IsDebugVideoPlaying => m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying;
 
         public void Initialize()
         {
@@ -70,6 +76,45 @@ namespace Biomes
         {
             if (m_DebugUseVideoInput) { UpdateDebugVideoInput(); return; }
             if (enableReceive) UpdateReceivedInput();
+        }
+
+        // ─────────── Debug-clip transport (SimTimeline cues) ───────────
+
+        /// <summary>Play the debug clip from frame 0. No-op (with a warning) if debug video input is off.</summary>
+        public void RestartDebugVideo()
+        {
+            if (!m_DebugUseVideoInput) { Debug.LogWarning($"[{name}] RestartDebugVideo: debug video input is off."); return; }
+            if (gpu == null) Initialize();
+            InitializeDebugVideoIfNeeded();
+            if (m_DebugVideoPlayer == null || m_DebugVideoClip == null) return;
+            m_DebugVideoPlayer.Stop();  // Stop() rewinds; Play() re-prepares and starts at frame 0
+            m_DebugPrepareRequested = false;
+            m_DebugVideoPlayer.Play();
+        }
+
+        /// <summary>Pause the clip. OutputTexture keeps showing the last frame.</summary>
+        public void PauseDebugVideo()
+        {
+            if (m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying) m_DebugVideoPlayer.Pause();
+        }
+
+        /// <summary>Stop the clip and clear both the clip RT and OutputTexture to transparent black,
+        /// so the composite overlay (lerp by alpha) and TextureChannelSeeder see nothing.</summary>
+        public void StopDebugVideo()
+        {
+            if (m_DebugVideoPlayer != null) m_DebugVideoPlayer.Stop();
+            m_DebugPrepareRequested = false;
+            ClearToTransparent(m_DebugVideoTexture);
+            ClearToTransparent(_outputTexture);
+        }
+
+        private static void ClearToTransparent(RenderTexture rt)
+        {
+            if (rt == null || !rt.IsCreated()) return;
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            GL.Clear(false, true, Color.clear);
+            RenderTexture.active = prev;
         }
 
         private void UpdateReceivedInput()
@@ -196,12 +241,20 @@ namespace Biomes
                     m_DebugVideoTexture.wrapMode = TextureWrapMode.Clamp;
                     m_DebugVideoTexture.Create();
                     gpu.Track(m_DebugVideoTexture);
+                    ClearToTransparent(m_DebugVideoTexture); // fresh RT contents are undefined
                 }
 
                 m_DebugVideoPlayer.targetTexture = m_DebugVideoTexture;
 
-                if (!m_DebugVideoPlayer.isPlaying)
-                    m_DebugVideoPlayer.Play();
+                if (debugVideoAutoPlay)
+                {
+                    if (!m_DebugVideoPlayer.isPlaying) m_DebugVideoPlayer.Play();
+                }
+                else if (!m_DebugPrepareRequested && !m_DebugVideoPlayer.isPrepared && !m_DebugVideoPlayer.isPlaying)
+                {
+                    m_DebugVideoPlayer.Prepare(); // ready to start on cue with minimal latency
+                    m_DebugPrepareRequested = true;
+                }
             }
         }
 
@@ -258,6 +311,7 @@ namespace Biomes
         {
             if (m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying)
                 m_DebugVideoPlayer.Stop();
+            m_DebugPrepareRequested = false;
 
             DisposeBackend();
             gpu?.ReleaseAll();
