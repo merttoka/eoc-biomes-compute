@@ -15,6 +15,14 @@ namespace Biomes
         [Tooltip("The per-sim ParameterInterpolators to drive together.")]
         public List<ParameterInterpolator> interpolators = new();
 
+        [Header("Playback")]
+        [Tooltip("Call Play All as soon as play mode starts (SimulationManager resets the sims in OnEnable, so live params exist by Start). " +
+                 "Same convention as SimTimeline.playOnStart.")]
+        public bool playOnStart = false;
+        [Tooltip("Pushed to every interpolator in the list. On: a sim reset (ResetAll / ResetSimsOnly, which zero the sim step counter) " +
+                 "rebases the running leg's clock so interpolation continues where it was. Off: each sim reset restarts the queue from waypoint 0.")]
+        public bool keepRunningOnSimReset = true;
+
         [Header("MIDI coexistence")]
         [Tooltip("If assigned, live MFT input pauses all interpolation; after the cooldown " +
                  "without input it resumes from the edited values over the remaining leg time.")]
@@ -27,11 +35,23 @@ namespace Biomes
 
         private float _lastSeenInputTime;
 
-        public void PlayAll()       { foreach (var i in interpolators) if (i != null) i.Play(); mft?.InvalidatePickup(); }
+        public void PlayAll()       { PushResetPolicy(); foreach (var i in interpolators) if (i != null) i.Play(); mft?.InvalidatePickup(); }
         public void PauseAll()      { foreach (var i in interpolators) if (i != null) i.Pause(); }
         public void StopAll()       { foreach (var i in interpolators) if (i != null) i.Stop(); midiOverrideActive = false; }
         public void SkipAllToNext() { foreach (var i in interpolators) if (i != null) i.SkipToNext(); }
         public void RefreshAll()    { foreach (var i in interpolators) if (i != null) i.RefreshParamList(); }
+
+        // The group is the single source of truth for the reset policy of its members.
+        private void PushResetPolicy()
+        {
+            foreach (var i in interpolators) if (i != null) i.keepRunningOnSimReset = keepRunningOnSimReset;
+        }
+
+        void Start()
+        {
+            PushResetPolicy();
+            if (playOnStart) PlayAll();
+        }
 
         void Update()
         {

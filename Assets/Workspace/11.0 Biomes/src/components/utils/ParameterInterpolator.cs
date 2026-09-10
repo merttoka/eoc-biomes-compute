@@ -37,6 +37,12 @@ namespace Biomes
         [Min(0)] public int holdSteps = 0;
         public AnimationCurve easing = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
+        [Header("Sim resets")]
+        [Tooltip("A sim reset (ResetAll / ResetSimsOnly) zeroes SimulationManager.SimStepCount. On: the running leg's clock is rebased " +
+                 "so interpolation continues where it was (the re-cloned live params are re-imposed next step). Off: the queue restarts " +
+                 "from waypoint 0. When driven by a ParameterInterpolatorGroup, the group's setting overwrites this one.")]
+        public bool keepRunningOnSimReset = true;
+
         [Header("Per-parameter enable (click Refresh after assigning sim)")]
         public List<ParamToggle> paramToggles = new();
 
@@ -63,6 +69,7 @@ namespace Biomes
         private List<string> _umweltKeys = new();                                 // union of from/to keys, cached per leg
         private readonly Dictionary<string, string> _umweltToggleNames = new();    // key -> toggle name, cached
         private int _legStartStep;
+        private int _lastStepSeen;                         // detects the step counter jumping backwards (sim reset)
         private int _legDuration;                          // current leg length (= durationSteps, or remaining on resume)
         private bool _warnedWrongType;
 
@@ -141,6 +148,7 @@ namespace Biomes
             _overridePausedPhase = Phase.Idle;
             SnapshotFrom();
             _legStartStep = StepNow();
+            _lastStepSeen = _legStartStep;
             _legDuration = durationSteps;
             phase = Phase.Interpolating;
             progress = 0f;
@@ -206,6 +214,7 @@ namespace Biomes
                 _legStartStep = StepNow() - (_legDuration + holdSteps - _overrideRemaining);
                 phase = Phase.Holding;
             }
+            _lastStepSeen = StepNow(); // a reset during the pause must not read as a fresh reset now
             _overridePausedPhase = Phase.Idle;
         }
 
@@ -217,7 +226,26 @@ namespace Biomes
             var sim = Sim;
             if (sim == null || sim.LiveParamSet == null) return;
 
-            int elapsed = StepNow() - _legStartStep;
+            // Sim reset: SimStepCount went backwards (Reset/ResetSimsOnly zero it). Without this the
+            // leg would stall until the counter climbed back past _legStartStep.
+            int now = StepNow();
+            if (now < _lastStepSeen)
+            {
+                if (keepRunningOnSimReset)
+                {
+                    int elapsedBefore = _lastStepSeen - _legStartStep;
+                    _legStartStep = now - elapsedBefore;   // same progress, new clock origin
+                }
+                else
+                {
+                    _lastStepSeen = now;
+                    Play();                                // restart the queue with the sim
+                    return;
+                }
+            }
+            _lastStepSeen = now;
+
+            int elapsed = now - _legStartStep;
 
             if (phase == Phase.Interpolating)
             {

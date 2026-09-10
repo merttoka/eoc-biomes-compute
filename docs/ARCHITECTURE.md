@@ -369,7 +369,10 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   only in the target fade in from 0 and ones only in the source fade to 0 and are removed at
   leg end; `enableDeath` snaps at leg end. Toggles: `umwelt.<scalar>`, `umwelt.reads`,
   `umwelt.writes`. A `Reset()` mid-leg re-clones the umwelt; the interpolator re-snapshots
-  from the fresh clone and finishes the leg from there. Spec:
+  from the fresh clone and finishes the leg from there. Sim resets also zero `SimStepCount`:
+  `keepRunningOnSimReset` (default on) rebases the leg clock so the queue continues where it
+  was; off restarts from waypoint 0. `ParameterInterpolatorGroup` gains `playOnStart` and pushes
+  its own `keepRunningOnSimReset` to every member. Spec:
   [[superpowers/specs/2026-09-09-umwelt-interpolation-and-timeline-video-design]].
 
 ### 3.8 External texture I/O & GPU resources
