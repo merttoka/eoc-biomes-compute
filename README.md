@@ -32,7 +32,7 @@ eoc-biomes-compute/
 
 ## Getting started
 
-**Unity:** open the project in Unity Hub (HDRP). First import regenerates `Library/`. One folder per show: `11.1 CURRENTS Scene/Scene_CURRENTS.unity` (the active build scene) and `11.2 SIGGRAPH Scene/Scene_SIGGRAPH.unity`; DAC minimal-test takes `_DAC_interior.unity` / `_DAC_exterior.unity` under `11.2 SIGGRAPH Scene/assets/DAC_params/0-minimal-test/` (SimTimeline-driven 120 s cue list, per-scene record RTs); quick validation in `11.0 Biomes/TestScene.unity`. The shared sim engine (`src/`, `docs/`) lives in `11.0 Biomes/`; per-show scenes carry only their curated assets/materials.
+**Unity:** open the project in Unity Hub (HDRP). First import regenerates `Library/`. One folder per show: `11.1 CURRENTS Scene/Scene_CURRENTS.unity` (the active build scene) and `11.2 SIGGRAPH Scene/Scene_SIGGRAPH.unity`; DAC minimal-test takes `_DAC_interior.unity` / `_DAC_exterior.unity` / `_DAC_4k.unity` (3840×2160 record target, biome rez 1024×576) under `11.2 SIGGRAPH Scene/assets/DAC_params/0-minimal-test/` (SimTimeline-driven 120 s cue list, per-scene record RTs); the TouchDesigner side of the DAC loop (StreamDiffusion attention-map guide, resolution-agnostic crop rect) lives in `tools/touchdesigner/`; quick validation in `11.0 Biomes/TestScene.unity`. The shared sim engine (`src/`, `docs/`) lives in `11.0 Biomes/`; per-show scenes carry only their curated assets/materials.
 
 **Memory daemon:**
 ```bash

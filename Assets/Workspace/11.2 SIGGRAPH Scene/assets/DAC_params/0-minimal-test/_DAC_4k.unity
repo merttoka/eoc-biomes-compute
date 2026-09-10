@@ -159,7 +159,7 @@ MonoBehaviour:
     syphon: {fileID: 11400000, guid: 4f35cf6570beb4605a26cd2d71c4f8fc, type: 2}
   selfDrive: 1
   m_DebugUseVideoInput: 1
-  m_DebugVideoClip: {fileID: 32900000, guid: 7c21259cdc7d54495a28c899f15d1662, type: 3}
+  m_DebugVideoClip: {fileID: 32900000, guid: 8345a3e04949543998e9a233498fdac5, type: 3}
   m_DebugLoopVideo: 1
   m_DebugPlaybackSpeed: 0.33
   debugVideoAutoPlay: 1
@@ -227,7 +227,7 @@ MonoBehaviour:
   framesIncludeComposite: 0
   framesIncludeSims: 0
   includeBiomeChannels: 1
-  frameBiomeChannels: 0000000004000000050000000b000000
+  frameBiomeChannels: 04000000050000000b000000
 --- !u!1 &276895385
 GameObject:
   m_ObjectHideFlags: 0
@@ -518,7 +518,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimTimeline
   simManager: {fileID: 2000144461}
   figureExporter: {fileID: 39187335}
-  recordFramesDuringPlayback: 0
+  recordFramesDuringPlayback: 1
   firingPlayback: {fileID: 1938610680}
   externalReceiver: {fileID: 39187332}
   startDebugVideoOnPlay: 0
@@ -541,14 +541,17 @@ MonoBehaviour:
   - atSeconds: 55
     action: 6
     fadeSecondsOverride: 3
-  - atSeconds: 58
+  - atSeconds: 62
     action: 5
-    fadeSecondsOverride: 8
+    fadeSecondsOverride: 4
   - atSeconds: 69
     action: 13
     fadeSecondsOverride: 0
   - atSeconds: 70.8
     action: 9
+    fadeSecondsOverride: 0
+  - atSeconds: 70.9
+    action: 10
     fadeSecondsOverride: 0
   - atSeconds: 71
     action: 1
@@ -556,9 +559,6 @@ MonoBehaviour:
   - atSeconds: 72
     action: 2
     fadeSecondsOverride: 0
-  - atSeconds: 72
-    action: 10
-    fadeSecondsOverride: 7
   - atSeconds: 108
     action: 6
     fadeSecondsOverride: 5
@@ -1654,7 +1654,7 @@ MonoBehaviour:
   firingDecaySeconds: 0.5
   debugLog: 0
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  spawnScale: {x: 0.322, y: 0.8}
+  spawnScale: {x: 0.45, y: 0.6}
 --- !u!4 &1750220235
 Transform:
   m_ObjectHideFlags: 0
@@ -2193,7 +2193,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.Biome
   biomeRezX: 1024
-  biomeRezY: 330
+  biomeRezY: 576
   stepEvery: 1
   fieldConfig: {fileID: 11400000, guid: 0ad296b92ed3641b8a092a78a31d4921, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
@@ -2399,7 +2399,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
   rezX: 3840
-  rezY: 1152
+  rezY: 2160
   simResolutionScale: 1
   perceptionResScale: 0.75
   referenceHeight: 2160
@@ -2429,7 +2429,7 @@ MonoBehaviour:
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
   recordingCameraDistance: 3
-  recorderTarget: {fileID: 8400000, guid: 926457ca1ec7640669cb685bd09cb905, type: 2}
+  recorderTarget: {fileID: 8400000, guid: 1094ce3438ced4098b248d69b04426a3, type: 2}
   keepOutRects: []
   keepOutFeather: 0.04
   keepOutAvoidGain: 4
