@@ -23,6 +23,7 @@ namespace Biomes
             StartTermites, StartBoids, StartPhysarum, StartCellular,
             StopTermites, StopBoids, StopPhysarum, StopCellular,
             ResetAll, ResetSimsOnly,
+            StartDebugVideo, PauseDebugVideo, StopDebugVideo,
         }
 
         [Serializable]
@@ -47,6 +48,14 @@ namespace Biomes
                  "the playback window. Advances on Unity's own clock, so it stays frame-locked to FigureExporter / " +
                  "Recorder captures — use this for recorded takes.")]
         public NeuronFiringPlayback firingPlayback;
+
+        [Header("External input (optional)")]
+        [Tooltip("Receiver whose DEBUG clip the timeline cues. On Play the clip is rewound and held transparent " +
+                 "(autoplay disabled at runtime); StartDebugVideo / PauseDebugVideo / StopDebugVideo cues drive it; " +
+                 "Stop clears it. The live Syphon/NDI path is untouched.")]
+        public ExternalTextureReceiver externalReceiver;
+        [Tooltip("Start the debug clip at 0 s on Play (otherwise wait for a StartDebugVideo cue).")]
+        public bool startDebugVideoOnPlay = false;
 
         [Header("Playback")]
         [Tooltip("Begin the timeline as soon as play mode starts. Untick startOnPlay on every sim so the opening state is only what the timeline starts.")]
@@ -97,6 +106,12 @@ namespace Biomes
             if (recordFramesDuringPlayback && figureExporter != null)
                 figureExporter.StartFrameExport();
             if (firingPlayback != null) firingPlayback.Restart();
+            if (externalReceiver != null)
+            {
+                externalReceiver.debugVideoAutoPlay = false; // runtime-only; the timeline owns the clip now
+                externalReceiver.StopDebugVideo();           // frame 0, transparent
+                if (startDebugVideoOnPlay) externalReceiver.RestartDebugVideo();
+            }
             Debug.Log($"[SimTimeline] Play — {_sorted.Count} cues, " +
                       (endAtSeconds > 0 ? $"ends at {endAtSeconds:F0}s." : "manual stop."));
         }
@@ -109,6 +124,7 @@ namespace Biomes
             if (recordFramesDuringPlayback && figureExporter != null)
                 figureExporter.StopFrameExport();
             if (firingPlayback != null) firingPlayback.Stop();
+            if (externalReceiver != null) externalReceiver.StopDebugVideo();
             Debug.Log($"[SimTimeline] Stopped at {CurrentSeconds:F1}s.");
         }
 
@@ -149,6 +165,9 @@ namespace Biomes
                 case TimelineAction.StopCellular:  StopAll<FieldSimulationBase>(e.fadeSecondsOverride); break;
                 case TimelineAction.ResetAll:      simManager.Reset(); break;
                 case TimelineAction.ResetSimsOnly: simManager.ResetSimsOnly(); break;
+                case TimelineAction.StartDebugVideo: VideoCue(r => r.RestartDebugVideo()); break;
+                case TimelineAction.PauseDebugVideo: VideoCue(r => r.PauseDebugVideo()); break;
+                case TimelineAction.StopDebugVideo:  VideoCue(r => r.StopDebugVideo()); break;
             }
         }
 
@@ -167,6 +186,21 @@ namespace Biomes
                 if (fadeOverride > 0f) sim.fadeOutSeconds = fadeOverride;
                 simManager.StopSim(sim);
             }
+        }
+
+        private void VideoCue(Action<ExternalTextureReceiver> act)
+        {
+            if (externalReceiver == null)
+            {
+                Debug.LogWarning("[SimTimeline] video cue fired but no externalReceiver is assigned.");
+                return;
+            }
+            if (!externalReceiver.DebugUseVideoInput)
+            {
+                Debug.LogWarning("[SimTimeline] video cue fired but the receiver's debug video input is off.");
+                return;
+            }
+            act(externalReceiver);
         }
     }
 }
