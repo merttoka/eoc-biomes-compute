@@ -381,7 +381,7 @@ packages compile on every platform; availability is gated at runtime
 - **`ExternalTextureReceiver`** — receives one external texture (Syphon/NDI/Spout, or a
   debug video clip (`debugVideoAutoPlay`; `RestartDebugVideo`/`PauseDebugVideo`/
   `StopDebugVideo` — Stop clears the RT to transparent black because the composite overlay
-  is `lerp(color, overlay, strength*overlay.a)`; any transport call marks the clip
+  is `lerp(color.rgb, overlay.rgb, overlayStrength * overlay.a)`; any transport call marks the clip
   transport-owned so autoplay never revives a paused/stopped clip, and `Prepare()` fires once
   when autoplay is off)) into an `OutputTexture`. In 11.0 that texture feeds the composite
   overlay and `TextureChannelSeeder` (→ biome channels); no 11.0 sim kernel samples it as
