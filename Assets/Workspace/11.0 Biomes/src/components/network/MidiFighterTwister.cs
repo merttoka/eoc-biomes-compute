@@ -331,18 +331,19 @@ namespace Biomes
             {
                 var sim = m_Simulations[col];
                 if (sim == null || sim.umwelt == null) continue;
-                var s = sim; // resolve the live clone at call time — Reset swaps it
                 int globalCol = col < 3 ? col : col + 1; // skip col 3 (globals)
 
                 // Setters target the clone only — before the first Reset there is none, and writing the asset is forbidden.
+                // sim is declared inside the loop body, so each closure below captures its own per-iteration instance
+                // (resolving the live clone at call time — Reset swaps it).
                 bindings[ColRowToEncoderIdx(globalCol, 0)] = MakeUmweltBinding($"{sim.SimName[0]}.metHeat",
-                    v => { if (s.liveUmwelt != null) s.liveUmwelt.metabolicHeat = v; }, () => s.LiveUmwelt.metabolicHeat, 0f, 0.1f);
+                    v => { if (sim.liveUmwelt != null) sim.liveUmwelt.metabolicHeat = v; }, () => sim.LiveUmwelt.metabolicHeat, 0f, 0.1f);
                 bindings[ColRowToEncoderIdx(globalCol, 1)] = MakeUmweltBinding($"{sim.SimName[0]}.O2cons",
-                    v => { if (s.liveUmwelt != null) s.liveUmwelt.oxygenConsumption = v; }, () => s.LiveUmwelt.oxygenConsumption, 0f, 0.1f);
+                    v => { if (sim.liveUmwelt != null) sim.liveUmwelt.oxygenConsumption = v; }, () => sim.LiveUmwelt.oxygenConsumption, 0f, 0.1f);
                 bindings[ColRowToEncoderIdx(globalCol, 2)] = MakeUmweltBinding($"{sim.SimName[0]}.permMin",
-                    v => { if (s.liveUmwelt != null) s.liveUmwelt.preferredPermeabilityMin = v; }, () => s.LiveUmwelt.preferredPermeabilityMin, 0f, 1f);
+                    v => { if (sim.liveUmwelt != null) sim.liveUmwelt.preferredPermeabilityMin = v; }, () => sim.LiveUmwelt.preferredPermeabilityMin, 0f, 1f);
                 bindings[ColRowToEncoderIdx(globalCol, 3)] = MakeUmweltBinding($"{sim.SimName[0]}.permMax",
-                    v => { if (s.liveUmwelt != null) s.liveUmwelt.preferredPermeabilityMax = v; }, () => s.LiveUmwelt.preferredPermeabilityMax, 0f, 1f);
+                    v => { if (sim.liveUmwelt != null) sim.liveUmwelt.preferredPermeabilityMax = v; }, () => sim.LiveUmwelt.preferredPermeabilityMax, 0f, 1f);
             }
 
             // Column 3 of HW bank 0: SimManager globals

@@ -764,20 +764,21 @@ namespace Biomes
             int simRezX, int simRezY)
         {
             // Upload read entries into the reusable buffer (grown on demand).
+            // entryCount may be 0 (interpolator faded out every read): still dispatch so the habitat-band terms refresh.
             int entryCount = umwelt.reads.Count;
-            if (entryCount == 0) return;
+            int bufCount = Mathf.Max(1, entryCount);
 
             // (Re)allocate the shared buffer only when it must grow. Tracked by the GPU
             // manager so Release() frees it with everything else.
             if (perceptionEntryBuffer == null || perceptionEntryBuffer.count < entryCount)
             {
                 if (perceptionEntryBuffer != null) perceptionEntryBuffer.Release();
-                perceptionEntryBuffer = gpu.CreateBuffer(entryCount, sizeof(float) * 4);
-                _perceptionEntryData = new float[entryCount * 4];
+                perceptionEntryBuffer = gpu.CreateBuffer(bufCount, sizeof(float) * 4);
+                _perceptionEntryData = new float[bufCount * 4];
             }
             else if (_perceptionEntryData == null || _perceptionEntryData.Length < entryCount * 4)
             {
-                _perceptionEntryData = new float[entryCount * 4];
+                _perceptionEntryData = new float[bufCount * 4];
             }
 
             // Pack: int channel, float weight, int effect, float _pad
@@ -789,7 +790,7 @@ namespace Biomes
                 _perceptionEntryData[i * 4 + 2] = System.BitConverter.Int32BitsToSingle((int)r.effect);
                 _perceptionEntryData[i * 4 + 3] = 0f;
             }
-            perceptionEntryBuffer.SetData(_perceptionEntryData, 0, 0, entryCount * 4);
+            if (entryCount > 0) perceptionEntryBuffer.SetData(_perceptionEntryData, 0, 0, entryCount * 4);
 
             cs.SetInt("readEntryCount", entryCount);
             cs.SetInt("perceptionRezX", simRezX);

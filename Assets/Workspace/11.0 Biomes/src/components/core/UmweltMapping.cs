@@ -143,7 +143,11 @@ namespace Biomes
         public void Snapshot(Dictionary<string, float> into)
         {
             into.Clear();
-            foreach (var k in Keys) into[k] = GetValue(k);
+            foreach (var k in Keys)
+            {
+                if (into.ContainsKey(k)) Debug.LogWarning($"UmweltMapping '{name}': duplicate entry {k} — only the first is interpolated; both are removed together.");
+                into[k] = GetValue(k);
+            }
         }
 
         private UmweltReadEntry FindRead(int channel, int effect)

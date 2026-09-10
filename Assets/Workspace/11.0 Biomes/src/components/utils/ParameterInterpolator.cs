@@ -59,6 +59,9 @@ namespace Biomes
         private readonly Dictionary<string, float> _toUmwelt = new();
         private bool _umweltLegActive;   // this leg has an umwelt target
         private bool _umweltLegFinished; // end-of-leg cleanup done (remove faded entries, snap bools)
+        private UmweltMapping _umweltInstance; // the clone _fromUmwelt was taken from
+        private List<string> _umweltKeys = new();                                 // union of from/to keys, cached per leg
+        private readonly Dictionary<string, string> _umweltToggleNames = new();    // key -> toggle name, cached
         private int _legStartStep;
         private int _legDuration;                          // current leg length (= durationSteps, or remaining on resume)
         private bool _warnedWrongType;
@@ -80,6 +83,12 @@ namespace Biomes
             UmweltKeys.IsRead(key)  ? "umwelt.reads" :
             UmweltKeys.IsWrite(key) ? "umwelt.writes" :
             "umwelt." + key;
+
+        private string UmweltToggleNameCached(string key)
+        {
+            if (!_umweltToggleNames.TryGetValue(key, out var n)) { n = UmweltToggleName(key); _umweltToggleNames[key] = n; }
+            return n;
+        }
 
         // ─────────── Param list ───────────
 
@@ -270,11 +279,19 @@ namespace Biomes
         private void ApplyUmweltLeg(float te)
         {
             if (!_umweltLegActive) return;
-            var liveU = Sim?.LiveUmwelt;
+            var liveU = Sim != null ? Sim.liveUmwelt : null;
             if (liveU == null) return;
-            foreach (var key in KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt))
+            if (liveU != _umweltInstance)
             {
-                if (!IsEnabled(UmweltToggleName(key))) continue;
+                // Reset() re-cloned the umwelt from the asset mid-leg: continue this leg from the
+                // fresh clone's values (anything an earlier leg removed is back, and now fades out again).
+                liveU.Snapshot(_fromUmwelt);
+                _umweltInstance = liveU;
+                _umweltKeys = KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt);
+            }
+            foreach (var key in _umweltKeys)
+            {
+                if (!IsEnabled(UmweltToggleNameCached(key))) continue;
                 liveU.SetValue(key, KeyedCrossfade.Lerp(_fromUmwelt, _toUmwelt, key, te));
             }
         }
@@ -285,11 +302,11 @@ namespace Biomes
         {
             if (!_umweltLegActive || _umweltLegFinished) return;
             _umweltLegFinished = true;
-            var liveU = Sim?.LiveUmwelt;
+            var liveU = Sim != null ? Sim.liveUmwelt : null;
             var targetU = UmweltTargetFor(currentWaypoint);
             if (liveU == null || targetU == null) return;
             foreach (var key in KeyedCrossfade.KeysToRemove(_fromUmwelt, _toUmwelt))
-                if (IsEnabled(UmweltToggleName(key))) liveU.RemoveEntry(key);
+                if (IsEnabled(UmweltToggleNameCached(key))) liveU.RemoveEntry(key);
             liveU.enableDeath = targetU.enableDeath;
         }
 
@@ -331,14 +348,17 @@ namespace Biomes
             _fromUmwelt.Clear();
             _toUmwelt.Clear();
             _umweltLegFinished = false;
-            var liveU = sim.LiveUmwelt;
+            // clone only — LiveUmwelt falls back to the asset, which must never be written
+            var liveU = sim.liveUmwelt;
             var targetU = UmweltTargetFor(currentWaypoint);
             _umweltLegActive = liveU != null && targetU != null;
             if (_umweltLegActive)
             {
                 liveU.Snapshot(_fromUmwelt);
                 targetU.Snapshot(_toUmwelt);
+                _umweltKeys = KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt);
             }
+            _umweltInstance = liveU;
         }
 
         /// <summary>Shortest-arc hue interpolation on 0..1 (wraps through 1/0).</summary>

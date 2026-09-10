@@ -287,7 +287,8 @@ how it perceives and affects the field:
 
 This is the seam that makes the biome a genuine shared substrate rather than a
 backdrop: two sims sharing one field interact indirectly through the chemicals they
-read and write.
+read and write. A perception build with zero read entries still dispatches so the
+habitat-band terms refresh.
 
 ### 3.6 Parameters — preset / clone / ranges
 
@@ -367,7 +368,9 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   so an umwelt-only queue is valid): `KeyedCrossfade` over the union of keys, so reads/writes
   only in the target fade in from 0 and ones only in the source fade to 0 and are removed at
   leg end; `enableDeath` snaps at leg end. Toggles: `umwelt.<scalar>`, `umwelt.reads`,
-  `umwelt.writes`. Spec: [[superpowers/specs/2026-09-09-umwelt-interpolation-and-timeline-video-design]].
+  `umwelt.writes`. A `Reset()` mid-leg re-clones the umwelt; the interpolator re-snapshots
+  from the fresh clone and finishes the leg from there. Spec:
+  [[superpowers/specs/2026-09-09-umwelt-interpolation-and-timeline-video-design]].
 
 ### 3.8 External texture I/O & GPU resources
 
@@ -379,11 +382,13 @@ packages compile on every platform; availability is gated at runtime
   behind `ITextureSenderBackend`/`ITextureReceiverBackend`, plus `IsAvailable` and
   `EnumerateSources` (discovery). The only file touching `Klak.*`.
 - **`ExternalTextureReceiver`** — receives one external texture (Syphon/NDI/Spout, or a
-  debug video clip (`debugVideoAutoPlay`; `RestartDebugVideo`/`PauseDebugVideo`/
+  debug video clip — `debugVideoAutoPlay`; `RestartDebugVideo`/`PauseDebugVideo`/
   `StopDebugVideo` — Stop clears the RT to transparent black because the composite overlay
   is `lerp(color.rgb, overlay.rgb, overlayStrength * overlay.a)`; any transport call marks the clip
   transport-owned so autoplay never revives a paused/stopped clip, and `Prepare()` fires once
-  when autoplay is off)) into an `OutputTexture`. In 11.0 that texture feeds the composite
+  when autoplay is off) into an `OutputTexture`. `TextureChannelSeeder` skips a receiver whose
+  debug clip is stopped (`IsDebugVideoStopped`), so SetToward/MinToward routes don't write
+  zeros while the timeline holds the clip. In 11.0 that texture feeds the composite
   overlay and `TextureChannelSeeder` (→ biome channels); no 11.0 sim kernel samples it as
   steering influence. Replaces `ExternalInputProvider`. `selfDrive` + a custom inspector preview/source-picker let
   you verify reception standalone. Note: receive needs the source's *exact* canonical

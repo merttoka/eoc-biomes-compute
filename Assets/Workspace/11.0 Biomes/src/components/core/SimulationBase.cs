@@ -321,8 +321,10 @@ namespace Biomes
             _simStep = 0;
 
             // Runtime umwelt clone — mirrors agentParams: re-cloned from the pristine asset each
-            // Reset so interpolation / MFT edits never touch disk and never compound. (Not
-            // Destroy()ed — Reset is also a [Button] in edit mode, and agentParams sets the precedent.)
+            // Reset so interpolation / MFT edits never touch disk and never compound. Destroyed
+            // first in Play mode so a mid-run Reset doesn't leak the old clone; skipped in edit
+            // mode since Reset is also a [Button] there and Destroy is illegal outside Play.
+            if (Application.isPlaying && liveUmwelt != null) Destroy(liveUmwelt);
             liveUmwelt = umwelt != null ? Instantiate(umwelt) : null;
             if (liveUmwelt != null) liveUmwelt.name = umwelt.name + " (live)";
 

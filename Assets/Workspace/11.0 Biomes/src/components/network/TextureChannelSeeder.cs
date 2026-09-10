@@ -65,7 +65,7 @@ namespace Biomes
         /// <summary>The raster being routed, or null when nothing is available yet.</summary>
         public Texture SourceTexture =>
             textureOverride != null ? textureOverride
-            : receiver != null ? receiver.OutputTexture
+            : receiver != null && !receiver.IsDebugVideoStopped ? receiver.OutputTexture
             : null;
 
         /// <summary>Called once per sim step by SimulationManager (main thread).</summary>

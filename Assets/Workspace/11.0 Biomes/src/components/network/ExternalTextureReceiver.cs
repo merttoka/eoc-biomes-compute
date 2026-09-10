@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Video;
+using EasyButtons;
 
 namespace Biomes
 {
@@ -34,6 +35,7 @@ namespace Biomes
         private VideoPlayer m_DebugVideoPlayer;
         private bool m_DebugPrepareRequested;
         private bool m_DebugTransportOwned; // set by Restart/Pause/StopDebugVideo — autoplay must not revive a clip the transport controls
+        private bool m_DebugVideoStopped = true; // no clip content in the RT: never started, or StopDebugVideo() cleared it
         private RenderTexture m_DebugVideoTexture;
         private RenderTexture m_DebugBlurTemp;
         private RenderTexture _outputTexture;
@@ -53,6 +55,10 @@ namespace Biomes
         public RenderTexture OutputTexture => _outputTexture;
         public bool DebugUseVideoInput => m_DebugUseVideoInput;
         public bool IsDebugVideoPlaying => m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying;
+
+        /// <summary>True while the debug clip holds no content (never started, or stopped and cleared).
+        /// TextureChannelSeeder skips a receiver in this state so SetToward/MinToward routes don't write zeros.</summary>
+        public bool IsDebugVideoStopped => m_DebugUseVideoInput && m_DebugVideoStopped;
 
         public void Initialize()
         {
@@ -82,6 +88,7 @@ namespace Biomes
         // ─────────── Debug-clip transport (SimTimeline cues) ───────────
 
         /// <summary>Play the debug clip from frame 0. No-op (with a warning) if debug video input is off.</summary>
+        [Button]
         public void RestartDebugVideo()
         {
             if (!m_DebugUseVideoInput) { Debug.LogWarning($"[{name}] RestartDebugVideo: debug video input is off."); return; }
@@ -90,24 +97,30 @@ namespace Biomes
             InitializeDebugVideoIfNeeded();
             if (m_DebugVideoPlayer == null || m_DebugVideoClip == null) return;
             m_DebugVideoPlayer.Stop();  // Stop() rewinds; Play() re-prepares and starts at frame 0
-            m_DebugPrepareRequested = false;
             m_DebugVideoPlayer.Play();
+            m_DebugPrepareRequested = true; // Play() prepares internally — don't let Init re-issue Prepare()
+            m_DebugVideoStopped = false;
         }
 
         /// <summary>Pause the clip. OutputTexture keeps showing the last frame.</summary>
+        [Button]
         public void PauseDebugVideo()
         {
+            if (!m_DebugUseVideoInput) return;
             m_DebugTransportOwned = true;
             if (m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying) m_DebugVideoPlayer.Pause();
         }
 
         /// <summary>Stop the clip and clear both the clip RT and OutputTexture to transparent black,
         /// so the composite overlay (lerp by alpha) and TextureChannelSeeder see nothing.</summary>
+        [Button]
         public void StopDebugVideo()
         {
+            if (!m_DebugUseVideoInput) return;
             m_DebugTransportOwned = true;
             if (m_DebugVideoPlayer != null) m_DebugVideoPlayer.Stop();
             m_DebugPrepareRequested = false;
+            m_DebugVideoStopped = true;
             ClearToTransparent(m_DebugVideoTexture);
             ClearToTransparent(_outputTexture);
         }
@@ -253,6 +266,7 @@ namespace Biomes
                 if (debugVideoAutoPlay && !m_DebugTransportOwned)
                 {
                     if (!m_DebugVideoPlayer.isPlaying) m_DebugVideoPlayer.Play();
+                    m_DebugVideoStopped = false;
                 }
                 else if (!m_DebugPrepareRequested && !m_DebugVideoPlayer.isPrepared && !m_DebugVideoPlayer.isPlaying)
                 {
@@ -317,6 +331,7 @@ namespace Biomes
                 m_DebugVideoPlayer.Stop();
             m_DebugPrepareRequested = false;
             m_DebugTransportOwned = false;
+            m_DebugVideoStopped = true;
 
             DisposeBackend();
             gpu?.ReleaseAll();
