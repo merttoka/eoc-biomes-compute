@@ -33,6 +33,7 @@ namespace Biomes
         private GPUResourceManager gpu;
         private VideoPlayer m_DebugVideoPlayer;
         private bool m_DebugPrepareRequested;
+        private bool m_DebugTransportOwned; // set by Restart/Pause/StopDebugVideo — autoplay must not revive a clip the transport controls
         private RenderTexture m_DebugVideoTexture;
         private RenderTexture m_DebugBlurTemp;
         private RenderTexture _outputTexture;
@@ -84,6 +85,7 @@ namespace Biomes
         public void RestartDebugVideo()
         {
             if (!m_DebugUseVideoInput) { Debug.LogWarning($"[{name}] RestartDebugVideo: debug video input is off."); return; }
+            m_DebugTransportOwned = true;
             if (gpu == null) Initialize();
             InitializeDebugVideoIfNeeded();
             if (m_DebugVideoPlayer == null || m_DebugVideoClip == null) return;
@@ -95,6 +97,7 @@ namespace Biomes
         /// <summary>Pause the clip. OutputTexture keeps showing the last frame.</summary>
         public void PauseDebugVideo()
         {
+            m_DebugTransportOwned = true;
             if (m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying) m_DebugVideoPlayer.Pause();
         }
 
@@ -102,6 +105,7 @@ namespace Biomes
         /// so the composite overlay (lerp by alpha) and TextureChannelSeeder see nothing.</summary>
         public void StopDebugVideo()
         {
+            m_DebugTransportOwned = true;
             if (m_DebugVideoPlayer != null) m_DebugVideoPlayer.Stop();
             m_DebugPrepareRequested = false;
             ClearToTransparent(m_DebugVideoTexture);
@@ -246,7 +250,7 @@ namespace Biomes
 
                 m_DebugVideoPlayer.targetTexture = m_DebugVideoTexture;
 
-                if (debugVideoAutoPlay)
+                if (debugVideoAutoPlay && !m_DebugTransportOwned)
                 {
                     if (!m_DebugVideoPlayer.isPlaying) m_DebugVideoPlayer.Play();
                 }
@@ -312,6 +316,7 @@ namespace Biomes
             if (m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying)
                 m_DebugVideoPlayer.Stop();
             m_DebugPrepareRequested = false;
+            m_DebugTransportOwned = false;
 
             DisposeBackend();
             gpu?.ReleaseAll();
