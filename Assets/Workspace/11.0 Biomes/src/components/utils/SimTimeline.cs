@@ -52,7 +52,8 @@ namespace Biomes
         [Header("External input (optional)")]
         [Tooltip("Receiver whose DEBUG clip the timeline cues. On Play the clip is rewound and held transparent " +
                  "(autoplay disabled at runtime); StartDebugVideo / PauseDebugVideo / StopDebugVideo cues drive it; " +
-                 "Stop clears it. The live Syphon/NDI path is untouched.")]
+                 "Stop clears it. The live Syphon/NDI path is untouched. Ignored by the Play/Stop hooks when the " +
+                 "receiver's debug video input is off, so a live-receive receiver is never touched.")]
         public ExternalTextureReceiver externalReceiver;
         [Tooltip("Start the debug clip at 0 s on Play (otherwise wait for a StartDebugVideo cue).")]
         public bool startDebugVideoOnPlay = false;
@@ -106,7 +107,7 @@ namespace Biomes
             if (recordFramesDuringPlayback && figureExporter != null)
                 figureExporter.StartFrameExport();
             if (firingPlayback != null) firingPlayback.Restart();
-            if (externalReceiver != null)
+            if (externalReceiver != null && externalReceiver.DebugUseVideoInput)
             {
                 externalReceiver.debugVideoAutoPlay = false; // runtime-only; the timeline owns the clip now
                 externalReceiver.StopDebugVideo();           // frame 0, transparent
@@ -124,7 +125,7 @@ namespace Biomes
             if (recordFramesDuringPlayback && figureExporter != null)
                 figureExporter.StopFrameExport();
             if (firingPlayback != null) firingPlayback.Stop();
-            if (externalReceiver != null) externalReceiver.StopDebugVideo();
+            if (externalReceiver != null && externalReceiver.DebugUseVideoInput) externalReceiver.StopDebugVideo();
             Debug.Log($"[SimTimeline] Stopped at {CurrentSeconds:F1}s.");
         }
 
