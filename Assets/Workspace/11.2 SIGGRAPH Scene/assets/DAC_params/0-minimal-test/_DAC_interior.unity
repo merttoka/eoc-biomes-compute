@@ -161,7 +161,8 @@ MonoBehaviour:
   m_DebugUseVideoInput: 1
   m_DebugVideoClip: {fileID: 32900000, guid: 7c21259cdc7d54495a28c899f15d1662, type: 3}
   m_DebugLoopVideo: 1
-  m_DebugPlaybackSpeed: 1
+  m_DebugPlaybackSpeed: 0.33
+  debugVideoAutoPlay: 1
   m_DebugApplyGaussianBlur: 0
   m_BlurKernelSize: 9
   m_BlurStrength: 2.5
@@ -219,13 +220,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.FigureExporter
   simManager: {fileID: 2000144461}
-  exportFolder: Exports/Figures
-  includeBiomeChannels: 0
-  encodeSRGB: 0
-  captureFramerate: 60
+  exportFolder: Recordings/Figures
+  encodeSRGB: 1
+  captureFramerate: 0
   frameEvery: 1
+  framesIncludeComposite: 0
   framesIncludeSims: 0
-  frameBiomeChannels: 00000000040000000500000008000000090000000b0000000c000000
+  includeBiomeChannels: 1
+  frameBiomeChannels: 0000000004000000050000000b000000
 --- !u!1 &276895385
 GameObject:
   m_ObjectHideFlags: 0
@@ -266,40 +268,44 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 276895385}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
   simManager: {fileID: 2000144461}
   simIndex: 0
-  waypoints: []
-  durationSteps: 20000
-  holdSteps: 5000
+  waypoints:
+  - {fileID: 11400000, guid: b44ab75b59bcb4e1882c17edc2d6c816, type: 2}
+  umweltWaypoints:
+  - {fileID: 11400000, guid: 2e3b07aee2e7b4e67b0d2fd7df1742ff, type: 2}
+  durationSteps: 240
+  holdSteps: 0
   easing:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
       value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
       time: 1
       value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  keepRunningOnSimReset: 1
   paramToggles:
   - name: moveSpeed
     enabled: 1
@@ -336,10 +342,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
   cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
   outputMat: {fileID: 2100000, guid: e2dbf57532b4d46a9abbafab295b24af, type: 2}
-  compositeWeight: 0.85
-  renderPersistence: 0.8
+  compositeWeight: 0.9
+  renderPersistence: 0.85
   startOnPlay: 0
-  fadeOutSeconds: 10
+  fadeOutSeconds: 0.5
   spawnMode: 0
   spawnBandFraction: 0.05
   dispersalSpeedMode: 1
@@ -350,14 +356,11 @@ MonoBehaviour:
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 2e3b07aee2e7b4e67b0d2fd7df1742ff, type: 2}
+  umwelt: {fileID: 11400000, guid: 63c180cf80e5b49ca94b4648442b7add, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
   agentsCount: 1000000
-  paramsSO: {fileID: 11400000, guid: 90283a5cdc541445a8b2ba6bfc47d347, type: 2}
+  paramsSO: {fileID: 11400000, guid: d52b0cd17d3294f79815ebec366c8ada, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
 GameObject:
@@ -515,8 +518,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimTimeline
   simManager: {fileID: 2000144461}
   figureExporter: {fileID: 39187335}
-  recordFramesDuringPlayback: 0
-  playOnStart: 0
+  recordFramesDuringPlayback: 1
+  firingPlayback: {fileID: 1938610680}
+  externalReceiver: {fileID: 39187332}
+  startDebugVideoOnPlay: 0
+  interpolatorGroup: {fileID: 2000144460}
+  playOnStart: 1
   endAtSeconds: 120
   events:
   - atSeconds: 0
@@ -525,19 +532,40 @@ MonoBehaviour:
   - atSeconds: 5
     action: 1
     fadeSecondsOverride: 0
-  - atSeconds: 10
+  - atSeconds: 13
     action: 2
     fadeSecondsOverride: 0
-  - atSeconds: 50
+  - atSeconds: 24
     action: 9
     fadeSecondsOverride: 0
-  - atSeconds: 100
+  - atSeconds: 55
     action: 6
-    fadeSecondsOverride: 10
-  - atSeconds: 105
+    fadeSecondsOverride: 3
+  - atSeconds: 58
     action: 5
-    fadeSecondsOverride: 10
-  - atSeconds: 112
+    fadeSecondsOverride: 8
+  - atSeconds: 69
+    action: 13
+    fadeSecondsOverride: 0
+  - atSeconds: 70.8
+    action: 9
+    fadeSecondsOverride: 0
+  - atSeconds: 71
+    action: 1
+    fadeSecondsOverride: 0
+  - atSeconds: 72
+    action: 2
+    fadeSecondsOverride: 0
+  - atSeconds: 72
+    action: 10
+    fadeSecondsOverride: 7
+  - atSeconds: 108
+    action: 6
+    fadeSecondsOverride: 5
+  - atSeconds: 110
+    action: 5
+    fadeSecondsOverride: 8
+  - atSeconds: 113
     action: 4
     fadeSecondsOverride: 7
 --- !u!1 &584847074
@@ -1081,11 +1109,11 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.01
   far clip plane: 1000
   field of view: 60
-  orthographic: 0
-  orthographic size: 5
+  orthographic: 1
+  orthographic size: 1.65
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -1110,7 +1138,7 @@ Transform:
   m_GameObject: {fileID: 907546074}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.75, y: 0, z: -3.24}
+  m_LocalPosition: {x: 0, y: 0, z: -3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1266,29 +1294,26 @@ MonoBehaviour:
   outputMat: {fileID: 2100000, guid: a8b87068c20e34a1684d14ed69a635f3, type: 2}
   compositeWeight: 1.5
   renderPersistence: 0.9
-  startOnPlay: 1
+  startOnPlay: 0
   fadeOutSeconds: 10
   spawnMode: 0
   spawnBandFraction: 0.08
   dispersalSpeedMode: 0
-  dispersalSpeedMult: 1.5
+  dispersalSpeedMult: 1.8
   dispersalConstantSpeed: 6
   rezX: 1024
   rezY: 1024
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 66b1e699361ce4587be4a42aa98d3863, type: 2}
+  umwelt: {fileID: 11400000, guid: e75260013159b4e70a29a1ff89a37950, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
   agentsCount: 131
   turnAngleSpread: 0
-  paramsSO: {fileID: 11400000, guid: fcec856dc0246481c86b0d23250eab71, type: 2}
+  paramsSO: {fileID: 11400000, guid: 80a3a020693b64ab993ba515436ad336, type: 2}
   agentParams: {fileID: 0}
-  wallBuildAmount: 0.003
+  wallBuildAmount: 0.03
   wallBuildFiringThreshold: 0.1
 --- !u!114 &1010527584
 MonoBehaviour:
@@ -1297,16 +1322,19 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1010527582}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
   simManager: {fileID: 2000144461}
   simIndex: 2
-  waypoints: []
-  durationSteps: 20000
-  holdSteps: 5000
+  waypoints:
+  - {fileID: 11400000, guid: fcec856dc0246481c86b0d23250eab71, type: 2}
+  umweltWaypoints:
+  - {fileID: 11400000, guid: 66b1e699361ce4587be4a42aa98d3863, type: 2}
+  durationSteps: 240
+  holdSteps: 0
   easing:
     serializedVersion: 2
     m_Curve:
@@ -1331,6 +1359,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  keepRunningOnSimReset: 1
   paramToggles:
   - name: moveSpeed
     enabled: 1
@@ -1625,7 +1654,7 @@ MonoBehaviour:
   firingDecaySeconds: 0.5
   debugLog: 0
   labelsPositionsCsv: {fileID: 4900000, guid: 9137635c302134f2c86920bf0c7b51a2, type: 3}
-  spawnScale: {x: 0.4, y: 0.8}
+  spawnScale: {x: 0.322, y: 0.8}
 --- !u!4 &1750220235
 Transform:
   m_ObjectHideFlags: 0
@@ -1681,16 +1710,19 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1825205985}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
   simManager: {fileID: 2000144461}
   simIndex: 1
-  waypoints: []
-  durationSteps: 20000
-  holdSteps: 5000
+  waypoints:
+  - {fileID: 11400000, guid: 6f6230f8f4b384b37a43dbceb94fe3ed, type: 2}
+  umweltWaypoints:
+  - {fileID: 11400000, guid: 34bcf310b241e445b875fa4f8d3d4d70, type: 2}
+  durationSteps: 240
+  holdSteps: 0
   easing:
     serializedVersion: 2
     m_Curve:
@@ -1715,6 +1747,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  keepRunningOnSimReset: 1
   paramToggles:
   - name: maxSpeed
     enabled: 1
@@ -1755,12 +1788,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidSim
   cs: {fileID: 7200000, guid: 389d82ac9790342749216aaa0602d941, type: 3}
   outputMat: {fileID: 2100000, guid: 3f0456f3dec144a1bbd92051d176d40c, type: 2}
-  compositeWeight: 0.8
+  compositeWeight: 0.9
   renderPersistence: 0.8
-  startOnPlay: 1
+  startOnPlay: 0
   fadeOutSeconds: 10
-  spawnMode: 2
-  spawnBandFraction: 0.43
+  spawnMode: 0
+  spawnBandFraction: 0.01
   dispersalSpeedMode: 1
   dispersalSpeedMult: 4
   dispersalConstantSpeed: 30
@@ -1769,14 +1802,11 @@ MonoBehaviour:
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 34bcf310b241e445b875fa4f8d3d4d70, type: 2}
+  umwelt: {fileID: 11400000, guid: ad7466382b28644daa8d0f4190b4e647, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
   agentsCount: 20000
-  paramsSO: {fileID: 11400000, guid: 6f6230f8f4b384b37a43dbceb94fe3ed, type: 2}
+  paramsSO: {fileID: 11400000, guid: 9864d76211be94419ba3b2f751784aaf, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &1915234168
 GameObject:
@@ -2165,7 +2195,7 @@ MonoBehaviour:
   biomeRezX: 1024
   biomeRezY: 330
   stepEvery: 1
-  fieldConfig: {fileID: 11400000, guid: e823cf6190d7e4bb7901c6f2a05fbf52, type: 2}
+  fieldConfig: {fileID: 11400000, guid: 0ad296b92ed3641b8a092a78a31d4921, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   habitatAvoidGain: 2
   habitatSlowGain: 3
@@ -2204,7 +2234,7 @@ MonoBehaviour:
     enabled: 1
     from: 0
     channel: 13
-    gain: 0.22
+    gain: 0.05
     mode: 0
   - name: Green
     enabled: 0
@@ -2235,6 +2265,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1938610678}
   - component: {fileID: 1938610677}
+  - component: {fileID: 1938610680}
   m_Layer: 0
   m_Name: NetworkIO
   m_TagString: Untagged
@@ -2262,8 +2293,6 @@ MonoBehaviour:
   - {fileID: 1010527583}
   m_BiomeInjector: {fileID: 1919109756}
   m_NeuronFiringSource: {fileID: 1750220234}
-  m_SnPrefix: /sn
-  m_EntityBindings: []
 --- !u!4 &1938610678
 Transform:
   m_ObjectHideFlags: 0
@@ -2279,6 +2308,27 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1938610680
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1938610676}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b6f20431b4546ab96c98a212618d733, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringPlayback
+  source: {fileID: 1750220234}
+  startFrame: 125000
+  endFrame: 131000
+  durationSeconds: 120
+  loop: 0
+  playOnStart: 1
+  playing: 0
+  unscaledTime: 0
+  debugLog: 0
 --- !u!1 &2000144458
 GameObject:
   m_ObjectHideFlags: 0
@@ -2322,7 +2372,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2000144458}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a81345919d00e415285bf20e1c5b4d5b, type: 3}
   m_Name: 
@@ -2331,6 +2381,8 @@ MonoBehaviour:
   - {fileID: 276895387}
   - {fileID: 1825205987}
   - {fileID: 1010527584}
+  playOnStart: 0
+  keepRunningOnSimReset: 1
   mft: {fileID: 417804410}
   resumeCooldownSeconds: 8
   midiOverrideActive: 0
@@ -2346,8 +2398,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3297886fefad04fab99076e69de0a822, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.SimulationManager
-  rezX: 3100
-  rezY: 1000
+  rezX: 3840
+  rezY: 1152
   simResolutionScale: 1
   perceptionResScale: 0.75
   referenceHeight: 2160
@@ -2376,11 +2428,13 @@ MonoBehaviour:
   compositeOutMat: {fileID: 2100000, guid: 3e812a8bed0cf4881bce47a8fab00566, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
+  recordingCameraDistance: 3
+  recorderTarget: {fileID: 8400000, guid: 926457ca1ec7640669cb685bd09cb905, type: 2}
   keepOutRects: []
   keepOutFeather: 0.04
   keepOutAvoidGain: 4
-  moundOverlayStrength: 0.84
-  moundColor: {r: 0.5294118, g: 0.8078432, b: 0.9215687, a: 1}
+  moundOverlayStrength: 0.5
+  moundColor: {r: 0.8773585, g: 0.8773585, b: 0.8773585, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2390,6 +2444,6 @@ SceneRoots:
   - {fileID: 584847076}
   - {fileID: 944659780}
   - {fileID: 527395917}
-  - {fileID: 39187334}
   - {fileID: 417804409}
+  - {fileID: 39187334}
   - {fileID: 1938610678}

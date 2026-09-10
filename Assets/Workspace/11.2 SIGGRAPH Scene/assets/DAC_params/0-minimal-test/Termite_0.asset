@@ -16,7 +16,7 @@ MonoBehaviour:
   types:
   - senseAngle: 119.088974
     senseDistance: 55.190548
-    turnAngle: 34.09685
+    turnAngle: 14.8
     moveSpeed: 1.225197
     firingSpeedMul: 2
     depositAmount: 0.6

@@ -53,7 +53,7 @@ MonoBehaviour:
   - channel: 11
     amount: -0.004
   preferredPermeabilityMin: 0.05
-  preferredPermeabilityMax: 0.5
+  preferredPermeabilityMax: 1
   metabolicHeat: 0.045
   oxygenConsumption: 0.035
   enableDeath: 0

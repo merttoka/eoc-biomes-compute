@@ -28,11 +28,6 @@ namespace Biomes
                  "click creates one timestamped subfolder holding all PNGs of that click.")]
         public string exportFolder = "Exports/Figures";
 
-        [Tooltip("Also run the Biome's per-channel PNG export into the same timestamped " +
-                 "folder (under a <biome name> subfolder), so the whole figure set lands " +
-                 "in one place. Uses the Biome's own exportNormalized setting.")]
-        public bool includeBiomeChannels = false;
-
         [Tooltip("Encode PNGs as sRGB so files look like the screen. The sim/composite " +
                  "textures hold LINEAR values (the project renders in linear color space); " +
                  "the display applies the sRGB transfer when showing them, but a raw dump " +
@@ -122,6 +117,11 @@ namespace Biomes
         public bool framesIncludeComposite = true;
         [Tooltip("Capture each sim's own output, one subfolder per sim. Multiplies the per-frame encode cost.")]
         public bool framesIncludeSims = false;
+
+        [Tooltip("Also run the Biome's per-channel PNG export into the same timestamped " +
+                 "folder (under a <biome name> subfolder), so the whole figure set lands " +
+                 "in one place. Uses the Biome's own exportNormalized setting.")]
+        public bool includeBiomeChannels = false;
 
         [Tooltip("Biome channels captured each frame, one subfolder per channel — pick the " +
                  "few the video needs rather than all 15; every entry adds a readback + " +

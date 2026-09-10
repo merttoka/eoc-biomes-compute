@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.UmweltMapping
   reads:
   - channel: 1
-    weight: 0.8
+    weight: 0.2
     effect: 0
   - channel: 2
     weight: -0.65
@@ -23,7 +23,7 @@ MonoBehaviour:
   - channel: 3
     amount: 0.5
   preferredPermeabilityMin: 0
-  preferredPermeabilityMax: 0.218
+  preferredPermeabilityMax: 1
   metabolicHeat: 0.045
   oxygenConsumption: 0.035
   enableDeath: 0

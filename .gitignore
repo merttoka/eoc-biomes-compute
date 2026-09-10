@@ -207,3 +207,6 @@ Assets/Recordings.meta
 
 # Unity Test Framework batchmode output
 TestResults/
+
+# Third-party TouchDesigner reference project (38 MB, not ours)
+tools/Algorithms-main-jarrett/
