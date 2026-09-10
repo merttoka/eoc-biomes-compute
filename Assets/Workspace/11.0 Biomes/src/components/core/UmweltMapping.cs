@@ -50,5 +50,112 @@ namespace Biomes
         [Range(0f, 1f)] public float deathThresholdPermeability = 0.1f;
         [Range(0f, 1f)] public float corpseWasteAmount = 0.5f;
         [Range(0f, 0.1f)] public float corpseDecayRate = 0.01f;
+
+        // ─────────── Flat key access (ParameterInterpolator) ───────────
+        // Keys per UmweltKeys: 8 scalars, "read:<ch>:<effect>.weight", "write:<ch>.amount".
+
+        public IEnumerable<string> Keys
+        {
+            get
+            {
+                foreach (var s in UmweltKeys.Scalars) yield return s;
+                foreach (var r in reads)  yield return UmweltKeys.Read(r.channel, (int)r.effect);
+                foreach (var w in writes) yield return UmweltKeys.Write(w.channel);
+            }
+        }
+
+        public bool TryGetValue(string key, out float value)
+        {
+            value = 0f;
+            switch (key)
+            {
+                case UmweltKeys.PermMin:           value = preferredPermeabilityMin;  return true;
+                case UmweltKeys.PermMax:           value = preferredPermeabilityMax;  return true;
+                case UmweltKeys.MetabolicHeat:     value = metabolicHeat;             return true;
+                case UmweltKeys.OxygenConsumption: value = oxygenConsumption;         return true;
+                case UmweltKeys.DeathO2:           value = deathThresholdOxygen;      return true;
+                case UmweltKeys.DeathPerm:         value = deathThresholdPermeability; return true;
+                case UmweltKeys.CorpseWaste:       value = corpseWasteAmount;         return true;
+                case UmweltKeys.CorpseDecay:       value = corpseDecayRate;           return true;
+            }
+            if (UmweltKeys.TryParseRead(key, out int rch, out int rfx))
+            {
+                var r = FindRead(rch, rfx);
+                if (r == null) return false;
+                value = r.weight; return true;
+            }
+            if (UmweltKeys.TryParseWrite(key, out int wch))
+            {
+                var w = FindWrite(wch);
+                if (w == null) return false;
+                value = w.amount; return true;
+            }
+            return false;
+        }
+
+        public float GetValue(string key) => TryGetValue(key, out float v) ? v : 0f;
+
+        public void SetValue(string key, float value)
+        {
+            switch (key)
+            {
+                case UmweltKeys.PermMin:           preferredPermeabilityMin   = value; return;
+                case UmweltKeys.PermMax:           preferredPermeabilityMax   = value; return;
+                case UmweltKeys.MetabolicHeat:     metabolicHeat              = value; return;
+                case UmweltKeys.OxygenConsumption: oxygenConsumption          = value; return;
+                case UmweltKeys.DeathO2:           deathThresholdOxygen       = value; return;
+                case UmweltKeys.DeathPerm:         deathThresholdPermeability = value; return;
+                case UmweltKeys.CorpseWaste:       corpseWasteAmount          = value; return;
+                case UmweltKeys.CorpseDecay:       corpseDecayRate            = value; return;
+            }
+            if (UmweltKeys.TryParseRead(key, out int rch, out int rfx))
+            {
+                var r = FindRead(rch, rfx);
+                if (r == null)
+                {
+                    r = new UmweltReadEntry { channel = rch, effect = (UmweltEffect)rfx };
+                    reads.Add(r);
+                }
+                r.weight = value;
+                return;
+            }
+            if (UmweltKeys.TryParseWrite(key, out int wch))
+            {
+                var w = FindWrite(wch);
+                if (w == null)
+                {
+                    w = new UmweltWriteEntry { channel = wch };
+                    writes.Add(w);
+                }
+                w.amount = value;
+            }
+        }
+
+        public bool RemoveEntry(string key)
+        {
+            if (UmweltKeys.TryParseRead(key, out int rch, out int rfx))
+                return reads.RemoveAll(r => r.channel == rch && (int)r.effect == rfx) > 0;
+            if (UmweltKeys.TryParseWrite(key, out int wch))
+                return writes.RemoveAll(w => w.channel == wch) > 0;
+            return false;
+        }
+
+        public void Snapshot(Dictionary<string, float> into)
+        {
+            into.Clear();
+            foreach (var k in Keys) into[k] = GetValue(k);
+        }
+
+        private UmweltReadEntry FindRead(int channel, int effect)
+        {
+            foreach (var r in reads) if (r.channel == channel && (int)r.effect == effect) return r;
+            return null;
+        }
+
+        private UmweltWriteEntry FindWrite(int channel)
+        {
+            foreach (var w in writes) if (w.channel == channel) return w;
+            return null;
+        }
     }
 }
