@@ -92,7 +92,15 @@ namespace Biomes
         [HideInInspector] public bool scaleDensityToResolution = true;
 
         [Header("Biome Integration")]
+        [Tooltip("Assigned umwelt preset. Runtime reads/writes go to liveUmwelt (a clone made on Reset), never this asset.")]
         public UmweltMapping umwelt;
+
+        /// <summary>Runtime clone of <see cref="umwelt"/>, re-created on every Reset (like agentParams
+        /// from paramsSO). MFT knobs and ParameterInterpolator write here so the asset stays pristine.</summary>
+        [NonSerialized] public UmweltMapping liveUmwelt;
+
+        /// <summary>What the runtime should read: the clone when present, else the asset (pre-Reset).</summary>
+        public UmweltMapping LiveUmwelt => liveUmwelt != null ? liveUmwelt : umwelt;
 
         // Perception texture: biome fields filtered through Umwelt (built by Biome each frame)
         // R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
@@ -228,14 +236,26 @@ namespace Biomes
         public bool SaveLiveParamsToPreset()
         {
 #if UNITY_EDITOR
+            bool wrote = false;
             var live = LiveParamSet as ScriptableObject;
             var preset = PresetParamSet;
-            if (live == null || preset == null) return false;
-            string presetName = preset.name;                        // CopySerialized would stamp "(Clone)";
-            UnityEditor.EditorUtility.CopySerialized(live, preset);  // copy all tuned fields into the asset
-            preset.name = presetName;                               // restore the asset's name
-            UnityEditor.EditorUtility.SetDirty(preset);
-            return true;
+            if (live != null && preset != null)
+            {
+                string presetName = preset.name;                        // CopySerialized would stamp "(Clone)";
+                UnityEditor.EditorUtility.CopySerialized(live, preset);  // copy all tuned fields into the asset
+                preset.name = presetName;                               // restore the asset's name
+                UnityEditor.EditorUtility.SetDirty(preset);
+                wrote = true;
+            }
+            if (liveUmwelt != null && umwelt != null)
+            {
+                string umweltName = umwelt.name;
+                UnityEditor.EditorUtility.CopySerialized(liveUmwelt, umwelt);
+                umwelt.name = umweltName;
+                UnityEditor.EditorUtility.SetDirty(umwelt);
+                wrote = true;
+            }
+            return wrote;
 #else
             return false;
 #endif
@@ -299,6 +319,12 @@ namespace Biomes
         public virtual void Reset()
         {
             _simStep = 0;
+
+            // Runtime umwelt clone — mirrors agentParams: re-cloned from the pristine asset each
+            // Reset so interpolation / MFT edits never touch disk and never compound. (Not
+            // Destroy()ed — Reset is also a [Button] in edit mode, and agentParams sets the precedent.)
+            liveUmwelt = umwelt != null ? Instantiate(umwelt) : null;
+            if (liveUmwelt != null) liveUmwelt.name = umwelt.name + " (live)";
 
             // Resolution-independence: rescale the freshly-cloned pixel-unit params. LiveParamSet
             // is the runtime clone the concrete Reset set (via Instantiate) before calling base —

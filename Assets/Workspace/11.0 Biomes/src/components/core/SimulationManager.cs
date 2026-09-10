@@ -316,9 +316,10 @@ namespace Biomes
             {
                 foreach (var sim in simulations)
                 {
+                    var u = sim != null ? sim.LiveUmwelt : null;
                     if (sim == null || sim.runState != SimRunState.Running
-                        || sim.umwelt == null || sim.perceptionTex == null) continue;
-                    biome.BuildPerceptionTex(sim.perceptionTex, sim.umwelt,
+                        || u == null || sim.perceptionTex == null) continue;
+                    biome.BuildPerceptionTex(sim.perceptionTex, u,
                         sim.perceptionTex.width, sim.perceptionTex.height);
                 }
             }
@@ -358,7 +359,8 @@ namespace Biomes
                     var sim = simulations[i];
                     // Running only: a Fading sim's agents are frozen — letting them keep
                     // depositing would pin hot spots into the biome at their last positions.
-                    if (sim == null || sim.runState != SimRunState.Running || sim.umwelt == null) continue;
+                    var u = sim != null ? sim.LiveUmwelt : null;
+                    if (sim == null || sim.runState != SimRunState.Running || u == null) continue;
 
                     var posBuffer = sim.GetAgentPositionBuffer();
                     int agentCount = sim.GetAgentCount();
@@ -368,26 +370,26 @@ namespace Biomes
                     {
                         // Fused: gather all deposits, apply in ONE dispatch.
                         _writeScratch.Clear();
-                        foreach (var write in sim.umwelt.writes)
+                        foreach (var write in u.writes)
                             _writeScratch.Add(new Biome.FusedWrite { channel = write.channel, amount = write.amount });
-                        if (metabolismNow && sim.umwelt.metabolicHeat > 0)
-                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Temperature, amount = sim.umwelt.metabolicHeat * metabScale });
-                        if (metabolismNow && sim.umwelt.oxygenConsumption > 0)
-                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Oxygen, amount = -sim.umwelt.oxygenConsumption * metabScale });
+                        if (metabolismNow && u.metabolicHeat > 0)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Temperature, amount = u.metabolicHeat * metabScale });
+                        if (metabolismNow && u.oxygenConsumption > 0)
+                            _writeScratch.Add(new Biome.FusedWrite { channel = BiomeChannel.Oxygen, amount = -u.oxygenConsumption * metabScale });
                         biome.WriteFields(_writeScratch, posBuffer, agentCount, sim.rezX, sim.rezY);
                     }
                     else
                     {
                         // Default per-channel path (one dispatch per deposit) — unchanged.
-                        foreach (var write in sim.umwelt.writes)
+                        foreach (var write in u.writes)
                             biome.WriteField(write.channel, posBuffer, agentCount,
                                 write.amount, sim.rezX, sim.rezY);
-                        if (metabolismNow && sim.umwelt.metabolicHeat > 0)
+                        if (metabolismNow && u.metabolicHeat > 0)
                             biome.WriteField(BiomeChannel.Temperature, posBuffer, agentCount,
-                                sim.umwelt.metabolicHeat * metabScale, sim.rezX, sim.rezY);
-                        if (metabolismNow && sim.umwelt.oxygenConsumption > 0)
+                                u.metabolicHeat * metabScale, sim.rezX, sim.rezY);
+                        if (metabolismNow && u.oxygenConsumption > 0)
                             biome.WriteField(BiomeChannel.Oxygen, posBuffer, agentCount,
-                                -sim.umwelt.oxygenConsumption * metabScale, sim.rezX, sim.rezY);
+                                -u.oxygenConsumption * metabScale, sim.rezX, sim.rezY);
                     }
 
                     // Termite mound build: probabilistic, firing-gated permeability lowering.

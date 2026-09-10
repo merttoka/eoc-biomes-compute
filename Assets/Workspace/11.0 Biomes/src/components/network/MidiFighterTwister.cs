@@ -331,17 +331,17 @@ namespace Biomes
             {
                 var sim = m_Simulations[col];
                 if (sim == null || sim.umwelt == null) continue;
-                var u = sim.umwelt;
+                var s = sim; // resolve the live clone at call time — Reset swaps it
                 int globalCol = col < 3 ? col : col + 1; // skip col 3 (globals)
 
                 bindings[ColRowToEncoderIdx(globalCol, 0)] = MakeUmweltBinding($"{sim.SimName[0]}.metHeat",
-                    v => u.metabolicHeat = v, () => u.metabolicHeat, 0f, 0.1f);
+                    v => s.LiveUmwelt.metabolicHeat = v, () => s.LiveUmwelt.metabolicHeat, 0f, 0.1f);
                 bindings[ColRowToEncoderIdx(globalCol, 1)] = MakeUmweltBinding($"{sim.SimName[0]}.O2cons",
-                    v => u.oxygenConsumption = v, () => u.oxygenConsumption, 0f, 0.1f);
+                    v => s.LiveUmwelt.oxygenConsumption = v, () => s.LiveUmwelt.oxygenConsumption, 0f, 0.1f);
                 bindings[ColRowToEncoderIdx(globalCol, 2)] = MakeUmweltBinding($"{sim.SimName[0]}.permMin",
-                    v => u.preferredPermeabilityMin = v, () => u.preferredPermeabilityMin, 0f, 1f);
+                    v => s.LiveUmwelt.preferredPermeabilityMin = v, () => s.LiveUmwelt.preferredPermeabilityMin, 0f, 1f);
                 bindings[ColRowToEncoderIdx(globalCol, 3)] = MakeUmweltBinding($"{sim.SimName[0]}.permMax",
-                    v => u.preferredPermeabilityMax = v, () => u.preferredPermeabilityMax, 0f, 1f);
+                    v => s.LiveUmwelt.preferredPermeabilityMax = v, () => s.LiveUmwelt.preferredPermeabilityMax, 0f, 1f);
             }
 
             // Column 3 of HW bank 0: SimManager globals
