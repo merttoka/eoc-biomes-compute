@@ -27,6 +27,11 @@ namespace Biomes
         [Header("Waypoints (target preset assets, played in order)")]
         public List<ScriptableObject> waypoints = new();
 
+        [Tooltip("Optional umwelt targets, index-paired with waypoints (leg i → umweltWaypoints[i]). " +
+                 "Empty slot = umwelt untouched that leg. Reads/writes crossfade by channel key: entries " +
+                 "only in the target fade in from 0, entries only in the source fade out and are removed at leg end.")]
+        public List<UmweltMapping> umweltWaypoints = new();
+
         [Header("Timing (simulation steps)")]
         [Min(1)] public int durationSteps = 600;
         [Min(0)] public int holdSteps = 0;
@@ -44,10 +49,16 @@ namespace Biomes
         public Phase CurrentPhase => phase;
         public float Progress => progress;
         public int CurrentWaypoint => currentWaypoint;
-        public int WaypointCount => waypoints != null ? waypoints.Count : 0;
+        private int LegCount => Mathf.Max(waypoints != null ? waypoints.Count : 0, umweltWaypoints != null ? umweltWaypoints.Count : 0);
+        public int WaypointCount => LegCount;
 
         // "from" snapshot: paramName -> value per type index, taken at each leg start
         private readonly Dictionary<string, float[]> _from = new();
+        // umwelt snapshots: flat key -> value (UmweltKeys), taken at each leg start
+        private readonly Dictionary<string, float> _fromUmwelt = new();
+        private readonly Dictionary<string, float> _toUmwelt = new();
+        private bool _umweltLegActive;   // this leg has an umwelt target
+        private bool _umweltLegFinished; // end-of-leg cleanup done (remove faded entries, snap bools)
         private int _legStartStep;
         private int _legDuration;                          // current leg length (= durationSteps, or remaining on resume)
         private bool _warnedWrongType;
@@ -61,6 +72,14 @@ namespace Biomes
                 ? simManager.simulations[simIndex] : null;
 
         private int StepNow() => simManager != null ? simManager.SimStepCount : 0;
+
+        private UmweltMapping UmweltTargetFor(int i) =>
+            (umweltWaypoints != null && i >= 0 && i < umweltWaypoints.Count) ? umweltWaypoints[i] : null;
+
+        private static string UmweltToggleName(string key) =>
+            UmweltKeys.IsRead(key)  ? "umwelt.reads" :
+            UmweltKeys.IsWrite(key) ? "umwelt.writes" :
+            "umwelt." + key;
 
         // ─────────── Param list ───────────
 
@@ -80,6 +99,16 @@ namespace Biomes
                     name = name,
                     enabled = prev.TryGetValue(name, out bool e) ? e : true,
                 });
+
+            foreach (var s in UmweltKeys.Scalars) AddToggle("umwelt." + s);
+            AddToggle("umwelt.reads");
+            AddToggle("umwelt.writes");
+
+            void AddToggle(string name) => paramToggles.Add(new ParamToggle
+            {
+                name = name,
+                enabled = prev.TryGetValue(name, out bool e) ? e : true,
+            });
         }
 
         private bool IsEnabled(string name)
@@ -96,7 +125,7 @@ namespace Biomes
         {
             var sim = Sim;
             if (sim == null || sim.LiveParamSet == null) { Debug.LogWarning("ParameterInterpolator: no sim/live params (enter Play mode and Reset sims first)"); return; }
-            if (waypoints == null || waypoints.Count == 0) { Debug.LogWarning("ParameterInterpolator: no waypoints assigned"); return; }
+            if (LegCount == 0) { Debug.LogWarning("ParameterInterpolator: no waypoints assigned"); return; }
 
             currentWaypoint = 0;
             _warnedWrongType = false;
@@ -189,6 +218,7 @@ namespace Biomes
 
                 if (t >= 1f)
                 {
+                    FinishUmweltLeg();
                     if (holdSteps > 0) phase = Phase.Holding;
                     else Advance();
                 }
@@ -202,12 +232,20 @@ namespace Biomes
 
         private void ApplyLeg(IParamSet live, float te)
         {
-            var target = waypoints[currentWaypoint] as IParamSet;
+            ApplyParamLeg(live, te);
+            ApplyUmweltLeg(te);
+        }
+
+        private void ApplyParamLeg(IParamSet live, float te)
+        {
+            var target = waypoints != null && currentWaypoint < waypoints.Count
+                ? waypoints[currentWaypoint] as IParamSet : null;
             if (target == null)
             {
-                if (!_warnedWrongType)
+                // Umwelt-only leg is legitimate; warn only when the leg has nothing to do.
+                if (!_umweltLegActive && !_warnedWrongType)
                 {
-                    Debug.LogWarning($"ParameterInterpolator: waypoint {currentWaypoint} is not an IParamSet preset; skipping leg");
+                    Debug.LogWarning($"ParameterInterpolator: waypoint {currentWaypoint} is neither an IParamSet preset nor paired with an umwelt waypoint; skipping leg");
                     _warnedWrongType = true;
                 }
                 return;
@@ -229,12 +267,38 @@ namespace Biomes
             }
         }
 
+        private void ApplyUmweltLeg(float te)
+        {
+            if (!_umweltLegActive) return;
+            var liveU = Sim?.LiveUmwelt;
+            if (liveU == null) return;
+            foreach (var key in KeyedCrossfade.UnionKeys(_fromUmwelt, _toUmwelt))
+            {
+                if (!IsEnabled(UmweltToggleName(key))) continue;
+                liveU.SetValue(key, KeyedCrossfade.Lerp(_fromUmwelt, _toUmwelt, key, te));
+            }
+        }
+
+        /// <summary>Leg reached t = 1 naturally: drop entries that faded to 0 and snap the
+        /// non-lerpable bool. Not called on Skip — a skipped leg re-snapshots from wherever it was.</summary>
+        private void FinishUmweltLeg()
+        {
+            if (!_umweltLegActive || _umweltLegFinished) return;
+            _umweltLegFinished = true;
+            var liveU = Sim?.LiveUmwelt;
+            var targetU = UmweltTargetFor(currentWaypoint);
+            if (liveU == null || targetU == null) return;
+            foreach (var key in KeyedCrossfade.KeysToRemove(_fromUmwelt, _toUmwelt))
+                if (IsEnabled(UmweltToggleName(key))) liveU.RemoveEntry(key);
+            liveU.enableDeath = targetU.enableDeath;
+        }
+
         private void Advance()
         {
             currentWaypoint++;
-            if (currentWaypoint >= waypoints.Count)
+            if (currentWaypoint >= LegCount)
             {
-                currentWaypoint = waypoints.Count - 1;
+                currentWaypoint = LegCount - 1;
                 phase = Phase.Done;
                 progress = 1f;
                 return;
@@ -251,13 +315,29 @@ namespace Biomes
             _from.Clear();
             var sim = Sim;
             var live = sim.LiveParamSet;
-            int typeCount = live.TypeCount;
-            foreach (var name in sim.ModulatableParams)
+            if (live != null)
             {
-                var arr = new float[typeCount];
-                for (int i = 0; i < typeCount; i++)
-                    arr[i] = live.GetValue(name, i);
-                _from[name] = arr;
+                int typeCount = live.TypeCount;
+                foreach (var name in sim.ModulatableParams)
+                {
+                    var arr = new float[typeCount];
+                    for (int i = 0; i < typeCount; i++)
+                        arr[i] = live.GetValue(name, i);
+                    _from[name] = arr;
+                }
+            }
+
+            // Umwelt leg: snapshot both ends now (target asset is read once per leg).
+            _fromUmwelt.Clear();
+            _toUmwelt.Clear();
+            _umweltLegFinished = false;
+            var liveU = sim.LiveUmwelt;
+            var targetU = UmweltTargetFor(currentWaypoint);
+            _umweltLegActive = liveU != null && targetU != null;
+            if (_umweltLegActive)
+            {
+                liveU.Snapshot(_fromUmwelt);
+                targetU.Snapshot(_toUmwelt);
             }
         }
 
