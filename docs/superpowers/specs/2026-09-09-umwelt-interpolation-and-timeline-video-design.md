@@ -115,16 +115,35 @@ are "make the installation authorable from assets + timeline" work.
   and `firingPlayback.Restart()/Stop()`. The video should follow the same pattern.
 - DAC scene: one receiver, `m_DebugUseVideoInput: 1`, clip assigned; `streamName`
   `TouchDesigner/TDSyphonSpoutOut` for the live path.
+- The receiver's `OutputTexture` reaches the composition two ways: (1) composite overlay in
+  `SimulationManager.compute` — `color.rgb = lerp(color.rgb, overlay.rgb, overlayStrength *
+  overlay.a)` — and (2) `TextureChannelSeeder` seeding biome channels. **Opaque black would
+  darken the whole composite**; only alpha 0 is a true no-op. Zero seeds from black are
+  already a no-op.
+- A freshly created `RenderTexture` has undefined contents until first written; a
+  never-played clip RT must be cleared explicitly.
+
+### Goal (DAC take)
+
+Debug clip starts at **72 s** sim time and influences the composition **only after** that
+mark — no overlay, no seeding, no darkening before it.
 
 ### Decisions (locked)
 
 - **Receiver transport API** (`ExternalTextureReceiver`):
   - `public bool debugVideoAutoPlay = true` — existing behaviour preserved by default.
-    When `false`, `InitializeDebugVideoIfNeeded` prepares the player but does not `Play()`.
+    When `false`, `InitializeDebugVideoIfNeeded` prepares the player but does not `Play()`,
+    and clears the debug RT to **transparent black `(0,0,0,0)`** on creation.
   - `RestartDebugVideo()` → ensure init, `time = 0`, `Play()`.
-  - `StopDebugVideo()` → `Stop()` the player and **clear the debug RT to black**, so
-    downstream influence goes to zero rather than holding the last frame.
-  - `PauseDebugVideo()`; `bool IsDebugVideoPlaying`; `bool DebugUseVideoInput`.
+  - `StopDebugVideo()` → `Stop()` the player and clear the debug RT to **transparent black**
+    (`GL.Clear(false, true, Color.clear)` with the RT active). Alpha 0 makes the composite
+    overlay lerp a no-op and seeds zero — downstream influence goes to exactly nothing.
+  - `PauseDebugVideo()` → `Pause()` the player; RT **holds the last frame** (still
+    composited / seeded).
+  - `bool IsDebugVideoPlaying`; `bool DebugUseVideoInput`.
+  - The blit in `UpdateDebugVideoInput` still runs every step, so a cleared RT propagates
+    to `OutputTexture` (and through the optional blur, which preserves alpha 0) within one
+    step.
 - **Timeline wiring** (`SimTimeline`):
   - `[Header("External input (optional)")] ExternalTextureReceiver externalReceiver;`
     `bool startDebugVideoOnPlay = false;`
@@ -144,15 +163,17 @@ are "make the installation authorable from assets + timeline" work.
 
 | File | Change |
 |---|---|
-| `components/network/ExternalTextureReceiver.cs` | `debugVideoAutoPlay`; `Restart/Stop/PauseDebugVideo`; clear RT on stop; accessors |
+| `components/network/ExternalTextureReceiver.cs` | `debugVideoAutoPlay`; `Restart/Stop/PauseDebugVideo`; clear RT to transparent on init (when not autoplay) and on stop; accessors |
 | `components/utils/SimTimeline.cs` | `externalReceiver`, `startDebugVideoOnPlay`; Play/Stop hooks; 3 new actions in `Fire` |
 | `docs/ARCHITECTURE.md` | `SimTimeline` bullet (video transport), receiver bullet |
 
 ### Verification
 
-1. DAC scene, `startDebugVideoOnPlay` off, cue `StartDebugVideo @ 72 s`: composite shows
-   no video influence until 72 s, then the clip from frame 0. `Stop` at `endAtSeconds`
-   blackens the influence.
+1. DAC scene, `startDebugVideoOnPlay` off, cue `StartDebugVideo @ 72 s`: composite is
+   **pixel-identical to a no-receiver run** until 72 s (no darkening, seeder logs no source
+   or seeds zero), then the clip from frame 0. `Stop` at `endAtSeconds` returns the
+   influence to nothing.
+1b. Add `PauseDebugVideo @ 100 s`: the frame at 100 s stays composited until Stop.
 2. `startDebugVideoOnPlay` on: clip starts at 0 s each Play, always from frame 0.
 3. Receiver with `debugVideoAutoPlay` left `true` and no timeline → unchanged behaviour.
 
