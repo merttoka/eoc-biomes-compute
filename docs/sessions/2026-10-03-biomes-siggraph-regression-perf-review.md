@@ -7,8 +7,9 @@ related: [[../ARCHITECTURE]], [[../ROADMAP]], [[../../Assets/Workspace/11.0 Biom
 # 11.0 Biomes + 11.2 SIGGRAPH — regression & performance review
 
 Branch `review/biomes-siggraph-perf-regression` (off `main` @ 4db77a3). Regression window
-`ca085ff..4db77a3` (the 2026-09-08 → 09-10 DAC burst). Three review passes; each pass's findings
-verified before applying. Rule: apply only fixes and output-identical optimizations; anything that
+`ca085ff..4db77a3` (the 2026-09-08 → 09-10 DAC burst). Four review passes (5 parallel reviewers →
+adversarial diff review + fresh hunt → two closure reviews of the fix commits); findings verified
+before applying. Rule: apply only fixes and output-identical optimizations; anything that
 alters the look is listed under *Deferred*.
 
 ## Shipped
@@ -28,7 +29,9 @@ alters the look is listed under *Deferred*.
   W0→W0; Done never restarted. Reset detection now runs first.
 - **Interpolator 'from' taken from a stopped sim's stale clone** (67923a8) — at `Play()` a
   Stopped sim's leftover clone was snapshotted (second take in a session inherited the previous
-  waypoint). New takes now snapshot lazily from the fresh clone; mid-queue legs keep continuity.
+  waypoint). A Stopped or Fading sim's clone counts as stale until a leg of the current take has written it, so `Play`,
+  `Advance` and the MIDI pause/resume all snapshot lazily from the fresh clone; mid-queue legs of
+  a sim that was live this take keep continuity.
 - **SimTimeline vs group `playOnStart`** — two `Start()`s raced on script order. Timeline now
   leaves a `playOnStart` group running and warns.
 - **Receiver output RT** — a freshly created output RT is cleared to transparent (a stopped clip
@@ -37,13 +40,14 @@ alters the look is listed under *Deferred*.
 ### Latent bugs fixed (pre-window, dormant in current scenes)
 - `keepout.hlsl` eviction: rect flush to a canvas edge / corner / full-width band / abutting rects
   could spawn agents inside the hole. Now picks the nearest on-canvas side outside every rect,
-  inclusive inside-test, two sweeps, evicted point kept below 1.
+  else hops into the abutting rect which evicts it next (two sweeps); inclusive inside-test;
+  evicted point kept below 1. Checked on 7 layouts with a CPU port.
 - Trail writes `round(position)` could hit pixel `rez` (OOB UAV write, undefined on Metal) — wrapped
   (torus).
 - Composite overlay loaded the receiver texture at composite pixel coords (texture is clip-sized)
   — now UV-sampled; identical at equal resolution.
 - `ParameterRecorder` replayed raw recorded values through `SetParameter` (which maps 0..1 into the
-  range — moveSpeed 1 → ~50). Replays via `LiveParamSet.SetValue`.
+  range — moveSpeed 1 → ~50), in both playback and seek. Replays via `LiveParamSet.SetValue`.
 - Debug-grid off→on toggle stacked 11–15 ARGBFloat RTs; edit-mode `Destroy` errors in
   `GPUResourceManager`/Biome.
 

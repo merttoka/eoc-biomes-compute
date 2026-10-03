@@ -360,14 +360,15 @@ namespace Biomes
             progress = 0f;
         }
 
-        // A Stopped sim keeps its last clones, but StartSim re-clones from the preset. Until a
-        // leg of this take has written a clone it is stale — treat the sim as having none so
-        // 'from' is taken lazily from the fresh clone (SyncLiveInstances). Once this take's legs
-        // have been writing it, a mid-queue leg keeps it: it holds the reached waypoint.
+        // A Stopped or Fading sim keeps its last run's clones, but StartSim re-clones from the
+        // preset. Until a leg of this take has written a clone it is stale — treat the sim as
+        // having none so 'from' is taken lazily from the fresh clone (SyncLiveInstances). Once
+        // this take's legs have been writing it, a mid-queue leg keeps it: it holds the reached
+        // waypoint.
         private static IParamSet LiveParamsOf(SimulationBase sim) =>
-            sim.runState == SimRunState.Stopped ? null : sim.LiveParamSet;
+            sim.runState != SimRunState.Running ? null : sim.LiveParamSet;
         private static UmweltMapping LiveUmweltOf(SimulationBase sim) =>
-            sim.runState == SimRunState.Stopped ? null : sim.liveUmwelt;
+            sim.runState != SimRunState.Running ? null : sim.liveUmwelt;
 
         private void SnapshotFrom(bool newTake = false)
         {
