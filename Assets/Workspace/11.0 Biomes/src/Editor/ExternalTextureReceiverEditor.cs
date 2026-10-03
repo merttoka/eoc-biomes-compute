@@ -6,11 +6,11 @@ namespace Biomes
     [CustomEditor(typeof(ExternalTextureReceiver))]
     public class ExternalTextureReceiverEditor : Editor
     {
-        // Repaint continuously while receiving so the discovered-source list and live preview
-        // stay current (NDI/Syphon discovery updates over time, even in edit mode). Debug-video
-        // and idle receivers repaint on change only.
+        // Repaint continuously so the discovered-source list and live preview stay current
+        // (NDI/Syphon discovery updates over time, even in edit mode while picking a source).
+        // A receiver on debug video uses neither, so outside Play it repaints on change only.
         public override bool RequiresConstantRepaint() =>
-            target is ExternalTextureReceiver r && (r.enableReceive || Application.isPlaying);
+            target is ExternalTextureReceiver r && (!r.DebugUseVideoInput || Application.isPlaying);
 
         // Source discovery is a native directory query + LINQ copy; poll it at ~1 Hz, not per repaint.
         private string[] _sources = System.Array.Empty<string>();

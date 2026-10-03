@@ -360,10 +360,10 @@ namespace Biomes
             progress = 0f;
         }
 
-        // A Stopped sim keeps its last clones, but StartSim re-clones from the preset. At Play()
-        // (a new take) those clones are stale — treat the sim as having none so 'from' is taken
-        // lazily from the fresh clone (SyncLiveInstances). Mid-queue legs keep the old clone:
-        // the previous leg kept writing it, so it holds the reached waypoint (continuity).
+        // A Stopped sim keeps its last clones, but StartSim re-clones from the preset. Until a
+        // leg of this take has written a clone it is stale — treat the sim as having none so
+        // 'from' is taken lazily from the fresh clone (SyncLiveInstances). Once this take's legs
+        // have been writing it, a mid-queue leg keeps it: it holds the reached waypoint.
         private static IParamSet LiveParamsOf(SimulationBase sim) =>
             sim.runState == SimRunState.Stopped ? null : sim.LiveParamSet;
         private static UmweltMapping LiveUmweltOf(SimulationBase sim) =>
@@ -372,15 +372,18 @@ namespace Biomes
         private void SnapshotFrom(bool newTake = false)
         {
             var sim = Sim;
-            // empty _from when the sim has no clone yet (not started), or a stale one at a new take
-            SnapshotParams(sim, newTake ? LiveParamsOf(sim) : sim.LiveParamSet);
+            // 'fresh' = no leg of this take has written the clone yet (new take, or the sim had
+            // no live clone when it began) — a Stopped sim's clone is then a previous take's.
+            bool fresh = newTake || _liveInstance == null;
+            // empty _from when the sim has no clone yet (not started), or only a stale one
+            SnapshotParams(sim, fresh ? LiveParamsOf(sim) : sim.LiveParamSet);
 
             // Umwelt leg: snapshot both ends now (target asset is read once per leg).
             _fromUmwelt.Clear();
             _toUmwelt.Clear();
             _umweltLegFinished = false;
             // clone only — LiveUmwelt falls back to the asset, which must never be written
-            var liveU = newTake ? LiveUmweltOf(sim) : sim.liveUmwelt;
+            var liveU = fresh ? LiveUmweltOf(sim) : sim.liveUmwelt;
             var targetU = UmweltTargetFor(currentWaypoint);
             _umweltLegActive = liveU != null && targetU != null;
             if (_umweltLegActive)
