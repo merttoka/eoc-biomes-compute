@@ -178,11 +178,18 @@ namespace Biomes
             {
                 if (live == null) continue;
                 live.backend?.Dispose();
-                if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
-                if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
-                if (live.go != null) Destroy(live.go);
+                if (live.extractRT != null) { live.extractRT.Release(); DestroySafe(live.extractRT); }
+                if (live.scaleRT != null) { live.scaleRT.Release(); DestroySafe(live.scaleRT); }
+                if (live.go != null) DestroySafe(live.go);
             }
             _live.Clear();
+        }
+
+        // The Rebuild button can run in edit mode, where Destroy() is an error.
+        private static void DestroySafe(UnityEngine.Object o)
+        {
+            if (Application.isPlaying) Destroy(o);
+            else DestroyImmediate(o);
         }
     }
 }

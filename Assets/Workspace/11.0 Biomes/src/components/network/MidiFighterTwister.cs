@@ -695,10 +695,6 @@ namespace Biomes
                         float mapped = Mathf.Lerp(b.min, b.max, value);
                         b.setter(mapped);
 
-                        // Re-upload biome settings if we changed them
-                        if (b.target == BindingTarget.BiomeCrossField)
-                            m_SimManager?.biome?.UploadChannelSettings();
-
                         if (logMidi)
                             Debug.Log($"[MFT] B{_softBank} Enc{encoderIdx} -> {b.label} = {mapped:F4}");
                     }
@@ -1095,7 +1091,7 @@ namespace Biomes
             byte val = (byte)Mathf.Clamp(value, 0, 127);
             try
             {
-                _midiOut.SendMessage(new byte[] { status, cc, val });
+                _midiOut.SendMessage(stackalloc byte[] { status, cc, val });
             }
             catch (Exception e)
             {

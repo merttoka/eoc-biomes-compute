@@ -423,6 +423,11 @@ namespace Biomes
         // (no CPU stall, positions lag 1-2 frames); useAsyncReadback off = synchronous fallback.
         private int AppendAgentPositionStamps(float[] scaled, int neuronCount, int k)
         {
+            // Running only, like the manager's own deposits: a Fading sim's agents are frozen
+            // (stamping would pin hot spots at their last positions), and a Stopped sim's
+            // buffer may already be released by a manager reallocation.
+            if (firingAgentSim.runState != SimRunState.Running) return k;
+
             var buf = firingAgentSim.GetAgentPositionBuffer();
             int agentCount = firingAgentSim.GetAgentCount();
             if (buf == null || agentCount <= 0) return k;
