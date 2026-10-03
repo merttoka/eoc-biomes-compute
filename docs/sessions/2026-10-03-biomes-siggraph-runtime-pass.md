@@ -64,10 +64,22 @@ with all three sims at 4K: 60.0 sim steps/s, ~32 fps, game time = wall time.
   reallocation it read back a released buffer. Now Running-only, like the manager's own deposits
   and `StopSim`'s contract. *Look changes in the last 7 s of the DAC takes (113–120 s) and after.*
 - `ExternalTextureSender`: toggling a stream's `enabled` in Play rebuilds (was ignored; a disabled
-  live stream kept sending); teardown is edit-mode safe (`DestroySafe`, the Rebuild button).
+  live stream kept sending). The Rebuild button is Play-only: in edit mode it built scene objects
+  that never got a source, logged `Destroy` errors on teardown (Klak backends' `Dispose`), and
+  orphaned into Play beside the set `OnEnable` builds.
 - `MidiFighterTwister`: cross-field knobs no longer re-pack + re-upload three unchanged channel
   buffers per CC (their four scalars are re-set from `fieldConfig` every PDE step); `SendCC` uses a
   stack span instead of `new byte[3]` per message.
+
+## Closure review (this pass's commits)
+- Clean: nothing reads Main Camera (no `Camera.main`/tag lookups, Recorder uses the RT input or tag
+  `Recording`, Klak senders take textures); all scene + runtime materials are opaque `HDRP/Unlit`,
+  no Volumes/decals/probes, no shader reads depth/motion-vector/color-pyramid textures; override
+  mask decodes to exactly the 23 listed settings; OSC wrapper, injector guard, MFT removal,
+  `stackalloc` in `try`, and the toggle (one rebuild per toggle) all hold.
+- Rejected: "`LiveParamSet == null` misses Unity's fake-null" — the live test read the same
+  interface-typed comparison as null for unstarted sims, and early param messages logged nothing.
+- Fixed: the sender's edit-mode path (above).
 
 ## Decided
 - Camera/frame-settings changes count as output-identical: proven per scene, per setting.

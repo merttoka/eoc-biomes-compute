@@ -50,6 +50,13 @@ namespace Biomes
         [Button("Rebuild Streams")]
         public void Rebuild()
         {
+            // Streams only get a source in LateUpdate (Play). Built in edit mode they'd be scene
+            // objects that orphan into Play beside the set OnEnable builds.
+            if (!Application.isPlaying)
+            {
+                Debug.Log("[ExternalTextureSender] Streams are built in Play mode.");
+                return;
+            }
             Teardown();
             for (int i = 0; i < streams.Count; i++)
             {
@@ -186,18 +193,11 @@ namespace Biomes
             {
                 if (live == null) continue;
                 live.backend?.Dispose();
-                if (live.extractRT != null) { live.extractRT.Release(); DestroySafe(live.extractRT); }
-                if (live.scaleRT != null) { live.scaleRT.Release(); DestroySafe(live.scaleRT); }
-                if (live.go != null) DestroySafe(live.go);
+                if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
+                if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
+                if (live.go != null) Destroy(live.go);
             }
             _live.Clear();
-        }
-
-        // The Rebuild button can run in edit mode, where Destroy() is an error.
-        private static void DestroySafe(UnityEngine.Object o)
-        {
-            if (Application.isPlaying) Destroy(o);
-            else DestroyImmediate(o);
         }
     }
 }
