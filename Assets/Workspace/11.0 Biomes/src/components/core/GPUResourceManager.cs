@@ -68,14 +68,25 @@ namespace Biomes
             _buffers.Clear();
 
             foreach (var tex in _textures)
-            {
-                if (tex != null)
-                {
-                    tex.Release();
-                    Object.Destroy(tex);
-                }
-            }
+                DestroyTexture(tex);
             _textures.Clear();
+        }
+
+        /// <summary>Free one tracked texture now instead of at the next ReleaseAll.</summary>
+        public void Release(RenderTexture texture)
+        {
+            if (texture == null) return;
+            _textures.Remove(texture);
+            DestroyTexture(texture);
+        }
+
+        // Destroy is illegal outside Play mode, and these run from edit-mode [Button] resets too.
+        private static void DestroyTexture(RenderTexture tex)
+        {
+            if (tex == null) return;
+            tex.Release();
+            if (Application.isPlaying) Object.Destroy(tex);
+            else Object.DestroyImmediate(tex);
         }
     }
 }

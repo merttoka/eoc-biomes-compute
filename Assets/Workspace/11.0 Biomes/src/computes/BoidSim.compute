@@ -285,8 +285,8 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
                 : agentsCount;
 
             for (uint j = cellStart; j < cellEnd; j++) {
-                uint otherIdx = sortedIndicesRead[j];
-                if (otherIdx == id.x) continue;
+                // No self-skip needed: self has diff 0 → sqDist 0, and every term below
+                // requires sqDist > 0. Saves a dependent index load per neighbour.
                 Agent other = agentsSortedRead[j];
 
                 float2 diff = b.position - other.position;
@@ -384,7 +384,9 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     Agent b = agentsOut[id.x];
     BoidTypeParams p = typeParams[b.typeId];
-    uint2 pos = uint2(round(b.position));
+    // Wrap, don't clip: round() of a position in [rez-0.5, rez) gives rez, an out-of-bounds
+    // UAV write (dropped on D3D, undefined on Metal). The world is a torus, so it is pixel 0.
+    uint2 pos = uint2(round(b.position)) % uint2(rezX, rezY);
 
     float dep = IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount;
     float own = trailWrite[uint3(pos, b.typeId)];

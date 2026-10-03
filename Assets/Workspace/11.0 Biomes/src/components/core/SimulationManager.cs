@@ -128,13 +128,13 @@ namespace Biomes
 
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
-        private int moundOverlayKernel = -1;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
 
         private readonly List<Biome.FusedWrite> _writeScratch = new();
         private GPUResourceManager gpu;
         private RenderTexture _dummyBlackTex;
+        private RenderTexture _dummyBlackArray;
 
         // Clear-in-place: the composite output is allocated once and reused across resets so
         // its RenderTexture instance never changes — otherwise the ExternalTextureSender
@@ -156,6 +156,22 @@ namespace Biomes
         private static readonly int s_SimWeightsID = Shader.PropertyToID("simWeights");
         private static readonly int s_ExternalOverlayTexID = Shader.PropertyToID("externalOverlay");
         private static readonly int s_OverlayStrengthID = Shader.PropertyToID("overlayStrength");
+        private static readonly int[] s_SimInputIDs =
+        {
+            Shader.PropertyToID("simInput0"), Shader.PropertyToID("simInput1"),
+            Shader.PropertyToID("simInput2"), Shader.PropertyToID("simInput3"),
+            Shader.PropertyToID("simInput4"), Shader.PropertyToID("simInput5"),
+            Shader.PropertyToID("simInput6"), Shader.PropertyToID("simInput7"),
+        };
+        private static readonly int s_KeepOutCountID = Shader.PropertyToID("keepOutCount");
+        private static readonly int s_KeepOutRectsID = Shader.PropertyToID("keepOutRects");
+        private static readonly int s_KeepOutFeatherID = Shader.PropertyToID("keepOutFeather");
+        private static readonly int s_PermFieldID = Shader.PropertyToID("permField");
+        private static readonly int s_PermChannelID = Shader.PropertyToID("permChannel");
+        private static readonly int s_PermOpenBaselineOvID = Shader.PropertyToID("permOpenBaselineOv");
+        private static readonly int s_MoundStrengthID = Shader.PropertyToID("moundStrength");
+        private static readonly int s_MoundColorID = Shader.PropertyToID("moundColor");
+        private static readonly int s_UnlitColorMapID = Shader.PropertyToID("_UnlitColorMap");
 
         void Awake()
         {
@@ -188,7 +204,10 @@ namespace Biomes
             // Clear-in-place: only (re)allocate the composite/dummy/weights when the output
             // resolution changes. On a normal reset the composite RenderTexture instance is
             // preserved (no Syphon teardown) and we just re-run the cascade + re-render.
-            if (ManagerNeedsAllocation())
+            // Allocate() releases every sim's GPU resources, so a skipped (non-startOnPlay)
+            // Fading sim below must be stopped rather than left fading on freed textures.
+            bool reallocated = ManagerNeedsAllocation();
+            if (reallocated)
                 Allocate();
 
             _simStepCount = 0;
@@ -213,7 +232,12 @@ namespace Biomes
             foreach (var sim in simulations)
             {
                 if (sim == null) continue;
-                if (!sim.startOnPlay && sim.runState != SimRunState.Running) continue;
+                if (!sim.startOnPlay && sim.runState != SimRunState.Running)
+                {
+                    if (reallocated && sim.runState == SimRunState.Fading)
+                        sim.runState = SimRunState.Stopped;
+                    continue;
+                }
                 ConfigureAndReset(sim);
                 sim.runState = SimRunState.Running;
             }
@@ -246,12 +270,11 @@ namespace Biomes
             compositeOutTex = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
                 RenderTextureFormat.ARGBHalf, name: "composite_out");
             simWeightsBuffer = gpu.CreateBuffer(8, sizeof(float));
+            // permField must always be bound; this stands in while the mound overlay is off.
+            _dummyBlackArray = gpu.CreateTextureArray(1, 1, 1, FilterMode.Point,
+                RenderTextureFormat.RHalf, "composite_dummyArray");
             if (compositeCS != null)
-            {
                 compositeRenderKernel = compositeCS.FindKernel("CompositeRenderKernel");
-                moundOverlayKernel = compositeCS.HasKernel("MoundOverlayKernel")
-                    ? compositeCS.FindKernel("MoundOverlayKernel") : -1;
-            }
 
             _allocRezX = rezX; _allocRezY = rezY;
         }
@@ -434,7 +457,7 @@ namespace Biomes
 
             for (int i = 0; i < 8; i++)
             {
-                string propName = "simInput" + i;
+                int propName = s_SimInputIDs[i];
                 // Stopped sims composite as black: a never-started sim has no outTex anyway,
                 // and a stopped-after-fade sim may hold residue (decay-less presets) that
                 // must not pop back if its weight were nonzero.
@@ -453,9 +476,9 @@ namespace Biomes
             compositeCS.SetTexture(compositeRenderKernel, s_CompositeOutTexID, compositeOutTex);
 
             // Keep-out mask (composite + mound overlay share these shader-scope uniforms).
-            compositeCS.SetInt("keepOutCount", PackKeepOut());
-            compositeCS.SetVectorArray("keepOutRects", _keepOutScratch);
-            compositeCS.SetFloat("keepOutFeather", keepOutFeather);
+            compositeCS.SetInt(s_KeepOutCountID, PackKeepOut());
+            compositeCS.SetVectorArray(s_KeepOutRectsID, _keepOutScratch);
+            compositeCS.SetFloat(s_KeepOutFeatherID, keepOutFeather);
 
             // Per-sim composite weights (index matches simInput0..7). Fading sims scale
             // theirs by FadeWeight (agent sims: floor-ease over the last quarter, the trail
@@ -491,40 +514,45 @@ namespace Biomes
                 compositeCS.SetFloat(s_OverlayStrengthID, 0f);
             }
 
-            uint wx, wy, wz;
-            compositeCS.GetKernelThreadGroupSizes(compositeRenderKernel, out wx, out wy, out wz);
+            // Mound overlay (painted inside the composite kernel) follows the termites: full
+            // while they run, fades over their fadeOutSeconds (smooth, full window — the walls
+            // don't decay like trails do), off once they are stopped. The permeability field
+            // itself is untouched, so the habitat gates still hold and the mounds reappear
+            // when termites restart.
+            float moundStrength = moundOverlayStrength * TermitePresence();
+            if (moundStrength > 0f && biome != null && biome.FieldReadArray != null)
+            {
+                compositeCS.SetTexture(compositeRenderKernel, s_PermFieldID, biome.FieldReadArray);
+                compositeCS.SetInt(s_PermChannelID, BiomeChannel.Permeability);
+                compositeCS.SetFloat(s_PermOpenBaselineOvID, biome.OpenBaseline);
+                compositeCS.SetVector(s_MoundColorID, moundColor);
+            }
+            else
+            {
+                compositeCS.SetTexture(compositeRenderKernel, s_PermFieldID, _dummyBlackArray);
+                moundStrength = 0f;
+            }
+            compositeCS.SetFloat(s_MoundStrengthID, moundStrength);
+
+            compositeCS.GetKernelThreadGroupSizes(compositeRenderKernel, out uint wx, out uint wy, out uint _);
             compositeCS.Dispatch(compositeRenderKernel,
                 Mathf.CeilToInt((float)rezX / wx),
-                Mathf.CeilToInt((float)rezY / wy),
-                Mathf.CeilToInt(1f / wz));
-
-            // Mound overlay follows the termites: full while they run, fades over their
-            // fadeOutSeconds (smooth, full window — the walls don't decay like trails do), off
-            // once they are stopped. The permeability field itself is untouched, so the
-            // habitat gates still hold and the mounds reappear when termites restart.
-            float moundStrength = moundOverlayStrength * TermitePresence();
-            if (moundStrength > 0f && moundOverlayKernel >= 0 && biome != null && biome.FieldReadArray != null)
-            {
-                compositeCS.SetTexture(moundOverlayKernel, "permField", biome.FieldReadArray);
-                compositeCS.SetTexture(moundOverlayKernel, s_CompositeOutTexID, compositeOutTex);
-                compositeCS.SetInt("permChannel", BiomeChannel.Permeability);
-                compositeCS.SetFloat("permOpenBaselineOv", biome.OpenBaseline);
-                compositeCS.SetFloat("moundStrength", moundStrength);
-                compositeCS.SetVector("moundColor", moundColor);
-                compositeCS.GetKernelThreadGroupSizes(moundOverlayKernel, out uint mwx, out uint mwy, out uint _);
-                compositeCS.Dispatch(moundOverlayKernel,
-                    Mathf.CeilToInt((float)rezX / mwx),
-                    Mathf.CeilToInt((float)rezY / mwy), 1);
-            }
+                Mathf.CeilToInt((float)rezY / wy), 1);
 
             if (compositeOutMat != null)
-                compositeOutMat.SetTexture("_UnlitColorMap", compositeOutTex);
+                compositeOutMat.SetTexture(s_UnlitColorMapID, compositeOutTex);
 
             // Recorder path: copy the finished composite into the RT asset. Blit handles the
             // linear (ARGBHalf) → sRGB (ARGB32) encode when the asset is flagged sRGB, so the
-            // recording matches what the quad shows.
-            if (recorderTarget != null && recorderTarget.IsCreated())
+            // recording matches what the quad shows. Synced here too (a no-op when already
+            // right) so an RT assigned or swapped without a rez change is resized, not
+            // silently scaled. Unassign recorderTarget when not recording: the blit is a full
+            // composite-res read + write every frame.
+            if (recorderTarget != null)
+            {
+                SyncRecorderTarget();
                 Graphics.Blit(compositeOutTex, recorderTarget);
+            }
         }
 
         // ── Recording helpers ────────────────────────────────────────────────────

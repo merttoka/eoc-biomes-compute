@@ -53,6 +53,7 @@ namespace Biomes
         private RenderTexture[] debugTextures;
         private GameObject[] debugQuads;
         private Material[] debugMaterials;
+        private Renderer[] debugRenderers;
 
 
         // Legacy single-channel debug (kept for backward compat)
@@ -100,6 +101,9 @@ namespace Biomes
         // Parallel per-channel diffusion-kernel shaping (kernelShape, flowAnisotropy,
         // permeabilityInfluence, reserved). All-zero rows = legacy uniform box blur.
         private ComputeBuffer channelKernelBuffer;
+        // Mirrors of the uploaded channelKernel rows: lets DiffuseFieldsKernel skip the
+        // per-tap flow/permeability terms when no channel uses them.
+        private bool _diffuseUsesFlowAniso, _diffuseUsesPermInfluence;
 
         // Reusable perception read-entry buffer (one per Biome, grown on demand). Replaces
         // the per-call new/Release in BuildPerceptionTex, which churned ~180 GPU buffer
@@ -115,10 +119,35 @@ namespace Biomes
         private static readonly int s_ChannelSettingsID = Shader.PropertyToID("channelSettings");
         private static readonly int s_ChannelRelaxID = Shader.PropertyToID("channelRelax");
         private static readonly int s_ChannelKernelID = Shader.PropertyToID("channelKernel");
+        private static readonly int s_DiffuseUsesFlowAnisoID = Shader.PropertyToID("diffuseUsesFlowAniso");
+        private static readonly int s_DiffuseUsesPermInfluenceID = Shader.PropertyToID("diffuseUsesPermInfluence");
         private static readonly int s_WindXID = Shader.PropertyToID("windX");
         private static readonly int s_WindYID = Shader.PropertyToID("windY");
         private static readonly int s_DecompTempSpanID = Shader.PropertyToID("decompTempSpan");
         private static readonly int s_DebugOutTexID = Shader.PropertyToID("debugOutTex");
+        private static readonly int s_WriteChannelID = Shader.PropertyToID("writeChannel");
+        private static readonly int s_WriteAmountID = Shader.PropertyToID("writeAmount");
+        private static readonly int s_AgentCountID = Shader.PropertyToID("agentCount");
+        private static readonly int s_SimToFieldXID = Shader.PropertyToID("simToFieldX");
+        private static readonly int s_SimToFieldYID = Shader.PropertyToID("simToFieldY");
+        private static readonly int s_AgentPositionsID = Shader.PropertyToID("agentPositions");
+        private static readonly int s_BuildDepositProbID = Shader.PropertyToID("buildDepositProb");
+        private static readonly int s_BuildFiringDepositProbID = Shader.PropertyToID("buildFiringDepositProb");
+        private static readonly int s_BuildFiringThresholdID = Shader.PropertyToID("buildFiringThreshold");
+        private static readonly int s_BuildAmountID = Shader.PropertyToID("buildAmount");
+        private static readonly int s_BuildNeuronCountID = Shader.PropertyToID("buildNeuronCount");
+        private static readonly int s_BuildTimeSeedID = Shader.PropertyToID("buildTimeSeed");
+        private static readonly int s_BuildFiringID = Shader.PropertyToID("buildFiring");
+        private static readonly int s_WriteEntryCountID = Shader.PropertyToID("writeEntryCount");
+        private static readonly int s_WriteEntriesID = Shader.PropertyToID("writeEntries");
+        private static readonly int s_InjectStampCountID = Shader.PropertyToID("injectStampCount");
+        private static readonly int s_InjectStampsID = Shader.PropertyToID("injectStamps");
+        private static readonly int s_ReadEntryCountID = Shader.PropertyToID("readEntryCount");
+        private static readonly int s_PerceptionRezXID = Shader.PropertyToID("perceptionRezX");
+        private static readonly int s_PerceptionRezYID = Shader.PropertyToID("perceptionRezY");
+        private static readonly int s_ReadEntriesID = Shader.PropertyToID("readEntries");
+        private static readonly int s_PerceptionTexID = Shader.PropertyToID("perceptionTex");
+        private static readonly int s_UnlitColorMapID = Shader.PropertyToID("_UnlitColorMap");
         private static readonly int s_DebugChannelID = Shader.PropertyToID("debugChannel");
         private static readonly int s_DebugNormalizeID = Shader.PropertyToID("debugNormalize");
         private static readonly int s_DebugNormMinID = Shader.PropertyToID("debugNormMin");
@@ -211,8 +240,10 @@ namespace Biomes
                 FilterMode.Bilinear, RenderTextureFormat.RHalf, "biome_fieldRead");
             fieldWriteArray = gpu.CreateTextureArray(biomeRezX, biomeRezY, BiomeChannel.Count,
                 FilterMode.Bilinear, RenderTextureFormat.RHalf, "biome_fieldWrite");
+            // Debug views hold a 0..1 colormap shown on 8-bit quads: ARGBHalf, not the
+            // ARGBFloat default (half the bytes on every per-step debug render).
             debugOutTex = gpu.CreateTexture2D(biomeRezX, biomeRezY, FilterMode.Bilinear,
-                name: "biome_debugOut");
+                RenderTextureFormat.ARGBHalf, name: "biome_debugOut");
 
             FindKernels();
             AllocateChannelBuffers();
@@ -268,6 +299,8 @@ namespace Biomes
             var data = new float[BiomeChannel.Count * 4];
             var relax = new float[BiomeChannel.Count];
             var kern = new float[BiomeChannel.Count * 4];
+            _diffuseUsesFlowAniso = false;
+            _diffuseUsesPermInfluence = false;
             for (int i = 0; i < BiomeChannel.Count && i < fieldConfig.channels.Count; i++)
             {
                 var ch = fieldConfig.channels[i];
@@ -281,6 +314,8 @@ namespace Biomes
                 kern[i * 4 + 1] = ch.flowAnisotropy;
                 kern[i * 4 + 2] = ch.permeabilityInfluence;
                 kern[i * 4 + 3] = 0f;   // reserved
+                _diffuseUsesFlowAniso |= ch.flowAnisotropy != 0f;
+                _diffuseUsesPermInfluence |= ch.permeabilityInfluence > 0f;   // shader saturates it
             }
             channelSettingsBuffer.SetData(data);
             channelRelaxBuffer.SetData(relax);
@@ -360,6 +395,8 @@ namespace Biomes
             cs.SetBuffer(diffuseFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
             cs.SetBuffer(diffuseFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
             cs.SetBuffer(diffuseFieldsKernel, s_ChannelKernelID, channelKernelBuffer);
+            cs.SetInt(s_DiffuseUsesFlowAnisoID, _diffuseUsesFlowAniso ? 1 : 0);
+            cs.SetInt(s_DiffuseUsesPermInfluenceID, _diffuseUsesPermInfluence ? 1 : 0);
             DispatchFieldPass(diffuseFieldsKernel);
 
             // Debug render (reads fieldReadArray, which now holds the final state)
@@ -383,6 +420,7 @@ namespace Biomes
             debugTextures = new RenderTexture[BiomeChannel.Count];
             debugQuads = new GameObject[BiomeChannel.Count];
             debugMaterials = new Material[BiomeChannel.Count];
+            debugRenderers = new Renderer[BiomeChannel.Count];
 
             var shader = Shader.Find("HDRP/Unlit");
             if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
@@ -399,7 +437,7 @@ namespace Biomes
             for (int i = 0; i < BiomeChannel.Count; i++)
             {
                 debugTextures[i] = gpu.CreateTexture2D(biomeRezX, biomeRezY,
-                    FilterMode.Bilinear, name: $"biome_debug_{i}");
+                    FilterMode.Bilinear, RenderTextureFormat.ARGBHalf, name: $"biome_debug_{i}");
 
                 debugMaterials[i] = new Material(shader);
                 debugMaterials[i].name = $"BiomeDebug_{ChannelNames[i]}";
@@ -413,11 +451,13 @@ namespace Biomes
                 quad.transform.SetParent(transform);
                 quad.transform.localPosition = pos;
                 quad.transform.localScale = new Vector3(quadW, quadH, 1f);
-                quad.GetComponent<MeshRenderer>().material = debugMaterials[i];
+                debugMaterials[i].SetTexture(s_UnlitColorMapID, debugTextures[i]);   // instance is stable until DestroyDebugGrid
+                debugRenderers[i] = quad.GetComponent<MeshRenderer>();
+                debugRenderers[i].material = debugMaterials[i];
 
                 // Remove collider
                 var col2 = quad.GetComponent<Collider>();
-                if (col2 != null) Destroy(col2);
+                if (col2 != null) DestroySafe(col2);
 
                 debugQuads[i] = quad;
             }
@@ -564,27 +604,40 @@ namespace Biomes
 
         private void RenderDebug()
         {
-            // Render all channels for debug grid
-            if (showDebugGrid && debugTextures != null)
+            bool grid = showDebugGrid && debugTextures != null;
+            if (!grid && debugOutputMat == null) return;
+
+            // Shared uniforms bound once for every channel dispatch below.
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
+            BindKeepOut();
+            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
+
+            // Render all channels for debug grid. A quad no camera (Game or Scene view) drew
+            // last frame is skipped; it re-renders on the first step after it comes into view.
+            if (grid)
             {
                 for (int i = 0; i < BiomeChannel.Count; i++)
                 {
-                    RenderChannelTo(i, debugTextures[i]);
-                    debugMaterials[i].SetTexture("_UnlitColorMap", debugTextures[i]);
+                    if (debugRenderers[i] != null && !debugRenderers[i].isVisible) continue;
+                    RenderDebugChannel(i, debugTextures[i]);
                 }
             }
 
             // Legacy single-channel debug
             if (debugOutputMat != null)
             {
-                cs.SetInt(s_DebugChannelID, debugChannel);
-                cs.SetInt(s_DebugNormalizeID, 0);
-                BindKeepOut();
-                cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
-                cs.SetTexture(renderDebugKernel, s_DebugOutTexID, debugOutTex);
-                Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
-                debugOutputMat.SetTexture("_UnlitColorMap", debugOutTex);
+                RenderDebugChannel(debugChannel, debugOutTex);
+                debugOutputMat.SetTexture(s_UnlitColorMapID, debugOutTex);
             }
+        }
+
+        private void RenderDebugChannel(int channel, RenderTexture dst)
+        {
+            cs.SetInt(s_DebugChannelID, channel);
+            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
+            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
         }
 
         // --- Public API for sims to write/read ---
@@ -599,12 +652,12 @@ namespace Biomes
         {
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt("writeChannel", channel);
-            cs.SetFloat("writeAmount", amount);
-            cs.SetInt("agentCount", agentCount);
-            cs.SetFloat("simToFieldX", (float)biomeRezX / simRezX);
-            cs.SetFloat("simToFieldY", (float)biomeRezY / simRezY);
-            cs.SetBuffer(writeFieldKernel, "agentPositions", agentPositions);
+            cs.SetInt(s_WriteChannelID, channel);
+            cs.SetFloat(s_WriteAmountID, amount);
+            cs.SetInt(s_AgentCountID, agentCount);
+            cs.SetFloat(s_SimToFieldXID, (float)biomeRezX / simRezX);
+            cs.SetFloat(s_SimToFieldYID, (float)biomeRezY / simRezY);
+            cs.SetBuffer(writeFieldKernel, s_AgentPositionsID, agentPositions);
             cs.SetTexture(writeFieldKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(writeFieldKernel, agentCount, 1, 1);
         }
@@ -618,20 +671,20 @@ namespace Biomes
             float buildAmount, int timeSeed, int simRezX, int simRezY)
         {
             if (cs == null || fieldReadArray == null || agentPositions == null || agentCount <= 0) return;
-            cs.SetInt("agentCount", agentCount);
-            cs.SetFloat("simToFieldX", (float)biomeRezX / Mathf.Max(1, simRezX));
-            cs.SetFloat("simToFieldY", (float)biomeRezY / Mathf.Max(1, simRezY));
-            cs.SetFloat("buildDepositProb", depositProb);
-            cs.SetFloat("buildFiringDepositProb", firingDepositProb);
-            cs.SetFloat("buildFiringThreshold", firingThreshold);
-            cs.SetFloat("buildAmount", buildAmount);
+            cs.SetInt(s_AgentCountID, agentCount);
+            cs.SetFloat(s_SimToFieldXID, (float)biomeRezX / Mathf.Max(1, simRezX));
+            cs.SetFloat(s_SimToFieldYID, (float)biomeRezY / Mathf.Max(1, simRezY));
+            cs.SetFloat(s_BuildDepositProbID, depositProb);
+            cs.SetFloat(s_BuildFiringDepositProbID, firingDepositProb);
+            cs.SetFloat(s_BuildFiringThresholdID, firingThreshold);
+            cs.SetFloat(s_BuildAmountID, buildAmount);
             // A StructuredBuffer must always be bound; with no firing source, bind a persistent
             // 1-element dummy and force neuronCount 0 so the kernel never indexes it.
             if (firing == null) { _buildDummyFiring ??= new ComputeBuffer(1, sizeof(float)); firing = _buildDummyFiring; neuronCount = 0; }
-            cs.SetInt("buildNeuronCount", neuronCount);
-            cs.SetInt("buildTimeSeed", timeSeed);
-            cs.SetBuffer(buildPermeabilityKernel, "buildFiring", firing);
-            cs.SetBuffer(buildPermeabilityKernel, "agentPositions", agentPositions);
+            cs.SetInt(s_BuildNeuronCountID, neuronCount);
+            cs.SetInt(s_BuildTimeSeedID, timeSeed);
+            cs.SetBuffer(buildPermeabilityKernel, s_BuildFiringID, firing);
+            cs.SetBuffer(buildPermeabilityKernel, s_AgentPositionsID, agentPositions);
             cs.SetTexture(buildPermeabilityKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(buildPermeabilityKernel, agentCount, 1, 1);
         }
@@ -680,12 +733,12 @@ namespace Biomes
 
             fusedWriteCS.SetInt(s_RezXID, biomeRezX);
             fusedWriteCS.SetInt(s_RezYID, biomeRezY);
-            fusedWriteCS.SetInt("agentCount", agentCount);
-            fusedWriteCS.SetFloat("simToFieldX", (float)biomeRezX / simRezX);
-            fusedWriteCS.SetFloat("simToFieldY", (float)biomeRezY / simRezY);
-            fusedWriteCS.SetInt("writeEntryCount", n);
-            fusedWriteCS.SetBuffer(_writeFieldsKernel, "writeEntries", _writeEntryBuffer);
-            fusedWriteCS.SetBuffer(_writeFieldsKernel, "agentPositions", agentPositions);
+            fusedWriteCS.SetInt(s_AgentCountID, agentCount);
+            fusedWriteCS.SetFloat(s_SimToFieldXID, (float)biomeRezX / simRezX);
+            fusedWriteCS.SetFloat(s_SimToFieldYID, (float)biomeRezY / simRezY);
+            fusedWriteCS.SetInt(s_WriteEntryCountID, n);
+            fusedWriteCS.SetBuffer(_writeFieldsKernel, s_WriteEntriesID, _writeEntryBuffer);
+            fusedWriteCS.SetBuffer(_writeFieldsKernel, s_AgentPositionsID, agentPositions);
             fusedWriteCS.SetTexture(_writeFieldsKernel, s_FieldWriteID, fieldReadArray);
             fusedWriteCS.GetKernelThreadGroupSizes(_writeFieldsKernel, out uint tgx, out uint _, out uint __);
             fusedWriteCS.Dispatch(_writeFieldsKernel, Mathf.CeilToInt((float)agentCount / tgx), 1, 1);
@@ -703,8 +756,8 @@ namespace Biomes
             if (gpu == null || stamps == null || count <= 0) return;
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt("injectStampCount", count);
-            cs.SetBuffer(injectStampKernel, "injectStamps", stamps);
+            cs.SetInt(s_InjectStampCountID, count);
+            cs.SetBuffer(injectStampKernel, s_InjectStampsID, stamps);
             cs.SetTexture(injectStampKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(injectStampKernel, biomeRezX, biomeRezY, 1);
         }
@@ -792,9 +845,9 @@ namespace Biomes
             }
             if (entryCount > 0) perceptionEntryBuffer.SetData(_perceptionEntryData, 0, 0, entryCount * 4);
 
-            cs.SetInt("readEntryCount", entryCount);
-            cs.SetInt("perceptionRezX", simRezX);
-            cs.SetInt("perceptionRezY", simRezY);
+            cs.SetInt(s_ReadEntryCountID, entryCount);
+            cs.SetInt(s_PerceptionRezXID, simRezX);
+            cs.SetInt(s_PerceptionRezYID, simRezY);
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
             cs.SetFloat(s_HabitatBandMinID, umwelt != null ? umwelt.preferredPermeabilityMin : 0f);
@@ -803,9 +856,9 @@ namespace Biomes
             cs.SetFloat(s_HabitatSlowGainID, habitatSlowGain);
             cs.SetFloat(s_HabitatSpeedFloorID, habitatSpeedFloor);
             BindKeepOut();
-            cs.SetBuffer(readFieldKernel, "readEntries", perceptionEntryBuffer);
+            cs.SetBuffer(readFieldKernel, s_ReadEntriesID, perceptionEntryBuffer);
             cs.SetTexture(readFieldKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(readFieldKernel, "perceptionTex", perceptionTex);
+            cs.SetTexture(readFieldKernel, s_PerceptionTexID, perceptionTex);
             Dispatch(readFieldKernel, simRezX, simRezY, 1);
         }
 
@@ -870,16 +923,27 @@ namespace Biomes
             if (debugQuads != null)
             {
                 foreach (var q in debugQuads)
-                    if (q != null) Destroy(q);
+                    if (q != null) DestroySafe(q);
                 debugQuads = null;
             }
             if (debugMaterials != null)
             {
                 foreach (var m in debugMaterials)
-                    if (m != null) Destroy(m);
+                    if (m != null) DestroySafe(m);
                 debugMaterials = null;
             }
+            // Free the RTs now: a showDebugGrid off→on toggle would otherwise stack a new
+            // set on top of the old (tracked, so only freed at the next full Release).
+            if (debugTextures != null && gpu != null)
+                foreach (var t in debugTextures) gpu.Release(t);
             debugTextures = null;
+            debugRenderers = null;
+        }
+
+        private static void DestroySafe(Object o)
+        {
+            if (Application.isPlaying) Destroy(o);
+            else DestroyImmediate(o);
         }
 
         // Biome is initialized by SimulationManager.Reset(), not OnEnable
