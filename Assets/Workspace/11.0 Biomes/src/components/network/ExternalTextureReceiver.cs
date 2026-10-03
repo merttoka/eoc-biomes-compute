@@ -215,7 +215,8 @@ namespace Biomes
             _outputTexture.wrapMode = TextureWrapMode.Repeat;
             _outputTexture.Create();
             gpu.Track(_outputTexture);
-            _lastDebugCopyFrame = -1;   // fresh RT is undefined: let this frame's copy run
+            ClearToTransparent(_outputTexture);   // fresh RT contents are undefined; a stopped clip never copies over them
+            _lastDebugCopyFrame = -1;             // let this frame's copy run
         }
 
         private void EnsureBlurKernels()

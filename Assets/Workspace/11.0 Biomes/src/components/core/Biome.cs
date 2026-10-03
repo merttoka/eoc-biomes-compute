@@ -54,6 +54,7 @@ namespace Biomes
         private GameObject[] debugQuads;
         private Material[] debugMaterials;
         private Renderer[] debugRenderers;
+        private bool _debugGridFresh;
 
 
         // Legacy single-channel debug (kept for backward compat)
@@ -421,6 +422,7 @@ namespace Biomes
             debugQuads = new GameObject[BiomeChannel.Count];
             debugMaterials = new Material[BiomeChannel.Count];
             debugRenderers = new Renderer[BiomeChannel.Count];
+            _debugGridFresh = true;
 
             var shader = Shader.Find("HDRP/Unlit");
             if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
@@ -618,11 +620,14 @@ namespace Biomes
             // last frame is skipped; it re-renders on the first step after it comes into view.
             if (grid)
             {
+                // isVisible is false until a quad has been drawn once: fill every RT on the
+                // first pass after creation so no quad ever shows undefined contents.
                 for (int i = 0; i < BiomeChannel.Count; i++)
                 {
-                    if (debugRenderers[i] != null && !debugRenderers[i].isVisible) continue;
+                    if (!_debugGridFresh && debugRenderers[i] != null && !debugRenderers[i].isVisible) continue;
                     RenderDebugChannel(i, debugTextures[i]);
                 }
+                _debugGridFresh = false;
             }
 
             // Legacy single-channel debug
