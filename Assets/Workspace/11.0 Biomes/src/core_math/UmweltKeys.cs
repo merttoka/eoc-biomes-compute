@@ -51,18 +51,19 @@ namespace Biomes
         {
             channel = 0; effect = 0;
             if (!IsRead(key) || !key.EndsWith(ReadSuffix, StringComparison.Ordinal)) return false;
-            string body = key.Substring(ReadPrefix.Length, key.Length - ReadPrefix.Length - ReadSuffix.Length);
+            // Span slices, not Substring: the interpolator parses every umwelt key every frame.
+            var body = key.AsSpan(ReadPrefix.Length, key.Length - ReadPrefix.Length - ReadSuffix.Length);
             int colon = body.IndexOf(':');
             if (colon <= 0 || colon == body.Length - 1) return false;
-            return int.TryParse(body.Substring(0, colon), NumberStyles.Integer, CultureInfo.InvariantCulture, out channel)
-                && int.TryParse(body.Substring(colon + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out effect);
+            return int.TryParse(body.Slice(0, colon), NumberStyles.Integer, CultureInfo.InvariantCulture, out channel)
+                && int.TryParse(body.Slice(colon + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out effect);
         }
 
         public static bool TryParseWrite(string key, out int channel)
         {
             channel = 0;
             if (!IsWrite(key) || !key.EndsWith(WriteSuffix, StringComparison.Ordinal)) return false;
-            string body = key.Substring(WritePrefix.Length, key.Length - WritePrefix.Length - WriteSuffix.Length);
+            var body = key.AsSpan(WritePrefix.Length, key.Length - WritePrefix.Length - WriteSuffix.Length);
             return int.TryParse(body, NumberStyles.Integer, CultureInfo.InvariantCulture, out channel);
         }
     }
