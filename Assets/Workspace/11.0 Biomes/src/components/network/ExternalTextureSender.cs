@@ -39,6 +39,7 @@ namespace Biomes
             public RenderTexture extractRT;  // biome channel extract (biome res)
             public RenderTexture scaleRT;    // downscaled output
             public bool warned;
+            public bool enabled;             // stream.enabled when built; a toggle rebuilds
         }
         private readonly List<Live> _live = new();
 
@@ -53,7 +54,7 @@ namespace Biomes
             for (int i = 0; i < streams.Count; i++)
             {
                 var s = streams[i];
-                var live = new Live();
+                var live = new Live { enabled = s.enabled };
                 if (s.enabled && ExternalTextureShare.IsAvailable(s.protocol))
                 {
                     string name = string.IsNullOrEmpty(s.streamName) ? DefaultName(s) : s.streamName;
@@ -84,7 +85,7 @@ namespace Biomes
         void LateUpdate()
         {
             if (simManager == null) return;
-            if (_live.Count != streams.Count) Rebuild();
+            if (_live.Count != streams.Count || EnabledToggled()) Rebuild();
 
             for (int i = 0; i < streams.Count; i++)
             {
@@ -100,6 +101,13 @@ namespace Biomes
 
                 live.backend.SetSource(src);
             }
+        }
+
+        private bool EnabledToggled()
+        {
+            for (int i = 0; i < streams.Count; i++)
+                if (streams[i].enabled != _live[i].enabled) return true;
+            return false;
         }
 
         private Texture ResolveSource(SendStream s, Live live)
