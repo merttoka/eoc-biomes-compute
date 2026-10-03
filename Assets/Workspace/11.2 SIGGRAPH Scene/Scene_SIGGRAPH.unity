@@ -336,7 +336,7 @@ MonoBehaviour:
   behaviorMulMax: 4
   behaviorMulNeutral: 0.5
   agentsCount: 1000000
-  paramsSO: {fileID: 11400000, guid: 2940244884229420484178027317dab3, type: 2}
+  paramsSO: {fileID: 11400000, guid: d52b0cd17d3294f79815ebec366c8ada, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
 GameObject:
