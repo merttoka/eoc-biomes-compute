@@ -122,7 +122,16 @@ namespace Biomes
                 externalReceiver.StopDebugVideo();           // frame 0, transparent
                 if (startDebugVideoOnPlay) externalReceiver.RestartDebugVideo();
             }
-            if (interpolatorGroup != null) interpolatorGroup.StopAll(); // fresh take: presets until a PlayInterpolators cue
+            // Fresh take: presets until a PlayInterpolators cue. A group set to playOnStart
+            // would otherwise race this in Start() (script order decides who wins).
+            if (interpolatorGroup != null)
+            {
+                if (interpolatorGroup.playOnStart)
+                    Debug.LogWarning("[SimTimeline] interpolatorGroup.playOnStart is on — leaving its interpolators running; " +
+                                     "turn it off and use a PlayInterpolators cue for a deterministic take.", this);
+                else
+                    interpolatorGroup.StopAll();
+            }
             Debug.Log($"[SimTimeline] Play — {_sorted.Count} cues, " +
                       (endAtSeconds > 0 ? $"ends at {endAtSeconds:F0}s." : "manual stop."));
         }
