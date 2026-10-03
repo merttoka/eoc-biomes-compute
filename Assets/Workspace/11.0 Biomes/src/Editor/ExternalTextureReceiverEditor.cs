@@ -6,9 +6,28 @@ namespace Biomes
     [CustomEditor(typeof(ExternalTextureReceiver))]
     public class ExternalTextureReceiverEditor : Editor
     {
-        // Repaint continuously so the discovered-source list and live preview stay
-        // current (NDI/Syphon discovery updates over time, even in edit mode).
-        public override bool RequiresConstantRepaint() => true;
+        // Repaint continuously while receiving so the discovered-source list and live preview
+        // stay current (NDI/Syphon discovery updates over time, even in edit mode). Debug-video
+        // and idle receivers repaint on change only.
+        public override bool RequiresConstantRepaint() =>
+            target is ExternalTextureReceiver r && (r.enableReceive || Application.isPlaying);
+
+        // Source discovery is a native directory query + LINQ copy; poll it at ~1 Hz, not per repaint.
+        private string[] _sources = System.Array.Empty<string>();
+        private ShareProtocol _sourcesProtocol;
+        private double _sourcesAt = double.NegativeInfinity;
+
+        private string[] Sources(ShareProtocol protocol)
+        {
+            double now = EditorApplication.timeSinceStartup;
+            if (protocol != _sourcesProtocol || now - _sourcesAt > 1.0)
+            {
+                _sources = ExternalTextureShare.EnumerateSources(protocol);
+                _sourcesProtocol = protocol;
+                _sourcesAt = now;
+            }
+            return _sources;
+        }
 
         public override void OnInspectorGUI()
         {
@@ -20,7 +39,7 @@ namespace Biomes
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Discover Source", EditorStyles.boldLabel);
 
-            string[] sources = ExternalTextureShare.EnumerateSources(recv.protocol);
+            string[] sources = Sources(recv.protocol);
             if (sources.Length > 0)
             {
                 int cur = System.Array.IndexOf(sources, recv.streamName);

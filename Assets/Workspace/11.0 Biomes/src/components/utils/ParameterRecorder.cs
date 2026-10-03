@@ -266,7 +266,11 @@ namespace Biomes
                     var sim = simManager.simulations[evt.simIndex];
                     if (sim != null)
                     {
-                        sim.SetParameter(evt.paramName, evt.typeIndex, evt.value);
+                        // Events hold RAW values (captured via GetParameter); SetParameter maps
+                        // a 0..1 knob into the param range, so replay must write raw instead.
+                        var live = sim.LiveParamSet;
+                        if (live != null) live.SetValue(evt.paramName, evt.typeIndex, evt.value);
+                        else sim.SetParameter(evt.paramName, evt.typeIndex, evt.value);
                     }
                 }
                 _playbackEventIndex++;

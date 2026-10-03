@@ -25,15 +25,8 @@ namespace Biomes
             win.minSize = new Vector2(400, 300);
         }
 
-        void OnEnable()
-        {
-            EditorApplication.update += Repaint;
-        }
-
-        void OnDisable()
-        {
-            EditorApplication.update -= Repaint;
-        }
+        // ~10 Hz is plenty for a layout preview; EditorApplication.update fires every editor tick.
+        void OnInspectorUpdate() => Repaint();
 
         void OnGUI()
         {

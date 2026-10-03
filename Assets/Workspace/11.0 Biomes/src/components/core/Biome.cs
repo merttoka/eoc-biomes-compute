@@ -956,17 +956,16 @@ namespace Biomes
         void OnDestroy() => Release();
 
 #if UNITY_EDITOR
+        private GUIStyle _labelStyle;   // reused across Scene-view repaints
+
         // Draw channel names above each debug quad in the Scene view.
         void OnDrawGizmos()
         {
             if (!showBiomeLabels || debugQuads == null) return;
 
-            var style = new GUIStyle
-            {
-                normal = { textColor = labelColor },
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
+            _labelStyle ??= new GUIStyle { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            _labelStyle.normal.textColor = labelColor;
+            var style = _labelStyle;
 
             for (int i = 0; i < debugQuads.Length; i++)
             {

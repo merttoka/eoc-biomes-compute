@@ -465,7 +465,8 @@ namespace Biomes
                         Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 }
                 _rbPendingCount = readCount;
-                _rbReq = AsyncGPUReadback.RequestIntoNativeArray(ref _rbPending, buf, readCount * buf.stride, 0, OnAgentReadback);
+                _onAgentReadback ??= OnAgentReadback;   // method group → new delegate per call otherwise
+                _rbReq = AsyncGPUReadback.RequestIntoNativeArray(ref _rbPending, buf, readCount * buf.stride, 0, _onAgentReadback);
                 _rbInFlight = true;
             }
 
@@ -486,6 +487,8 @@ namespace Biomes
         // Completion of an async agent-position readback. The just-filled _rbPending becomes the
         // readable result; the previous result buffer is recycled for the next request (ping-pong),
         // so stamping never reads a buffer the GPU is mid-write on.
+        private System.Action<AsyncGPUReadbackRequest> _onAgentReadback;
+
         private void OnAgentReadback(AsyncGPUReadbackRequest req)
         {
             _rbInFlight = false;
