@@ -72,9 +72,12 @@ alters the look is listed under *Deferred*.
   removed kernels are the only delta); negative test confirms the checker catches errors.
 - EditMode tests via offline reflection runner: 62/66 pass, the 4 others are `[TestCaseSource]`
   cases the runner can't feed (not failures).
-- **Not verified in Editor:** the user's Editor was in Play mode throughout, so Unity's own
-  compile/import and a visual A/B are pending. `com.unity.pipeline` added to `Packages/manifest.json`
-  (uncommitted) for CLI driving.
+- glslang is a syntax/type gate, not Unity's HLSL→Metal compiler — Unity's own path is unexercised.
+- **Nothing has run in Unity:** the Editor was in Play mode throughout (changes defer until exit),
+  and the Pipeline package never connected, so Unity compile/import, the Test Runner and a visual
+  A/B are pending. `com.unity.pipeline` was tried and reverted (`unity pipeline install` re-adds it).
+- Side effects: `brew install glslang` (shader check); `Scene_SIGGRAPH.unity` edited on disk while
+  open — choose **Reload** when Unity asks, or a Save overwrites the guid fix.
 
 ## Decided
 - Output-identical only. Behaviour-changing items go to the user with evidence, not into commits.
@@ -108,4 +111,4 @@ alters the look is listed under *Deferred*.
 1. Exit Play mode → let Unity compile; check Console for shader errors; A/B one `_DAC_4k` frame
    against `main` (should be identical apart from the debug grid's half precision).
 2. Decide deferred 1–5 (each changes the look).
-3. Keep or drop `com.unity.pipeline` in the manifest.
+3. Add `com.unity.pipeline` if CLI-driven verification is wanted.
