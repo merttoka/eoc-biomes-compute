@@ -127,7 +127,7 @@ render is **not** part of it — it runs separately in `LateUpdate`):
 3.5 BiomeInjector.Inject()          → Gaussian stamps (sensors/OSC/firing) into channels
 3.6 TextureChannelSeeder.Seed()     → whole rasters (video/received texture) into channels
 4. Biome.Step()                     → flow gen → advect → cross-field react → diffuse/decay
-5. Render()                         → composite all sim outputs (+ optional overlay)
+5. Render()                         → composite all sim outputs (+ optional overlay, mound walls)
 ```
 
 This is a **read-modify-write loop over a shared field**: sims read the biome
@@ -161,7 +161,8 @@ temperature gradients generate flow → flow advects the advectable channels →
 cross-field interactions (waste→nutrient, temp→permeability, temp→humidity evaporation)
 react → diffuse + decay
 — each pass reading the previous pass's buffer and swapping. The partial passes
-(flow/advect/interact) call `CopyAllChannels` first so the channels they don't write
+(flow/advect/interact) carry every channel they don't write through to the write buffer
+(`CopyChannelsExcept`, with a literal mask of the channels the pass writes itself) so they
 survive the swap; **any new partial pass must do the same.** Field samples use
 texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow transports
 the chemical fields only — agents are never pushed by it. Resolution is independent of
@@ -420,7 +421,8 @@ packages compile on every platform; availability is gated at runtime
 
 - **Recording the composite** (`SimulationManager` › Recording) — two pixel-exact paths, no
   Game View dependence: (a) `recorderTarget`, a RenderTexture *asset* (sRGB ARGB32) the manager
-  resizes to `rezX×rezY` on Reset and `Graphics.Blit`s the finished composite into every frame —
+  keeps at `rezX×rezY` (synced on Reset and before each blit) and `Graphics.Blit`s the finished
+  composite into every frame — unassign it when not recording, the blit is full composite res —
   point Unity Recorder → *Render Texture* source at it; (b) `recordingCamera`, made orthographic
   and fitted square-on to the composite quad on Reset (`FitRecordingCamera`), for Recorder's
   *Targeted Camera* source at `rezX×rezY`. `Set Game View To Composite Rez` adds/selects a matching
