@@ -64,7 +64,8 @@ namespace Biomes
 
         [Tooltip("Homeostatic relaxation toward the baseline (= initialValue) each step. Use for " +
                  "channels that must hold an ambient level instead of ramping (Oxygen 0.8, Temperature " +
-                 "0.5). For Permeability it relaxes toward the recomputed noise terrain (heals digs). " +
+                 "0.5). For Permeability it relaxes toward permeabilityOpenBaseline, offset by " +
+                 "temperature (heals digs). " +
                  "0 = off (one-way decay/accumulate, the old behaviour).")]
         [Range(0f, 1f)] public float relaxRate = 0f;
 

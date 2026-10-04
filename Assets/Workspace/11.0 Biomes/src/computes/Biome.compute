@@ -14,7 +14,6 @@
 #pragma kernel BuildPermeabilityKernel
 #pragma kernel SeedChannelKernel
 
-#include "includes/random.hlsl"
 #include "includes/color.hlsl"
 #include "includes/keepout.hlsl"
 
@@ -45,12 +44,11 @@ RWTexture2D<float4> debugOutTex;
 // --- Uniforms ---
 uint rezX;
 uint rezY;
-uint channelCount;
 
 // Per-channel settings buffer: float4(diffuseRate, decayRate, advectedByFlow, initialValue)
 StructuredBuffer<float4> channelSettings;
 // Parallel per-channel homeostatic relaxation rate (relax toward initialValue baseline, or
-// for permeability toward the recomputed noise terrain). 0 = off (old one-way behaviour).
+// for permeability toward permOpenBaseline). 0 = off (old one-way behaviour).
 StructuredBuffer<float> channelRelax;
 // Parallel per-channel diffusion-kernel shaping: float4(kernelShape, flowAnisotropy,
 // permeabilityInfluence, reserved). An all-zero row reproduces the legacy uniform 3x3
@@ -67,8 +65,6 @@ float tempToPermeability;
 float tempToEvaporation;    // Temperature above 0.5 baseline sinks Humidity (evaporation)
 float humidityGradientGain; // |∇Humidity| magnitude gain (raw grad tiny; Humidity diffuseRate smooths it)
 float permOpenBaseline;      // open-ground permeability; termite mounds build downward from it
-float noiseScale;
-float noiseThreshold;
 
 // Debug
 int debugChannel;

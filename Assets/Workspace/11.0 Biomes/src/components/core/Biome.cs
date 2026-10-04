@@ -104,7 +104,7 @@ namespace Biomes
 
         // GPU data: per-channel settings uploaded as structured buffer
         private ComputeBuffer channelSettingsBuffer;
-        // Parallel per-channel relaxation rates (homeostatic pull toward baseline / terrain).
+        // Parallel per-channel relaxation rates (homeostatic pull toward baseline).
         private ComputeBuffer channelRelaxBuffer;
         // Parallel per-channel diffusion-kernel shaping (kernelShape, flowAnisotropy,
         // permeabilityInfluence, reserved). All-zero rows = legacy uniform box blur.
@@ -123,7 +123,6 @@ namespace Biomes
         private static readonly int s_RezYID = Shader.PropertyToID("rezY");
         private static readonly int s_FieldReadID = Shader.PropertyToID("fieldRead");
         private static readonly int s_FieldWriteID = Shader.PropertyToID("fieldWrite");
-        private static readonly int s_ChannelCountID = Shader.PropertyToID("channelCount");
         private static readonly int s_ChannelSettingsID = Shader.PropertyToID("channelSettings");
         private static readonly int s_ChannelRelaxID = Shader.PropertyToID("channelRelax");
         private static readonly int s_ChannelKernelID = Shader.PropertyToID("channelKernel");
@@ -171,8 +170,6 @@ namespace Biomes
         private static readonly int s_HabitatSpeedFloorID = Shader.PropertyToID("habitatSpeedFloor");
         private static readonly int s_TempToEvaporationID = Shader.PropertyToID("tempToEvaporation");
         private static readonly int s_HumidityGradientGainID = Shader.PropertyToID("humidityGradientGain");
-        private static readonly int s_NoiseScaleID = Shader.PropertyToID("noiseScale");
-        private static readonly int s_NoiseThresholdID = Shader.PropertyToID("noiseThreshold");
         private static readonly int s_SeedTexID = Shader.PropertyToID("seedTex");
         private static readonly int s_SeedChannelID = Shader.PropertyToID("seedChannel");
         private static readonly int s_SeedGainID = Shader.PropertyToID("seedGain");
@@ -336,7 +333,6 @@ namespace Biomes
         {
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_ChannelCountID, BiomeChannel.Count);
             cs.SetBuffer(resetFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
 
             // Clear both buffers
@@ -346,8 +342,6 @@ namespace Biomes
             Dispatch(resetFieldsKernel, biomeRezX, biomeRezY, 1);
 
             // Init permeability to the uniform-open baseline (termite mounds build downward from it)
-            cs.SetFloat(s_NoiseScaleID, fieldConfig.noiseScale);
-            cs.SetFloat(s_NoiseThresholdID, fieldConfig.noiseThreshold);
             cs.SetFloat(s_PermOpenBaselineID, fieldConfig.permeabilityOpenBaseline);
             cs.SetTexture(initPermeabilityKernel, s_FieldWriteID, fieldWriteArray);
             Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
@@ -365,7 +359,6 @@ namespace Biomes
 
             cs.SetInt(s_RezXID, biomeRezX);
             cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_ChannelCountID, BiomeChannel.Count);
 
             // The field PDE runs as a proper ping-pong chain: each pass reads the
             // previous pass's output, then swaps. Every pass writes ALL channels
@@ -385,16 +378,14 @@ namespace Biomes
             DispatchFieldPass(advectFieldsKernel);
 
             // 3. Cross-field interactions (waste→nutrient via Q10, temp→permeability relax).
-            //    Needs the channel settings + relax rates, the Q10 span, and the noise
-            //    params (permeability relaxes toward the recomputed terrain).
+            //    Needs the channel settings + relax rates, the Q10 span, and the open
+            //    baseline (permeability relaxes toward it).
             cs.SetFloat(s_WasteToNutrientRateID, fieldConfig.wasteToNutrientRate);
             cs.SetFloat(s_DecompTempSpanID, fieldConfig.decompositionTempSpan);
             cs.SetFloat(s_TempToPermID, fieldConfig.temperatureToPermeability);
             cs.SetFloat(s_PermOpenBaselineID, fieldConfig.permeabilityOpenBaseline);
             cs.SetFloat(s_TempToEvaporationID, fieldConfig.temperatureToEvaporation);
             cs.SetFloat(s_HumidityGradientGainID, fieldConfig.humidityGradientGain);
-            cs.SetFloat(s_NoiseScaleID, fieldConfig.noiseScale);
-            cs.SetFloat(s_NoiseThresholdID, fieldConfig.noiseThreshold);
             cs.SetBuffer(interactFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
             cs.SetBuffer(interactFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
             DispatchFieldPass(interactFieldsKernel);
