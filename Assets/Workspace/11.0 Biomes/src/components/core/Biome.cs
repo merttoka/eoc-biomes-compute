@@ -20,8 +20,15 @@ namespace Biomes
         private int _stepCounter;
 
         [Header("Config")]
+        [Tooltip("Authored field config. In Play the biome runs on a copy (shown as \"(Clone)\"), so live " +
+                 "edits — inspector or MFT knobs — never write the shared asset; use \"Save Field Config " +
+                 "To Asset\" to keep them.")]
         public BiomeFieldConfig fieldConfig;
         public ComputeShader cs;
+
+        // Play-mode copy fieldConfig points at, and the asset it was taken from.
+        private BiomeFieldConfig _runtimeFieldConfig;
+        private BiomeFieldConfig _fieldConfigAsset;
 
         [Header("Habitat confinement")]
         [Tooltip("Strength of steer-back when an agent is outside its preferred permeability band.")]
@@ -215,6 +222,8 @@ namespace Biomes
         [Button]
         public void Reset()
         {
+            UseRuntimeFieldConfig();
+
             // Clear-in-place: reallocate the field arrays + debug grid only when the biome
             // resolution changes. A normal reset re-uploads channel settings and re-clears
             // the fields, keeping the same texture instances.
@@ -923,6 +932,36 @@ namespace Biomes
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 
+        // The asset is shared across scenes (e.g. Scene_SIGGRAPH and _DAC_4k): edits made in
+        // Play would otherwise outlive the session and reach disk on the next SaveAssets.
+        private void UseRuntimeFieldConfig()
+        {
+            if (!Application.isPlaying || fieldConfig == null || fieldConfig == _runtimeFieldConfig) return;
+            if (_runtimeFieldConfig != null) Destroy(_runtimeFieldConfig);
+            _fieldConfigAsset = fieldConfig;
+            _runtimeFieldConfig = Instantiate(fieldConfig);
+            fieldConfig = _runtimeFieldConfig;
+        }
+
+        /// <summary>Editor-only: copy the Play-mode field config back into the authored asset.</summary>
+        [Button("Save Field Config To Asset")]
+        public void SaveFieldConfigToAsset()
+        {
+#if UNITY_EDITOR
+            if (_runtimeFieldConfig == null || _fieldConfigAsset == null)
+            {
+                Debug.Log("[Biome] No runtime field config to save (enter Play first).", this);
+                return;
+            }
+            string assetName = _fieldConfigAsset.name;               // CopySerialized would stamp "(Clone)"
+            UnityEditor.EditorUtility.CopySerialized(_runtimeFieldConfig, _fieldConfigAsset);
+            _fieldConfigAsset.name = assetName;
+            UnityEditor.EditorUtility.SetDirty(_fieldConfigAsset);
+            UnityEditor.AssetDatabase.SaveAssets();
+            Debug.Log($"[Biome] Saved live field config into {assetName}.", _fieldConfigAsset);
+#endif
+        }
+
         private void DestroyDebugGrid()
         {
             if (debugQuads != null)
@@ -953,7 +992,12 @@ namespace Biomes
 
         // Biome is initialized by SimulationManager.Reset(), not OnEnable
         void OnDisable() => Release();
-        void OnDestroy() => Release();
+        void OnDestroy()
+        {
+            Release();
+            if (_runtimeFieldConfig != null) Destroy(_runtimeFieldConfig);
+            _runtimeFieldConfig = null;
+        }
 
 #if UNITY_EDITOR
         private GUIStyle _labelStyle;   // reused across Scene-view repaints
