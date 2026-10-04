@@ -135,6 +135,12 @@ namespace Biomes
             _prevSnapshot = snapshot;
         }
 
+        // Events hold RAW values (captured via GetParameter); SetParameter maps a 0..1 knob
+        // into the param range, so replay writes raw into the live clone instead. No clone yet
+        // (sim not started) = nothing to write to.
+        private static void ApplyRecorded(SimulationBase sim, ParameterEvent evt) =>
+            sim.LiveParamSet?.SetValue(evt.paramName, evt.typeIndex, evt.value);
+
         private Dictionary<string, float>[] TakeSnapshot()
         {
             var snapshot = new Dictionary<string, float>[simManager.simulations.Count];
@@ -266,7 +272,7 @@ namespace Biomes
                     var sim = simManager.simulations[evt.simIndex];
                     if (sim != null)
                     {
-                        sim.SetParameter(evt.paramName, evt.typeIndex, evt.value);
+                        ApplyRecorded(sim, evt);
                     }
                 }
                 _playbackEventIndex++;
@@ -296,7 +302,7 @@ namespace Biomes
                 if (evt.simIndex >= 0 && evt.simIndex < simManager.simulations.Count)
                 {
                     var sim = simManager.simulations[evt.simIndex];
-                    sim?.SetParameter(evt.paramName, evt.typeIndex, evt.value);
+                    if (sim != null) ApplyRecorded(sim, evt);
                 }
                 _playbackEventIndex = i + 1;
             }

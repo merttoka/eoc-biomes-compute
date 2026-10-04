@@ -457,7 +457,7 @@ namespace Biomes
             Dispatch(renderStateKernel, cellRezX, cellRezY, 1);
 
             if (outputMat != null)
-                outputMat.SetTexture("_UnlitColorMap", outTex);
+                outputMat.SetTexture(s_UnlitColorMapID, outTex);
         }
 
         /// <summary>

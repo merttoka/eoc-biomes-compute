@@ -39,6 +39,7 @@ namespace Biomes
         private RenderTexture m_DebugVideoTexture;
         private RenderTexture m_DebugBlurTemp;
         private RenderTexture _outputTexture;
+        private int _lastDebugCopyFrame = -1;
 
         private ITextureReceiverBackend _backend;
         private GameObject _backendGO;
@@ -82,6 +83,16 @@ namespace Biomes
         public void UpdateInput()
         {
             if (m_DebugUseVideoInput) { UpdateDebugVideoInput(); return; }
+            // Debug input switched off at runtime: stop decoding and drop the last frame so
+            // nothing (seeder, overlay) keeps reading a frozen clip.
+            if (m_DebugVideoPlayer != null && !m_DebugVideoStopped)
+            {
+                m_DebugVideoPlayer.Stop();
+                m_DebugPrepareRequested = false;
+                m_DebugVideoStopped = true;
+                ClearToTransparent(m_DebugVideoTexture);
+                ClearToTransparent(_outputTexture);
+            }
             if (enableReceive) UpdateReceivedInput();
         }
 
@@ -141,12 +152,7 @@ namespace Biomes
             Texture rx = _backend.Received;
             if (rx == null || rx.width < 2 || rx.height < 2) return;
             EnsureOutputTexture(rx.width, rx.height);
-
-            var cmd = new UnityEngine.Rendering.CommandBuffer();
-            cmd.name = "Received Texture Copy";
-            cmd.Blit(rx, _outputTexture);
-            Graphics.ExecuteCommandBuffer(cmd);
-            cmd.Release();
+            Graphics.Blit(rx, _outputTexture);
         }
 
         private void EnsureBackend()
@@ -176,11 +182,13 @@ namespace Biomes
 
             EnsureOutputTexture(m_DebugVideoTexture.width, m_DebugVideoTexture.height);
 
-            var cmd = new UnityEngine.Rendering.CommandBuffer();
-            cmd.name = "Debug Video Copy";
-            cmd.Blit(m_DebugVideoTexture, _outputTexture);
-            Graphics.ExecuteCommandBuffer(cmd);
-            cmd.Release();
+            // The VideoPlayer writes its RT at most once per frame, so repeat calls in one
+            // frame (each sim step, plus selfDrive's Update) would copy identical pixels.
+            // A stopped clip was already cleared to transparent and stays that way.
+            if (m_DebugVideoStopped || _lastDebugCopyFrame == Time.frameCount) return;
+            _lastDebugCopyFrame = Time.frameCount;
+
+            Graphics.Blit(m_DebugVideoTexture, _outputTexture);
 
             if (m_DebugApplyGaussianBlur && m_BlurCompute != null)
                 ApplyGaussianBlur();
@@ -207,6 +215,8 @@ namespace Biomes
             _outputTexture.wrapMode = TextureWrapMode.Repeat;
             _outputTexture.Create();
             gpu.Track(_outputTexture);
+            ClearToTransparent(_outputTexture);   // fresh RT contents are undefined; a stopped clip never copies over them
+            _lastDebugCopyFrame = -1;             // let this frame's copy run
         }
 
         private void EnsureBlurKernels()

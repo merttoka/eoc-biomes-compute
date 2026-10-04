@@ -310,8 +310,7 @@ namespace Biomes
             var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
             var prev = RenderTexture.active;
             RenderTexture.active = src;
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
+            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);   // CPU copy is all EncodeToPNG needs; no Apply() upload
             RenderTexture.active = prev;
             if (tmp != null) RenderTexture.ReleaseTemporary(tmp);
             System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());

@@ -133,9 +133,13 @@ float habitatSpeedFloor; // min speed multiplier out-of-band (never fully freeze
 // Partial field passes (flow/advect/interact) write only a subset of channels.
 // Calling this first preserves the untouched channels across the ping-pong swap
 // between passes (see Biome.cs Step). Each thread owns one cell, so no races.
-void CopyAllChannels(uint2 xy) {
+// skipMask bits = channels the caller writes itself (a copy would be overwritten);
+// a literal mask lets the unrolled loop drop those stores at compile time.
+void CopyChannelsExcept(uint2 xy, uint skipMask) {
+    [unroll]
     for (uint cc = 0; cc < CH_COUNT; cc++)
-        fieldWrite[uint3(xy, cc)] = fieldRead[uint3(xy, cc)];
+        if (((skipMask >> cc) & 1u) == 0u)
+            fieldWrite[uint3(xy, cc)] = fieldRead[uint3(xy, cc)];
 }
 
 
@@ -165,7 +169,7 @@ void InitPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
 void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    CopyAllChannels(id.xy); // flow channels are overwritten below
+    CopyChannelsExcept(id.xy, (1u << CH_FLOW_X) | (1u << CH_FLOW_Y)); // flow written below
 
     float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
     float dx = 1.0 / (float)rezX;
@@ -204,8 +208,6 @@ void GenerateFlowKernel(uint3 id : SV_DISPATCHTHREADID) {
 void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    CopyAllChannels(id.xy); // advected channels are overwritten below
-
     float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
 
     // Read flow at this position
@@ -215,15 +217,16 @@ void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Semi-Lagrangian advection: trace backward along flow
     float2 srcUV = uv - float2(fx, fy) / float2((float)rezX, (float)rezY);
 
-    // Advect channels marked as advectable
+    // Advect channels marked as advectable; the rest pass through (one store per channel).
     for (uint c = 0; c < CH_COUNT; c++) {
         float isAdvected = channelSettings[c].z; // advectedByFlow
+        float current = fieldRead[uint3(id.xy, c)];
         if (isAdvected > 0.5) {
             float advected = fieldRead.SampleLevel(sampler_fieldRead, float3(srcUV, c), 0);
-            float current = fieldRead[uint3(id.xy, c)];
             // Blend: mostly advected, slight retention of current value
-            fieldWrite[uint3(id.xy, c)] = lerp(current, advected, 0.8);
+            current = lerp(current, advected, 0.8);
         }
+        fieldWrite[uint3(id.xy, c)] = current;
     }
 }
 
@@ -235,7 +238,8 @@ void AdvectFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= rezX || id.y >= rezY) return;
 
-    CopyAllChannels(id.xy); // nutrient/waste/permeability are overwritten below
+    CopyChannelsExcept(id.xy, (1u << CH_NUTRIENT) | (1u << CH_WASTE) | (1u << CH_PERMEABILITY)
+                            | (1u << CH_HUMIDITY) | (1u << CH_HUMIDITY_GRAD)); // written below
 
     float nutrient = fieldRead[uint3(id.xy, CH_NUTRIENT)];
     float waste    = fieldRead[uint3(id.xy, CH_WASTE)];
@@ -315,6 +319,11 @@ void InteractFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
 // accepted, since stigmergic channels leak by design and relax channels are pinned
 // to their baseline. See docs/superpowers/specs/2026-08-10-anisotropic-diffusion.
 static const float GAUSS_W[9] = { 1, 2, 1, 2, 4, 2, 1, 2, 1 };
+// Set by Biome.cs from the channelKernel rows: 0 when no row uses flowAnisotropy /
+// permeabilityInfluence, so the per-tap align/perm terms are skipped. Their weight
+// factor is lerp(1, x, 0) == 1 then, so holding them at 1 is exact.
+uint diffuseUsesFlowAniso;
+uint diffuseUsesPermInfluence;
 
 [numthreads(8, 8, 1)]
 void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
@@ -339,14 +348,16 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         for (int dx = -1; dx <= 1; dx++) {
             int2 xy = int2(uint2(int2(id.xy) + int2(dx, dy) + int2(rezX, rezY)) % uint2(rezX, rezY));
             taps[t] = xy;
-            if (dx == 0 && dy == 0) {
-                align2[t] = 1.0;
-                permIf[t] = 1.0;
-            } else {
-                float2 dir = normalize(float2(dx, dy));
-                float a = dot(dir, flowDir);
-                align2[t] = a * a;
-                permIf[t] = min(permHere, fieldRead[uint3(xy, CH_PERMEABILITY)]);
+            align2[t] = 1.0;
+            permIf[t] = 1.0;
+            if (dx != 0 || dy != 0) {
+                if (diffuseUsesFlowAniso != 0u) {
+                    float2 dir = normalize(float2(dx, dy));
+                    float a = dot(dir, flowDir);
+                    align2[t] = a * a;
+                }
+                if (diffuseUsesPermInfluence != 0u)
+                    permIf[t] = min(permHere, fieldRead[uint3(xy, CH_PERMEABILITY)]);
             }
             t++;
         }

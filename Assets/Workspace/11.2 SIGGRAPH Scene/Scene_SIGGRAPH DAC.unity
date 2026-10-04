@@ -162,6 +162,7 @@ MonoBehaviour:
   m_DebugVideoClip: {fileID: 32900000, guid: 7c21259cdc7d54495a28c899f15d1662, type: 3}
   m_DebugLoopVideo: 1
   m_DebugPlaybackSpeed: 1
+  debugVideoAutoPlay: 1
   m_DebugApplyGaussianBlur: 0
   m_BlurKernelSize: 9
   m_BlurStrength: 2.5
@@ -220,11 +221,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.FigureExporter
   simManager: {fileID: 2000144461}
   exportFolder: Exports/Figures
-  includeBiomeChannels: 0
   encodeSRGB: 0
   captureFramerate: 60
   frameEvery: 1
+  framesIncludeComposite: 1
   framesIncludeSims: 0
+  includeBiomeChannels: 0
   frameBiomeChannels: 00000000040000000500000008000000090000000b0000000c000000
 --- !u!1 &276895385
 GameObject:
@@ -274,6 +276,7 @@ MonoBehaviour:
   simManager: {fileID: 2000144461}
   simIndex: 0
   waypoints: []
+  umweltWaypoints: []
   durationSteps: 20000
   holdSteps: 5000
   easing:
@@ -300,6 +303,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  keepRunningOnSimReset: 1
   paramToggles:
   - name: moveSpeed
     enabled: 1
@@ -353,9 +357,6 @@ MonoBehaviour:
   umwelt: {fileID: 11400000, guid: 77afe21285fb44993966aca6d7b60b51, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
   agentsCount: 1000000
   paramsSO: {fileID: 11400000, guid: 898d9cc325b964ff0974c486223a1751, type: 2}
   agentParams: {fileID: 0}
@@ -516,6 +517,10 @@ MonoBehaviour:
   simManager: {fileID: 2000144461}
   figureExporter: {fileID: 39187335}
   recordFramesDuringPlayback: 0
+  firingPlayback: {fileID: 0}
+  externalReceiver: {fileID: 0}
+  startDebugVideoOnPlay: 0
+  interpolatorGroup: {fileID: 0}
   playOnStart: 1
   endAtSeconds: 120
   events:
@@ -957,7 +962,7 @@ MonoBehaviour:
   xrRendering: 1
   fullscreenPassthrough: 0
   allowDynamicResolution: 0
-  customRenderingSettings: 0
+  customRenderingSettings: 1
   invertFaceCulling: 0
   probeLayerMask:
     serializedVersion: 2
@@ -984,8 +989,8 @@ MonoBehaviour:
   materialMipBias: 0
   m_RenderingPathCustomFrameSettings:
     bitDatas:
-      data1: 5770166122053581
-      data2: 12934340311651418136
+      data1: 5699735269376205
+      data2: 12934340309503901720
     lodBias: 1
     lodBiasMode: 0
     lodBiasQualityLevel: 0
@@ -1000,8 +1005,8 @@ MonoBehaviour:
     materialQuality: 0
   renderingPathCustomFrameSettingsOverrideMask:
     mask:
-      data1: 0
-      data2: 0
+      data1: 70430852677376
+      data2: 2147516416
   defaultFrameSettings: 0
   m_Version: 9
   m_ObsoleteRenderingPath: 0
@@ -1281,9 +1286,6 @@ MonoBehaviour:
   umwelt: {fileID: 11400000, guid: 554aa317479f54f90be0b066927d9d69, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
   agentsCount: 131
   turnAngleSpread: 0.8
   paramsSO: {fileID: 11400000, guid: 7b3071f619a154ed5a8d3d116d2f29aa, type: 2}
@@ -1305,6 +1307,7 @@ MonoBehaviour:
   simManager: {fileID: 2000144461}
   simIndex: 2
   waypoints: []
+  umweltWaypoints: []
   durationSteps: 20000
   holdSteps: 5000
   easing:
@@ -1331,6 +1334,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  keepRunningOnSimReset: 1
   paramToggles:
   - name: moveSpeed
     enabled: 1
@@ -1689,6 +1693,7 @@ MonoBehaviour:
   simManager: {fileID: 2000144461}
   simIndex: 1
   waypoints: []
+  umweltWaypoints: []
   durationSteps: 20000
   holdSteps: 5000
   easing:
@@ -1715,6 +1720,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  keepRunningOnSimReset: 1
   paramToggles:
   - name: maxSpeed
     enabled: 1
@@ -1772,9 +1778,6 @@ MonoBehaviour:
   umwelt: {fileID: 11400000, guid: 6caa3b65b01e8456d8ea9f793c1aa10c, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  behaviorMulMin: 0.25
-  behaviorMulMax: 4
-  behaviorMulNeutral: 0.5
   agentsCount: 20000
   paramsSO: {fileID: 11400000, guid: aba70bb468ed3481bb407f8be9a787b3, type: 2}
   agentParams: {fileID: 0}
@@ -1812,7 +1815,7 @@ Camera:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1915234168}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 2
   m_ClearFlags: 1
   m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
@@ -2262,8 +2265,6 @@ MonoBehaviour:
   - {fileID: 1010527583}
   m_BiomeInjector: {fileID: 1919109756}
   m_NeuronFiringSource: {fileID: 1750220234}
-  m_SnPrefix: /sn
-  m_EntityBindings: []
 --- !u!4 &1938610678
 Transform:
   m_ObjectHideFlags: 0
@@ -2331,6 +2332,8 @@ MonoBehaviour:
   - {fileID: 276895387}
   - {fileID: 1825205987}
   - {fileID: 1010527584}
+  playOnStart: 0
+  keepRunningOnSimReset: 1
   mft: {fileID: 417804410}
   resumeCooldownSeconds: 8
   midiOverrideActive: 0
@@ -2376,6 +2379,8 @@ MonoBehaviour:
   compositeOutMat: {fileID: 2100000, guid: 3e812a8bed0cf4881bce47a8fab00566, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   recordingCamera: {fileID: 907546077}
+  recordingCameraDistance: 3
+  recorderTarget: {fileID: 0}
   keepOutRects: []
   keepOutFeather: 0.04
   keepOutAvoidGain: 4

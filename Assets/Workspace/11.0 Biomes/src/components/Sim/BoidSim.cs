@@ -158,9 +158,10 @@ namespace Biomes
             typeParamsBuffer.SetData(_typeParamsCache);
             cs.SetInt(s_TypeCountID, count);
 
-            int[] kernels = { moveAgentsKernel, writeTrailsKernel, diffuseTextureKernel, renderKernel };
-            foreach (int k in kernels)
-                cs.SetBuffer(k, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParamsBuffer);
         }
 
         // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
@@ -235,7 +236,6 @@ namespace Biomes
             cs.SetBuffer(moveAgentsKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_CellOffsetsReadID, cellOffsetsBuffer);
-            cs.SetBuffer(moveAgentsKernel, s_SortedIndicesReadID, sortedBoidIndicesBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsSortedReadID, sortedAgentsBuffer);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);
             Dispatch(moveAgentsKernel, n, 1, 1);
@@ -263,7 +263,7 @@ namespace Biomes
             cs.SetTexture(renderKernel, s_OutTexID, outTex);
             Dispatch(renderKernel, rezX, rezY, 1);
             if (outputMat != null)
-                outputMat.SetTexture("_UnlitColorMap", outTex);
+                outputMat.SetTexture(s_UnlitColorMapID, outTex);
         }
 
         #region Parameter Control

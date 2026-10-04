@@ -194,6 +194,10 @@ namespace Biomes
         protected static readonly int s_TrailReadID = Shader.PropertyToID("trailRead");
         protected static readonly int s_TrailWriteID = Shader.PropertyToID("trailWrite");
         protected static readonly int s_OutTexID = Shader.PropertyToID("outTex");
+        protected static readonly int s_UnlitColorMapID = Shader.PropertyToID("_UnlitColorMap");
+        private static readonly int s_DispersalSpeedModeID = Shader.PropertyToID("dispersalSpeedMode");
+        private static readonly int s_DispersalSpeedMultID = Shader.PropertyToID("dispersalSpeedMult");
+        private static readonly int s_DispersalConstantSpeedID = Shader.PropertyToID("dispersalConstantSpeed");
         protected static readonly int s_AgentsCountID = Shader.PropertyToID("agentsCount");
         protected static readonly int s_AgentsInID = Shader.PropertyToID("agentsIn");
         protected static readonly int s_AgentsOutID = Shader.PropertyToID("agentsOut");
@@ -321,10 +325,9 @@ namespace Biomes
             _simStep = 0;
 
             // Runtime umwelt clone — mirrors agentParams: re-cloned from the pristine asset each
-            // Reset so interpolation / MFT edits never touch disk and never compound. Destroyed
-            // first in Play mode so a mid-run Reset doesn't leak the old clone; skipped in edit
-            // mode since Reset is also a [Button] there and Destroy is illegal outside Play.
-            if (Application.isPlaying && liveUmwelt != null) Destroy(liveUmwelt);
+            // Reset so interpolation / MFT edits never touch disk and never compound. The old
+            // clone is destroyed first so a Reset (Play or the edit-mode [Button]) never leaks it.
+            DestroyLiveUmwelt();
             liveUmwelt = umwelt != null ? Instantiate(umwelt) : null;
             if (liveUmwelt != null) liveUmwelt.name = umwelt.name + " (live)";
 
@@ -495,19 +498,26 @@ namespace Biomes
             cs.SetInt(s_TrailTensorStrideID, Mathf.Max(1, Mathf.RoundToInt(3f * ResolutionScale)));
         }
 
-        protected void BindPerceptionTex(params int[] kernels)
-        {
-            Texture tex = perceptionTex;
-            foreach (int k in kernels)
-                cs.SetTexture(k, s_PerceptionTexID, tex);
-        }
+        protected void BindPerceptionTex(int kernel) => cs.SetTexture(kernel, s_PerceptionTexID, perceptionTex);
 
         // Bind the shared neuron-firing buffer + count + threshold to the given kernels.
         // Falls back to a 1-element dummy (count 0 => no firing) when no source is wired.
-        protected void BindNeuronFiring(params int[] kernels)
+        // Fixed-arity overloads, not params int[]: these run every step per sim.
+        protected void BindNeuronFiring(int kernel) => BindNeuronFiring(kernel, -1);
+
+        protected void BindNeuronFiring(int kernel0, int kernel1)
+        {
+            ComputeBuffer buf = NeuronFiringOrDummy(out int count);
+            cs.SetBuffer(kernel0, s_NeuronFiringID, buf);
+            if (kernel1 >= 0) cs.SetBuffer(kernel1, s_NeuronFiringID, buf);
+            cs.SetInt(s_NeuronFiringCountID, count);
+            cs.SetFloat(s_FiringThresholdID, firingThreshold);
+        }
+
+        private ComputeBuffer NeuronFiringOrDummy(out int count)
         {
             ComputeBuffer buf = neuronFiring;
-            int count = neuronFiringCount;
+            count = neuronFiringCount;
             if (buf == null)
             {
                 if (dummyNeuronFiringBuffer == null)
@@ -518,18 +528,15 @@ namespace Biomes
                 buf = dummyNeuronFiringBuffer;
                 count = 0;
             }
-            foreach (int k in kernels)
-                cs.SetBuffer(k, s_NeuronFiringID, buf);
-            cs.SetInt(s_NeuronFiringCountID, count);
-            cs.SetFloat(s_FiringThresholdID, firingThreshold);
+            return buf;
         }
 
         // Bind the shared dispersal speed-response params (consumed via includes/dispersal_speed_response.hlsl).
         protected void BindDispersalSpeedParams()
         {
-            cs.SetInt("dispersalSpeedMode", (int)dispersalSpeedMode);
-            cs.SetFloat("dispersalSpeedMult", dispersalSpeedMult);
-            cs.SetFloat("dispersalConstantSpeed", dispersalConstantSpeed);
+            cs.SetInt(s_DispersalSpeedModeID, (int)dispersalSpeedMode);
+            cs.SetFloat(s_DispersalSpeedMultID, dispersalSpeedMult);
+            cs.SetFloat(s_DispersalConstantSpeedID, dispersalConstantSpeed);
         }
 
         /// <summary>Force the next BuildNeuronPositions to re-upload from
@@ -597,6 +604,7 @@ namespace Biomes
         {
             gpu?.ReleaseAll();
             gpu = null;
+            outTex = null;          // freed above; a stale ref would bind a destroyed RT to the composite
             trailReadArray = null;
             trailWriteArray = null;
             perceptionTex = null;
@@ -611,7 +619,19 @@ namespace Biomes
         }
 
         void OnDisable() => Release();
-        void OnDestroy() => Release();
+        void OnDestroy()
+        {
+            Release();
+            DestroyLiveUmwelt();
+        }
+
+        private void DestroyLiveUmwelt()
+        {
+            if (liveUmwelt == null) return;
+            if (Application.isPlaying) Destroy(liveUmwelt);
+            else DestroyImmediate(liveUmwelt);
+            liveUmwelt = null;
+        }
 
         [Button("Export as PNG")]
         public void ExportPNG()

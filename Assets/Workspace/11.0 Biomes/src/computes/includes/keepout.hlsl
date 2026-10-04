@@ -28,28 +28,51 @@ float KeepOutField(float2 uv) {
 }
 
 
-// Push a point out of any rect it falls inside: to the nearest edge plus the
-// feather width, so evicted spawns are born below the avoidance ramp. A rect
-// flush to a canvas edge can make the nearest-edge eviction land off-canvas;
-// fall back to the nearer SIDE, which a physical cutout always has.
+// Inclusive, matching KeepOutField (which scores a rect's edge as inside).
+bool InsideKeepOutRect(float2 uv, float4 r) {
+    return uv.x >= r.x && uv.x <= r.z && uv.y >= r.y && uv.y <= r.w;
+}
+
+bool InsideAnyKeepOutRect(float2 uv) {
+    for (int i = 0; i < keepOutCount; i++)
+        if (InsideKeepOutRect(uv, keepOutRects[i])) return true;
+    return false;
+}
+
+// Push a point out of any rect it falls inside: past the nearest edge plus the
+// feather width, so evicted spawns are born below the avoidance ramp. A side is a
+// candidate only if its pushed point is on-canvas and outside every rect, so a rect
+// flush to a canvas edge (or a corner / full-width band) evicts through a side it
+// actually has. If every on-canvas side lands in another rect (abutting rects), take
+// the nearest one that at least leaves this rect; that rect evicts it in turn, and
+// the second sweep covers rects earlier in the list.
+// An evicted point stays below u/v = 1 so the caller's * rez never lands on pixel rez.
 float2 EvictFromKeepOut(float2 uv) {
-    for (int i = 0; i < keepOutCount; i++) {
-        float4 r = keepOutRects[i];
-        if (uv.x <= r.x || uv.x >= r.z || uv.y <= r.y || uv.y >= r.w) continue;
-        float push = keepOutFeather + 1e-3;
-        float dl = uv.x - r.x, dr = r.z - uv.x;
-        float db = uv.y - r.y, dt = r.w - uv.y;
-        float m = min(min(dl, dr), min(db, dt));
-        float2 cand = uv;
-        if (m == dl)      cand.x = r.x - push;
-        else if (m == dr) cand.x = r.z + push;
-        else if (m == db) cand.y = r.y - push;
-        else              cand.y = r.w + push;
-        if (cand.x < 0.0 || cand.x > 1.0 || cand.y < 0.0 || cand.y > 1.0)
-            cand = float2(dl < dr ? r.x - push : r.z + push, uv.y);
-        uv = saturate(cand);
+    float push = keepOutFeather + 1e-3;
+    bool evicted = false;
+    for (int sweep = 0; sweep < 2; sweep++) {
+        for (int i = 0; i < keepOutCount; i++) {
+            float4 r = keepOutRects[i];
+            if (!InsideKeepOutRect(uv, r)) continue;
+            // left, right, bottom, top — ties keep this order
+            float2 cand[4] = { float2(r.x - push, uv.y), float2(r.z + push, uv.y),
+                               float2(uv.x, r.y - push), float2(uv.x, r.w + push) };
+            float  dist[4] = { uv.x - r.x, r.z - uv.x, uv.y - r.y, r.w - uv.y };
+            float best = 1e9, bestHop = 1e9;
+            float2 pick = uv, hop = uv;
+            for (int k = 0; k < 4; k++) {
+                bool onCanvas = cand[k].x >= 0.0 && cand[k].x <= 1.0
+                             && cand[k].y >= 0.0 && cand[k].y <= 1.0;
+                if (!onCanvas) continue;
+                if (dist[k] < best && !InsideAnyKeepOutRect(cand[k])) { best = dist[k]; pick = cand[k]; }
+                if (dist[k] < bestHop) { bestHop = dist[k]; hop = cand[k]; }
+            }
+            if (best >= 1e9) pick = hop;   // no free side: hop into the neighbour, evicted next
+            evicted = evicted || bestHop < 1e9;
+            uv = pick;   // a rect covering the whole canvas has no exit; the point stays
+        }
     }
-    return uv;
+    return evicted ? min(uv, 1.0 - 1e-4) : uv;
 }
 
 #endif

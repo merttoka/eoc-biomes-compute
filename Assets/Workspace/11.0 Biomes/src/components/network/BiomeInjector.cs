@@ -423,6 +423,11 @@ namespace Biomes
         // (no CPU stall, positions lag 1-2 frames); useAsyncReadback off = synchronous fallback.
         private int AppendAgentPositionStamps(float[] scaled, int neuronCount, int k)
         {
+            // Running only, like the manager's own deposits: a Fading sim's agents are frozen
+            // (stamping would pin hot spots at their last positions), and a Stopped sim's
+            // buffer may already be released by a manager reallocation.
+            if (firingAgentSim.runState != SimRunState.Running) return k;
+
             var buf = firingAgentSim.GetAgentPositionBuffer();
             int agentCount = firingAgentSim.GetAgentCount();
             if (buf == null || agentCount <= 0) return k;
@@ -465,7 +470,8 @@ namespace Biomes
                         Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 }
                 _rbPendingCount = readCount;
-                _rbReq = AsyncGPUReadback.RequestIntoNativeArray(ref _rbPending, buf, readCount * buf.stride, 0, OnAgentReadback);
+                _onAgentReadback ??= OnAgentReadback;   // method group → new delegate per call otherwise
+                _rbReq = AsyncGPUReadback.RequestIntoNativeArray(ref _rbPending, buf, readCount * buf.stride, 0, _onAgentReadback);
                 _rbInFlight = true;
             }
 
@@ -486,6 +492,8 @@ namespace Biomes
         // Completion of an async agent-position readback. The just-filled _rbPending becomes the
         // readable result; the previous result buffer is recycled for the next request (ping-pong),
         // so stamping never reads a buffer the GPU is mid-write on.
+        private System.Action<AsyncGPUReadbackRequest> _onAgentReadback;
+
         private void OnAgentReadback(AsyncGPUReadbackRequest req)
         {
             _rbInFlight = false;

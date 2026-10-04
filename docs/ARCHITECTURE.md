@@ -127,7 +127,7 @@ render is **not** part of it — it runs separately in `LateUpdate`):
 3.5 BiomeInjector.Inject()          → Gaussian stamps (sensors/OSC/firing) into channels
 3.6 TextureChannelSeeder.Seed()     → whole rasters (video/received texture) into channels
 4. Biome.Step()                     → flow gen → advect → cross-field react → diffuse/decay
-5. Render()                         → composite all sim outputs (+ optional overlay)
+5. Render()                         → composite all sim outputs (+ optional overlay, mound walls)
 ```
 
 This is a **read-modify-write loop over a shared field**: sims read the biome
@@ -161,7 +161,8 @@ temperature gradients generate flow → flow advects the advectable channels →
 cross-field interactions (waste→nutrient, temp→permeability, temp→humidity evaporation)
 react → diffuse + decay
 — each pass reading the previous pass's buffer and swapping. The partial passes
-(flow/advect/interact) call `CopyAllChannels` first so the channels they don't write
+(flow/advect/interact) carry every channel they don't write through to the write buffer
+(`CopyChannelsExcept`, with a literal mask of the channels the pass writes itself) so they
 survive the swap; **any new partial pass must do the same.** Field samples use
 texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow transports
 the chemical fields only — agents are never pushed by it. Resolution is independent of
@@ -320,7 +321,9 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   (`/sim_reset`, `/sim_resetSimsOnly`) are queued and drained on the main thread in `Update()`
   — OscJack invokes callbacks on its socket thread, and reset touches GPU/GameObject APIs that
   must run on the main thread ([[adr/0008-clear-in-place-reset]]). Param/injector/`/index`
-  callbacks stay inline (CPU-only).
+  callbacks stay inline (CPU-only). Every callback is registered through `On()`, which catches and
+  logs on the main thread — OscJack ends its receive thread on the first exception. Param
+  messages are dropped until the target sim has started (`LiveParamSet` non-null).
 - **`NeuronFiringSource`** — the **firing playhead** ([[adr/0006-osc-neuron-firing]]).
   Owns the firing blob + neuron positions; an external patch sends `/index <int>` to scrub
   which frame is shown (file = values, OSC = playhead — no auto-advance). Holds the last
@@ -420,11 +423,19 @@ packages compile on every platform; availability is gated at runtime
 
 - **Recording the composite** (`SimulationManager` › Recording) — two pixel-exact paths, no
   Game View dependence: (a) `recorderTarget`, a RenderTexture *asset* (sRGB ARGB32) the manager
-  resizes to `rezX×rezY` on Reset and `Graphics.Blit`s the finished composite into every frame —
+  keeps at `rezX×rezY` (synced on Reset and before each blit) and `Graphics.Blit`s the finished
+  composite into every frame — unassign it when not recording, the blit is full composite res —
   point Unity Recorder → *Render Texture* source at it; (b) `recordingCamera`, made orthographic
   and fitted square-on to the composite quad on Reset (`FitRecordingCamera`), for Recorder's
   *Targeted Camera* source at `rezX×rezY`. `Set Game View To Composite Rez` adds/selects a matching
   Game View size (reflection, best-effort). `FigureExporter` remains the PNG-sequence route.
+- **Scene cameras (11.2 scenes)** — one HDRP camera renders: `Rendering Camera` (tag
+  `Recording`). `Main Camera` only carries the AudioListener (its Camera is off; it was fully
+  overdrawn). `Rendering Camera` uses custom frame settings with shadows, screen-space effects,
+  volumetrics, motion vectors, decals, SSS/transmission/refraction/distortion, transparency
+  pre/post/low-res, light layers and probes off — the scene is unlit quads, so output is
+  bit-identical and a 4K frame costs ~4 ms instead of ~8. Re-enable them there before adding lit
+  or transparent content. Post-processing and fog are untouched.
 
 ### 3.9 Temporal Composer — show sequencer (`11.2 SIGGRAPH Scene`)
 

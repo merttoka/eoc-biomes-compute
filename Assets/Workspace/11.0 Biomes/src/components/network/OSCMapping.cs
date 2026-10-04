@@ -29,7 +29,7 @@ namespace Biomes
 
             // Neuron firing: external frame index (0..frameCount-1) scrubs the blob.
             // GetElementAsInt handles both int ('i') and float ('f') OSC type tags.
-            m_OscServer.MessageDispatcher.AddCallback(
+            On(
                 "/index",
                 (string address, OscDataHandle data) => {
                     if (m_NeuronFiringSource == null) return;
@@ -38,32 +38,32 @@ namespace Biomes
             );
 
             // Reset commands — marshalled to the main thread (they touch GPU + GameObjects).
-            m_OscServer.MessageDispatcher.AddCallback(
+            On(
                 "/sim_reset",
                 (string address, OscDataHandle data) => {
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.Reset());
                 }
             );
-            m_OscServer.MessageDispatcher.AddCallback(
+            On(
                 "/sim_resetSimsOnly",
                 (string address, OscDataHandle data) => {
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetSimsOnly());
                 }
             );
             // Per-type sim resets (respawn one family, others keep running).
-            m_OscServer.MessageDispatcher.AddCallback(
+            On(
                 "/sim_resetPhysarum",
                 (string address, OscDataHandle data) => {
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetPhysarum());
                 }
             );
-            m_OscServer.MessageDispatcher.AddCallback(
+            On(
                 "/sim_resetBoids",
                 (string address, OscDataHandle data) => {
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetBoids());
                 }
             );
-            m_OscServer.MessageDispatcher.AddCallback(
+            On(
                 "/sim_resetTermites",
                 (string address, OscDataHandle data) => {
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetTermites());
@@ -89,21 +89,6 @@ namespace Biomes
             // Biome injector source drivers: /inject/<name> <value>, /inject/<name>/pos <u> <v>
             RegisterInjectorSources();
 
-            // Catch-all debug
-            m_OscServer.MessageDispatcher.AddCallback(
-                "*",
-                (string address, OscDataHandle data) => {
-                    string msg = "(" + address + ": ";
-                    for (int i = 0; i < data.GetElementCount(); i++)
-                    {
-                        msg += data.GetElementAsFloat(i).ToString();
-                        if (i < data.GetElementCount() - 1) msg += ", ";
-                    }
-                    msg += ")";
-                    Debug.Log($"[OSC] {msg}");
-                }
-            );
-
             Debug.Log($"[OSC] Server listening on port {m_Port}");
         }
 
@@ -113,10 +98,14 @@ namespace Biomes
             {
                 int paramIndex = i;
                 string address = $"/{prefix}_{paramName}_{paramIndex}";
-                m_OscServer.MessageDispatcher.AddCallback(
+                On(
                     address,
                     (string addr, OscDataHandle data) => {
-                        m_Simulations[simIdx].SetParameter(paramName, paramIndex, data.GetElementAsFloat(0));
+                        // Live params exist only once the sim has started (timeline-started
+                        // sims are null until their cue); drop messages that arrive before.
+                        var sim = m_Simulations[simIdx];
+                        if (sim == null || sim.LiveParamSet == null) return;
+                        sim.SetParameter(paramName, paramIndex, data.GetElementAsFloat(0));
                     }
                 );
             }
@@ -138,21 +127,21 @@ namespace Biomes
                 string baseAddr = BiomeInjector.OscAddressFor(src); // explicit override or /inject/<name>
                 if (string.IsNullOrEmpty(baseAddr)) continue;
 
-                m_OscServer.MessageDispatcher.AddCallback(
+                On(
                     baseAddr,
                     (string addr, OscDataHandle data) => {
                         m_BiomeInjector.SetValue(srcName, data.GetElementAsFloat(0));
                     }
                 );
 
-                m_OscServer.MessageDispatcher.AddCallback(
+                On(
                     $"{baseAddr}/pos",
                     (string addr, OscDataHandle data) => {
                         m_BiomeInjector.SetPosition(srcName, data.GetElementAsFloat(0), data.GetElementAsFloat(1));
                     }
                 );
 
-                m_OscServer.MessageDispatcher.AddCallback(
+                On(
                     $"{baseAddr}/shape",
                     (string addr, OscDataHandle data) => {
                         m_BiomeInjector.SetShape(srcName,
@@ -161,7 +150,7 @@ namespace Biomes
                 );
 
                 // Full stamp in one message: u v radius falloff value (e.g. audio → sized Dispersal hit).
-                m_OscServer.MessageDispatcher.AddCallback(
+                On(
                     $"{baseAddr}/stamp",
                     (string addr, OscDataHandle data) => {
                         m_BiomeInjector.SetStamp(srcName,
@@ -172,6 +161,18 @@ namespace Biomes
                 );
             }
             Debug.Log($"[OSC] Registered {m_BiomeInjector.sources.Count} injector source(s) under /inject/<name> (value · /pos · /shape · /stamp)");
+        }
+
+        // OscJack ends its receive thread for good on the first exception a callback throws,
+        // which would silence every address for the rest of the session. Contain it here and
+        // log on the main thread instead.
+        private void On(string address, OscMessageDispatcher.MessageCallback callback)
+        {
+            m_OscServer.MessageDispatcher.AddCallback(address, (addr, data) =>
+            {
+                try { callback(addr, data); }
+                catch (Exception e) { m_MainThreadActions.Enqueue(() => Debug.LogException(e)); }
+            });
         }
 
         void Update()

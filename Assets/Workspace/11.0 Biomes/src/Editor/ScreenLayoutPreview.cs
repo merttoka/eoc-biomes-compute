@@ -25,15 +25,10 @@ namespace Biomes
             win.minSize = new Vector2(400, 300);
         }
 
-        void OnEnable()
-        {
-            EditorApplication.update += Repaint;
-        }
-
-        void OnDisable()
-        {
-            EditorApplication.update -= Repaint;
-        }
+        // Edit mode: ~10 Hz is plenty for a layout preview. Play mode: every editor tick, so the
+        // live composite drawn in the window stays smooth.
+        void OnInspectorUpdate() { if (!Application.isPlaying) Repaint(); }
+        void Update() { if (Application.isPlaying) Repaint(); }
 
         void OnGUI()
         {

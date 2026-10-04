@@ -61,7 +61,8 @@ namespace Biomes
 
         [Header("Parameter interpolation (optional)")]
         [Tooltip("Group whose interpolators the PlayInterpolators / StopInterpolators / SkipInterpolators cues drive. " +
-                 "Timeline Play and Stop call StopAll so every take starts from the presets. The interpolator timer " +
+                 "Timeline Play and Stop call StopAll so every take starts from the presets (Play skips it, with a warning, " +
+                 "when the group has playOnStart on). The interpolator timer " +
                  "does not need the sims to be running: sims started later join the leg where it has reached, and a " +
                  "sim started after the transition gets the reached waypoint re-imposed. Typical: presets = set A, " +
                  "waypoints = set B, durationSteps = seconds × simRate, cue PlayInterpolators at the transition time.")]
@@ -122,7 +123,16 @@ namespace Biomes
                 externalReceiver.StopDebugVideo();           // frame 0, transparent
                 if (startDebugVideoOnPlay) externalReceiver.RestartDebugVideo();
             }
-            if (interpolatorGroup != null) interpolatorGroup.StopAll(); // fresh take: presets until a PlayInterpolators cue
+            // Fresh take: presets until a PlayInterpolators cue. A group set to playOnStart
+            // would otherwise race this in Start() (script order decides who wins).
+            if (interpolatorGroup != null)
+            {
+                if (interpolatorGroup.playOnStart)
+                    Debug.LogWarning("[SimTimeline] interpolatorGroup.playOnStart is on — leaving its interpolators running; " +
+                                     "turn it off and use a PlayInterpolators cue for a deterministic take.", this);
+                else
+                    interpolatorGroup.StopAll();
+            }
             Debug.Log($"[SimTimeline] Play — {_sorted.Count} cues, " +
                       (endAtSeconds > 0 ? $"ends at {endAtSeconds:F0}s." : "manual stop."));
         }

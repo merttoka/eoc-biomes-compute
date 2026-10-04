@@ -209,7 +209,9 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
 
     Agent a = agentsOut[id.x];
     PhysarumTypeParams p = typeParams[a.typeId];
-    uint2 pos = uint2(round(a.position));
+    // Wrap, don't clip: round() of a position in [rez-0.5, rez) gives rez, an out-of-bounds
+    // UAV write (dropped on D3D, undefined on Metal). The world is a torus, so it is pixel 0.
+    uint2 pos = uint2(round(a.position)) % uint2(rezX, rezY);
 
     // Deposit into own layer (brighter when the agent's neuron is firing)
     float dep = IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount;

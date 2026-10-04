@@ -16,6 +16,8 @@ namespace Biomes
               "depositAmount", "diffuseRate", "hue", "saturation" };
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
+        private static readonly int s_TurnAngleSpreadID = Shader.PropertyToID("turnAngleSpread");
+
         [Header("Agents")]
         [Range(131, 4000000)] public int agentsCount = 131; // 1:1 with neurons (reference uses 131)
         [Tooltip("Per-neuron-group turn-angle variation. 0 = single global turn angle; 1 = groups span 0..2× the base turnAngle. At 131 agents each termite is its own group.")]
@@ -125,9 +127,10 @@ namespace Biomes
             typeParamsBuffer.SetData(_typeParamsCache);
             cs.SetInt(s_TypeCountID, count);
 
-            int[] kernels = { moveAgentsKernel, writeTrailsKernel, diffuseTextureKernel, renderKernel };
-            foreach (int k in kernels)
-                cs.SetBuffer(k, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParamsBuffer);
+            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParamsBuffer);
         }
 
         // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
@@ -139,7 +142,7 @@ namespace Biomes
             BindPerceptionTex(moveAgentsKernel);
             BindNeuronFiring(moveAgentsKernel, writeTrailsKernel);
             BindTrailAnisotropy();
-            cs.SetFloat("turnAngleSpread", turnAngleSpread);
+            cs.SetFloat(s_TurnAngleSpreadID, turnAngleSpread);
             BindDispersalSpeedParams();
 
             int n = AllocatedAgentCount;   // buffers are sized for this; live agentsCount takes effect on Reset
@@ -167,7 +170,7 @@ namespace Biomes
             cs.SetTexture(renderKernel, s_OutTexID, outTex);
             Dispatch(renderKernel, rezX, rezY, 1);
             if (outputMat != null)
-                outputMat.SetTexture("_UnlitColorMap", outTex);
+                outputMat.SetTexture(s_UnlitColorMapID, outTex);
         }
 
         #region Parameter Control

@@ -149,7 +149,7 @@ namespace Biomes
             currentWaypoint = 0;
             _warnedWrongType = false;
             _overridePausedPhase = Phase.Idle;
-            SnapshotFrom();
+            SnapshotFrom(newTake: true);
             _legStartStep = StepNow();
             _lastStepSeen = _legStartStep;
             _legDuration = durationSteps;
@@ -229,6 +229,20 @@ namespace Biomes
             var sim = Sim;
             if (sim == null) return;
 
+            // Sim reset: SimStepCount went backwards (Reset/ResetSimsOnly zero it). Without this the
+            // leg would stall until the counter climbed back past _legStartStep. Checked before
+            // SyncLiveInstances: a restart must snapshot the fresh preset clone as its 'from',
+            // not one the reached waypoint was already re-imposed on (W0 → W0 = no motion).
+            int now = StepNow();
+            int prevStep = _lastStepSeen;
+            bool simReset = now < prevStep;
+            _lastStepSeen = now;
+            if (simReset && !keepRunningOnSimReset)
+            {
+                Play();                                    // restart the queue with the sim (Done too)
+                return;
+            }
+
             // The timer runs whether or not the sim has been started. A sim that is Reset later
             // (StartSim, or a timeline Start cue) gets a fresh clone from its preset: take the
             // pending 'from' snapshot then, and re-impose the reached waypoint so a sim started
@@ -236,24 +250,11 @@ namespace Biomes
             SyncLiveInstances(sim);
             if (phase == Phase.Done) return;
 
-            // Sim reset: SimStepCount went backwards (Reset/ResetSimsOnly zero it). Without this the
-            // leg would stall until the counter climbed back past _legStartStep.
-            int now = StepNow();
-            if (now < _lastStepSeen)
+            if (simReset)
             {
-                if (keepRunningOnSimReset)
-                {
-                    int elapsedBefore = _lastStepSeen - _legStartStep;
-                    _legStartStep = now - elapsedBefore;   // same progress, new clock origin
-                }
-                else
-                {
-                    _lastStepSeen = now;
-                    Play();                                // restart the queue with the sim
-                    return;
-                }
+                int elapsedBefore = prevStep - _legStartStep;
+                _legStartStep = now - elapsedBefore;       // same progress, new clock origin
             }
-            _lastStepSeen = now;
 
             int elapsed = now - _legStartStep;
 
@@ -359,17 +360,31 @@ namespace Biomes
             progress = 0f;
         }
 
-        private void SnapshotFrom()
+        // A Stopped or Fading sim keeps its last run's clones, but StartSim re-clones from the
+        // preset. Until a leg of this take has written a clone it is stale — treat the sim as
+        // having none so 'from' is taken lazily from the fresh clone (SyncLiveInstances). Once
+        // this take's legs have been writing it, a mid-queue leg keeps it: it holds the reached
+        // waypoint.
+        private static IParamSet LiveParamsOf(SimulationBase sim) =>
+            sim.runState != SimRunState.Running ? null : sim.LiveParamSet;
+        private static UmweltMapping LiveUmweltOf(SimulationBase sim) =>
+            sim.runState != SimRunState.Running ? null : sim.liveUmwelt;
+
+        private void SnapshotFrom(bool newTake = false)
         {
             var sim = Sim;
-            SnapshotParams(sim, sim.LiveParamSet); // empty _from when the sim has no clone yet (not started)
+            // 'fresh' = no leg of this take has written the clone yet (new take, or the sim had
+            // no live clone when it began) — a Stopped sim's clone is then a previous take's.
+            bool fresh = newTake || _liveInstance == null;
+            // empty _from when the sim has no clone yet (not started), or only a stale one
+            SnapshotParams(sim, fresh ? LiveParamsOf(sim) : sim.LiveParamSet);
 
             // Umwelt leg: snapshot both ends now (target asset is read once per leg).
             _fromUmwelt.Clear();
             _toUmwelt.Clear();
             _umweltLegFinished = false;
             // clone only — LiveUmwelt falls back to the asset, which must never be written
-            var liveU = sim.liveUmwelt;
+            var liveU = fresh ? LiveUmweltOf(sim) : sim.liveUmwelt;
             var targetU = UmweltTargetFor(currentWaypoint);
             _umweltLegActive = liveU != null && targetU != null;
             if (_umweltLegActive)
@@ -404,7 +419,7 @@ namespace Biomes
         /// sim started after the transition shows the interpolated state, not its preset.</summary>
         private void SyncLiveInstances(SimulationBase sim)
         {
-            var live = sim.LiveParamSet;
+            var live = LiveParamsOf(sim);
             if (live != null && !ReferenceEquals(live, _liveInstance))
             {
                 if (_from.Count == 0) SnapshotParams(sim, live);   // Play() ran before the sim existed
@@ -412,7 +427,7 @@ namespace Biomes
                 if (phase != Phase.Interpolating) ApplyParamLeg(live, 1f);
             }
 
-            var liveU = sim.liveUmwelt; // clone only — never the asset
+            var liveU = LiveUmweltOf(sim); // clone only — never the asset
             var targetU = UmweltTargetFor(currentWaypoint);
             if (liveU != null && targetU != null && !ReferenceEquals(liveU, _umweltInstance))
             {

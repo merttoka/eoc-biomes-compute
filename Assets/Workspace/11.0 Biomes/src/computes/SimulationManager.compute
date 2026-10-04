@@ -1,8 +1,6 @@
 // Composite render: blend sim outputs into final output
 
 #pragma kernel CompositeRenderKernel
-#pragma kernel ResetTextureKernel
-#pragma kernel MoundOverlayKernel
 
 uint rezX;
 uint rezY;
@@ -34,6 +32,15 @@ RWTexture2D<float4> compositeOut;
 
 #include "includes/keepout.hlsl"
 
+// Termite-built walls (low permeability) painted over the composite, independent of the
+// additive sim blend. wall-ness = (baseline - perm)/baseline, so open ground reads 0.
+// moundStrength 0 = off (C# binds a 1×1 dummy permField then).
+Texture2DArray<float> permField;
+int   permChannel;         // BiomeChannel.Permeability
+float permOpenBaselineOv;  // "open" value; wall-ness = (baseline - perm)/baseline
+float moundStrength;
+float4 moundColor;
+
 float4 SampleSim(uint index, float2 uv) {
     // Initialize-first, no early returns: Metal's cross-compiled return slot trips a
     // "potentially uninitialized" warning on the early-return chain even with a
@@ -61,45 +68,32 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         // Weighted additive blend
         color.rgb += simColor.rgb * simWeights[i];
     }
-    // Overlay external input
+    // Overlay external input. Sampled by UV: the receiver's texture is sized to its
+    // source (e.g. a 1920×1152 clip), not to this composite.
     if (overlayStrength > 0.0)
     {
-        float4 overlay = externalOverlay[id.xy];
+        float4 overlay = externalOverlay.SampleLevel(sampler_linear_clamp, uv, 0);
         color.rgb = lerp(color.rgb, overlay.rgb, overlayStrength * overlay.a);
     }
 
     // Mask screen cutouts last so every layer honors the physical hole, even a
     // stray agent that beat the steering.
-    color.rgb *= 1.0 - KeepOutField(uv);
-    compositeOut[id.xy] = saturate(color);
-}
+    float keep = 1.0 - KeepOutField(uv);
+    color.rgb *= keep;
+    color = saturate(color);
 
-[numthreads(8, 8, 1)]
-void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
-    if (id.x >= rezX || id.y >= rezY) return;
-    compositeOut[id.xy] = float4(0, 0, 0, 1);
-}
-
-// Paint the termite-built walls (low permeability) over the composite, independent of the
-// additive sim blend. wall-ness = (baseline - perm)/baseline, so open ground reads 0.
-Texture2DArray<float> permField;
-int   permChannel;         // BiomeChannel.Permeability
-float permOpenBaselineOv;  // "open" value; wall-ness = (baseline - perm)/baseline
-float moundStrength;
-float4 moundColor;
-
-[numthreads(8, 8, 1)]
-void MoundOverlayKernel(uint3 id : SV_DISPATCHTHREADID) {
-    uint w, h; compositeOut.GetDimensions(w, h);
-    if (id.x >= w || id.y >= h) return;
-    float2 uv = (float2(id.xy) + 0.5) / float2(w, h);
-    // Bilinear+clamp (built-in sampler) so the low-res permeability field upsamples smoothly
-    // to the composite instead of point-sampling into blocky/aliased walls.
-    float perm = permField.SampleLevel(sampler_linear_clamp, float3(uv, permChannel), 0);
-    float wall = saturate((permOpenBaselineOv - perm) / max(1e-4, permOpenBaselineOv));  // 0 open, 1 solid
-    wall = smoothstep(0.0, 1.0, wall);   // soften the wall edge
-    wall *= 1.0 - KeepOutField(uv);      // mounds never paint into a screen cutout
-    float4 c = compositeOut[id.xy];
-    c.rgb = lerp(c.rgb, moundColor.rgb, wall * moundStrength);
-    compositeOut[id.xy] = c;
+    // Mound overlay, fused here instead of a second full-res read-modify-write pass.
+    // The quantize reproduces the ARGBHalf store + reload the separate pass did.
+    if (moundStrength > 0.0)
+    {
+        color.rgb = f16tof32(f32tof16(color.rgb));
+        // Bilinear+clamp so the low-res permeability field upsamples smoothly to the
+        // composite instead of point-sampling into blocky/aliased walls.
+        float perm = permField.SampleLevel(sampler_linear_clamp, float3(uv, permChannel), 0);
+        float wall = saturate((permOpenBaselineOv - perm) / max(1e-4, permOpenBaselineOv));  // 0 open, 1 solid
+        wall = smoothstep(0.0, 1.0, wall);   // soften the wall edge
+        wall *= keep;                        // mounds never paint into a screen cutout
+        color.rgb = lerp(color.rgb, moundColor.rgb, wall * moundStrength);
+    }
+    compositeOut[id.xy] = color;
 }
