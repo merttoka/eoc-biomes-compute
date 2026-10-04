@@ -1,6 +1,7 @@
 // Composite render: blend sim outputs into final output
 
 #pragma kernel CompositeRenderKernel
+#pragma kernel CompositeBlendKernel
 
 uint rezX;
 uint rezY;
@@ -96,4 +97,17 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         color.rgb = lerp(color.rgb, moundColor.rgb, wall * moundStrength);
     }
     compositeOut[id.xy] = color;
+}
+
+
+// frameBlend: the displayed frame between the last two sim composites (alpha = fraction of a
+// fixed step elapsed since the newer one).
+Texture2D<float4> blendPrev;
+Texture2D<float4> blendCurr;
+float blendAlpha;
+
+[numthreads(8, 8, 1)]
+void CompositeBlendKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    compositeOut[id.xy] = lerp(blendPrev[id.xy], blendCurr[id.xy], blendAlpha);
 }

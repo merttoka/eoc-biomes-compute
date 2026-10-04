@@ -30,6 +30,18 @@ namespace Biomes
         [Range(0, 10)] public int stepsPerTick = 1;
         public bool limitFPS = true;
         [Range(24, 330)] public int targetFPS = 60;
+        [Tooltip("VSync divisor. 0 = off: limitFPS/targetFPS cap the frame rate. 1-4 = present on " +
+                 "every Nth display refresh, so frames are evenly paced; takes over from targetFPS (4 on " +
+                 "a 240 Hz monitor = 60 fps, 2 on a 120 Hz screen = 60 fps, 1 = the display's rate). In " +
+                 "the Editor it only applies while the Game view's VSync option is on; targetFPS caps " +
+                 "the rate otherwise.")]
+        [Range(0, 4)] public int vSyncDivisor = 0;
+        [Tooltip("Smoother motion than simRate on fast displays: each rendered frame blends the last " +
+                 "two sim composites by how far the clock is between steps. Needs a frame rate above " +
+                 "simRate (targetFPS or vSyncDivisor). Costs one sim step of latency, a composite-res " +
+                 "blend per frame and two extra composite buffers; FigureExporter and recorder frames " +
+                 "are blended too. Off = every frame shows the latest step.")]
+        public bool frameBlend = false;
 
         [Tooltip("Untick on cell-rig (nested) managers: they must not write the global " +
                  "Time.fixedDeltaTime / targetFrameRate settings the main manager owns.")]
@@ -128,6 +140,14 @@ namespace Biomes
 
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
+        private int compositeBlendKernel;
+
+        // frameBlend: the last two sim composites, the step the newer one shows, and the fixed-clock
+        // time of the latest step (the blend weight is the time since it, in steps).
+        private RenderTexture _blendPrev, _blendCurr;
+        private bool _blendPrimed;
+        private int _stepSerial, _blendStepSerial = -1;
+        private float _lastStepTime;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
 
@@ -172,6 +192,9 @@ namespace Biomes
         private static readonly int s_MoundStrengthID = Shader.PropertyToID("moundStrength");
         private static readonly int s_MoundColorID = Shader.PropertyToID("moundColor");
         private static readonly int s_UnlitColorMapID = Shader.PropertyToID("_UnlitColorMap");
+        private static readonly int s_BlendPrevID = Shader.PropertyToID("blendPrev");
+        private static readonly int s_BlendCurrID = Shader.PropertyToID("blendCurr");
+        private static readonly int s_BlendAlphaID = Shader.PropertyToID("blendAlpha");
 
         void Awake()
         {
@@ -183,12 +206,25 @@ namespace Biomes
 
             ApplySimRate();
             Time.maximumDeltaTime = maxAllowedTimestep;
+            ApplyFrameTiming();
+        }
 
-            if (limitFPS)
-            {
-                QualitySettings.vSyncCount = 0;
-                Application.targetFrameRate = targetFPS;
-            }
+        // Frame pacing: a vsync divisor paces frames to the display. Unity ignores
+        // targetFrameRate while vsync is on, so targetFPS stays set as the cap for when it
+        // isn't (e.g. the Editor with the Game view's VSync off).
+        private void ApplyFrameTiming()
+        {
+            if (vSyncDivisor > 0) QualitySettings.vSyncCount = vSyncDivisor;
+            else if (limitFPS) QualitySettings.vSyncCount = 0;
+            if (limitFPS) Application.targetFrameRate = targetFPS;
+        }
+
+        // Inspector edits to the pacing fields apply live in Play (never touch the project's
+        // quality settings in edit mode).
+        void OnValidate()
+        {
+            if (Application.isPlaying && ownsGlobalTiming && isActiveAndEnabled)
+                ApplyFrameTiming();
         }
 
         /// <summary>Apply simRate to Unity's fixed timestep. Call after changing simRate
@@ -242,6 +278,8 @@ namespace Biomes
                 sim.runState = SimRunState.Running;
             }
 
+            _blendStepSerial = -1;   // recomposite now; don't blend against the pre-reset image
+            _blendPrimed = false;
             Render();
         }
 
@@ -274,7 +312,10 @@ namespace Biomes
             _dummyBlackArray = gpu.CreateTextureArray(1, 1, 1, FilterMode.Point,
                 RenderTextureFormat.RHalf, "composite_dummyArray");
             if (compositeCS != null)
+            {
                 compositeRenderKernel = compositeCS.FindKernel("CompositeRenderKernel");
+                compositeBlendKernel = compositeCS.FindKernel("CompositeBlendKernel");
+            }
 
             _allocRezX = rezX; _allocRezY = rezY;
         }
@@ -296,6 +337,8 @@ namespace Biomes
         public void Step()
         {
             _simStepCount++;
+            _stepSerial++;
+            _lastStepTime = Time.fixedTime;
 
             // 0. Update external input
             externalInput?.UpdateInput();
@@ -450,6 +493,81 @@ namespace Biomes
         {
             if (compositeCS == null) return;
 
+            if (frameBlend && Application.isPlaying && gpu != null)
+            {
+                EnsureBlendTargets();
+                if (_stepSerial != _blendStepSerial)   // a new sim state since the last composite
+                {
+                    (_blendPrev, _blendCurr) = (_blendCurr, _blendPrev);
+                    CompositeInto(_blendCurr);
+                    if (!_blendPrimed)
+                    {
+                        Graphics.CopyTexture(_blendCurr, _blendPrev);
+                        _blendPrimed = true;
+                    }
+                    _blendStepSerial = _stepSerial;
+                }
+                // Show the state one step behind the clock: prev at the moment of a step, curr one
+                // step later. Saturates at curr when steps stop (paused, stepsPerTick 0).
+                float alpha = Mathf.Clamp01((Time.time - _lastStepTime) / Time.fixedDeltaTime);
+                compositeCS.SetInt(s_RezXID, rezX);
+                compositeCS.SetInt(s_RezYID, rezY);
+                compositeCS.SetFloat(s_BlendAlphaID, alpha);
+                compositeCS.SetTexture(compositeBlendKernel, s_BlendPrevID, _blendPrev);
+                compositeCS.SetTexture(compositeBlendKernel, s_BlendCurrID, _blendCurr);
+                compositeCS.SetTexture(compositeBlendKernel, s_CompositeOutTexID, compositeOutTex);
+                compositeCS.GetKernelThreadGroupSizes(compositeBlendKernel, out uint bx, out uint by, out uint _);
+                compositeCS.Dispatch(compositeBlendKernel,
+                    Mathf.CeilToInt((float)rezX / bx), Mathf.CeilToInt((float)rezY / by), 1);
+            }
+            else
+            {
+                ReleaseBlendTargets();
+                CompositeInto(compositeOutTex);
+            }
+
+            if (compositeOutMat != null)
+                compositeOutMat.SetTexture(s_UnlitColorMapID, compositeOutTex);
+
+            // Recorder path: copy the finished composite into the RT asset. Blit handles the
+            // linear (ARGBHalf) → sRGB (ARGB32) encode when the asset is flagged sRGB, so the
+            // recording matches what the quad shows. Synced here too (a no-op when already
+            // right) so an RT assigned or swapped without a rez change is resized, not
+            // silently scaled. Unassign recorderTarget when not recording: the blit is a full
+            // composite-res read + write every frame.
+            if (recorderTarget != null)
+            {
+                SyncRecorderTarget();
+                Graphics.Blit(compositeOutTex, recorderTarget);
+            }
+        }
+
+        private void EnsureBlendTargets()
+        {
+            if (_blendPrev != null && _blendCurr != null) return;
+            _blendPrev = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
+                RenderTextureFormat.ARGBHalf, name: "composite_blendPrev");
+            _blendCurr = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
+                RenderTextureFormat.ARGBHalf, name: "composite_blendCurr");
+            _blendPrimed = false;
+            _blendStepSerial = -1;
+        }
+
+        private void ReleaseBlendTargets()
+        {
+            if (_blendPrev == null && _blendCurr == null) return;
+            if (gpu != null)
+            {
+                if (_blendPrev != null) gpu.Release(_blendPrev);
+                if (_blendCurr != null) gpu.Release(_blendCurr);
+            }
+            _blendPrev = _blendCurr = null;
+            _blendPrimed = false;
+        }
+
+        // Composite every sim output (plus overlay, keep-out mask, mound overlay) into target.
+        private void CompositeInto(RenderTexture target)
+        {
             int simCount = Mathf.Min(simulations.Count, 8);
             compositeCS.SetInt(s_SimCountID, simCount);
             compositeCS.SetInt(s_RezXID, rezX);
@@ -473,7 +591,7 @@ namespace Biomes
                 }
             }
 
-            compositeCS.SetTexture(compositeRenderKernel, s_CompositeOutTexID, compositeOutTex);
+            compositeCS.SetTexture(compositeRenderKernel, s_CompositeOutTexID, target);
 
             // Keep-out mask (composite + mound overlay share these shader-scope uniforms).
             compositeCS.SetInt(s_KeepOutCountID, PackKeepOut());
@@ -538,21 +656,6 @@ namespace Biomes
             compositeCS.Dispatch(compositeRenderKernel,
                 Mathf.CeilToInt((float)rezX / wx),
                 Mathf.CeilToInt((float)rezY / wy), 1);
-
-            if (compositeOutMat != null)
-                compositeOutMat.SetTexture(s_UnlitColorMapID, compositeOutTex);
-
-            // Recorder path: copy the finished composite into the RT asset. Blit handles the
-            // linear (ARGBHalf) → sRGB (ARGB32) encode when the asset is flagged sRGB, so the
-            // recording matches what the quad shows. Synced here too (a no-op when already
-            // right) so an RT assigned or swapped without a rez change is resized, not
-            // silently scaled. Unassign recorderTarget when not recording: the blit is a full
-            // composite-res read + write every frame.
-            if (recorderTarget != null)
-            {
-                SyncRecorderTarget();
-                Graphics.Blit(compositeOutTex, recorderTarget);
-            }
         }
 
         // ── Recording helpers ────────────────────────────────────────────────────
@@ -714,6 +817,8 @@ namespace Biomes
 
             gpu?.ReleaseAll();
             gpu = null;
+            _blendPrev = _blendCurr = null;   // freed by ReleaseAll
+            _blendPrimed = false;
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 
