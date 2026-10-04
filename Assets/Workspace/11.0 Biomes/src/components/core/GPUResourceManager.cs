@@ -80,13 +80,20 @@ namespace Biomes
             DestroyTexture(texture);
         }
 
-        // Destroy is illegal outside Play mode, and these run from edit-mode [Button] resets too.
-        private static void DestroyTexture(RenderTexture tex)
+        /// <summary>Free a texture's GPU memory and destroy it.</summary>
+        public static void DestroyTexture(RenderTexture tex)
         {
             if (tex == null) return;
             tex.Release();
-            if (Application.isPlaying) Object.Destroy(tex);
-            else Object.DestroyImmediate(tex);
+            DestroySafe(tex);
+        }
+
+        // Destroy is illegal outside Play mode, and callers run from edit-mode [Button] resets too.
+        public static void DestroySafe(Object o)
+        {
+            if (o == null) return;
+            if (Application.isPlaying) Object.Destroy(o);
+            else Object.DestroyImmediate(o);
         }
     }
 }

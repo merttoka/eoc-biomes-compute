@@ -75,11 +75,7 @@ namespace Biomes
         {
             SyncConfig();
             // A finished non-looping pass would stop again on the next Update; start it over.
-            if (_playhead.Finished)
-            {
-                _playhead.Reset();
-                _lastSent = int.MinValue;
-            }
+            if (_playhead.Finished) Rewind();
             playing = true;
             Push(_playhead.Frame);
             if (debugLog) Debug.Log($"NeuronFiringPlayback: play {startFrame}..{endFrame} over {durationSeconds:F1}s (loop={loop})");
@@ -92,8 +88,7 @@ namespace Biomes
         public void Restart()
         {
             SyncConfig();
-            _playhead.Reset();
-            _lastSent = int.MinValue;
+            Rewind();
             playing = true;
             Push(_playhead.Frame);
         }
@@ -102,6 +97,11 @@ namespace Biomes
         public void Stop()
         {
             playing = false;
+            Rewind();
+        }
+
+        private void Rewind()
+        {
             _playhead.Reset();
             _lastSent = int.MinValue;
         }

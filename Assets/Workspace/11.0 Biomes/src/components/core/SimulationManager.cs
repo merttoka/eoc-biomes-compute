@@ -142,10 +142,9 @@ namespace Biomes
         private int compositeRenderKernel;
         private int compositeBlendKernel;
 
-        // frameBlend: the last two sim composites, the step the newer one shows, and the fixed-clock
-        // time of the latest step (the blend weight is the time since it, in steps).
+        // frameBlend: the last two sim composites, the step the newer one shows (-1 = none yet),
+        // and the fixed-clock time of the latest step (the blend weight is the time since it, in steps).
         private RenderTexture _blendPrev, _blendCurr;
-        private bool _blendPrimed;
         private int _stepSerial, _blendStepSerial = -1;
         private float _lastStepTime;
         private ComputeBuffer simWeightsBuffer;
@@ -279,7 +278,6 @@ namespace Biomes
             }
 
             _blendStepSerial = -1;   // recomposite now; don't blend against the pre-reset image
-            _blendPrimed = false;
             Render();
         }
 
@@ -500,25 +498,18 @@ namespace Biomes
                 {
                     (_blendPrev, _blendCurr) = (_blendCurr, _blendPrev);
                     CompositeInto(_blendCurr);
-                    if (!_blendPrimed)
-                    {
+                    if (_blendStepSerial == -1)        // first composite: nothing older to blend from
                         Graphics.CopyTexture(_blendCurr, _blendPrev);
-                        _blendPrimed = true;
-                    }
                     _blendStepSerial = _stepSerial;
                 }
                 // Show the state one step behind the clock: prev at the moment of a step, curr one
                 // step later. Saturates at curr when steps stop (paused, stepsPerTick 0).
                 float alpha = Mathf.Clamp01((Time.time - _lastStepTime) / Time.fixedDeltaTime);
-                compositeCS.SetInt(s_RezXID, rezX);
-                compositeCS.SetInt(s_RezYID, rezY);
                 compositeCS.SetFloat(s_BlendAlphaID, alpha);
                 compositeCS.SetTexture(compositeBlendKernel, s_BlendPrevID, _blendPrev);
                 compositeCS.SetTexture(compositeBlendKernel, s_BlendCurrID, _blendCurr);
                 compositeCS.SetTexture(compositeBlendKernel, s_CompositeOutTexID, compositeOutTex);
-                compositeCS.GetKernelThreadGroupSizes(compositeBlendKernel, out uint bx, out uint by, out uint _);
-                compositeCS.Dispatch(compositeBlendKernel,
-                    Mathf.CeilToInt((float)rezX / bx), Mathf.CeilToInt((float)rezY / by), 1);
+                DispatchComposite(compositeBlendKernel);
             }
             else
             {
@@ -549,20 +540,15 @@ namespace Biomes
                 RenderTextureFormat.ARGBHalf, name: "composite_blendPrev");
             _blendCurr = gpu.CreateTexture2D(rezX, rezY, FilterMode.Trilinear,
                 RenderTextureFormat.ARGBHalf, name: "composite_blendCurr");
-            _blendPrimed = false;
             _blendStepSerial = -1;
         }
 
         private void ReleaseBlendTargets()
         {
             if (_blendPrev == null && _blendCurr == null) return;
-            if (gpu != null)
-            {
-                if (_blendPrev != null) gpu.Release(_blendPrev);
-                if (_blendCurr != null) gpu.Release(_blendCurr);
-            }
+            gpu.Release(_blendPrev);
+            gpu.Release(_blendCurr);
             _blendPrev = _blendCurr = null;
-            _blendPrimed = false;
         }
 
         // Composite every sim output (plus overlay, keep-out mask, mound overlay) into target.
@@ -570,30 +556,20 @@ namespace Biomes
         {
             int simCount = Mathf.Min(simulations.Count, 8);
             compositeCS.SetInt(s_SimCountID, simCount);
-            compositeCS.SetInt(s_RezXID, rezX);
-            compositeCS.SetInt(s_RezYID, rezY);
 
             for (int i = 0; i < 8; i++)
             {
-                int propName = s_SimInputIDs[i];
                 // Stopped sims composite as black: a never-started sim has no outTex anyway,
                 // and a stopped-after-fade sim may hold residue (decay-less presets) that
                 // must not pop back if its weight were nonzero.
-                if (i < simulations.Count && simulations[i] != null
-                    && simulations[i].runState != SimRunState.Stopped)
-                {
-                    var outTex = simulations[i].GetOutputTexture();
-                    compositeCS.SetTexture(compositeRenderKernel, propName, outTex ?? _dummyBlackTex);
-                }
-                else
-                {
-                    compositeCS.SetTexture(compositeRenderKernel, propName, _dummyBlackTex);
-                }
+                var sim = i < simulations.Count ? simulations[i] : null;
+                Texture input = sim != null && sim.runState != SimRunState.Stopped ? sim.GetOutputTexture() : null;
+                compositeCS.SetTexture(compositeRenderKernel, s_SimInputIDs[i], input ?? _dummyBlackTex);
             }
 
             compositeCS.SetTexture(compositeRenderKernel, s_CompositeOutTexID, target);
 
-            // Keep-out mask (composite + mound overlay share these shader-scope uniforms).
+            // Keep-out mask (also keeps the mound overlay out of screen cutouts).
             compositeCS.SetInt(s_KeepOutCountID, PackKeepOut());
             compositeCS.SetVectorArray(s_KeepOutRectsID, _keepOutScratch);
             compositeCS.SetFloat(s_KeepOutFeatherID, keepOutFeather);
@@ -652,10 +628,17 @@ namespace Biomes
             }
             compositeCS.SetFloat(s_MoundStrengthID, moundStrength);
 
-            compositeCS.GetKernelThreadGroupSizes(compositeRenderKernel, out uint wx, out uint wy, out uint _);
-            compositeCS.Dispatch(compositeRenderKernel,
-                Mathf.CeilToInt((float)rezX / wx),
-                Mathf.CeilToInt((float)rezY / wy), 1);
+            DispatchComposite(compositeRenderKernel);
+        }
+
+        // Uniforms live on the shared compute asset: bind rez per dispatch so another
+        // manager's values never leak in.
+        private void DispatchComposite(int kernel)
+        {
+            compositeCS.SetInt(s_RezXID, rezX);
+            compositeCS.SetInt(s_RezYID, rezY);
+            compositeCS.GetKernelThreadGroupSizes(kernel, out uint wx, out uint wy, out uint _);
+            compositeCS.Dispatch(kernel, Mathf.CeilToInt((float)rezX / wx), Mathf.CeilToInt((float)rezY / wy), 1);
         }
 
         // ── Recording helpers ────────────────────────────────────────────────────
@@ -818,7 +801,6 @@ namespace Biomes
             gpu?.ReleaseAll();
             gpu = null;
             _blendPrev = _blendCurr = null;   // freed by ReleaseAll
-            _blendPrimed = false;
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 

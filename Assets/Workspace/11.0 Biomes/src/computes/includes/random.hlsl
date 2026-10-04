@@ -46,10 +46,6 @@ float2 Random2(const float2 p) {
     return frac(float2(a.x * a.y, a.y * a.z));
 }
 
-float2 RandomDirection2(const float2 p) {
-    return normalize(2.0 * (Random2(p) - 0.5));
-}
-
 // Robust integer hash → [0,1). Prefer this for per-agent randomness seeded by large
 // indices: frac(id * const) loses float precision once id is large (visible banding).
 float Hash1u(uint x) {

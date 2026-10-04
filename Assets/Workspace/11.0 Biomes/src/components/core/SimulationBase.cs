@@ -268,8 +268,17 @@ namespace Biomes
         protected abstract void InitBuffers();
         protected abstract void GPUReset();
         protected abstract void GPUStep();
-        protected abstract void Render();
         protected virtual void InitSimKernels() { }
+
+        // Agent sims shade their trail layers into outTex; field sims override.
+        protected virtual void Render()
+        {
+            cs.SetTexture(renderKernel, s_TrailReadID, trailReadArray);
+            cs.SetTexture(renderKernel, s_OutTexID, outTex);
+            Dispatch(renderKernel, rezX, rezY, 1);
+            if (outputMat != null)
+                outputMat.SetTexture(s_UnlitColorMapID, outTex);
+        }
 
         public RenderTexture GetOutputTexture() => outTex;
 
@@ -500,6 +509,15 @@ namespace Biomes
 
         protected void BindPerceptionTex(int kernel) => cs.SetTexture(kernel, s_PerceptionTexID, perceptionTex);
 
+        protected void BindTypeParams(ComputeBuffer typeParams, int typeCount)
+        {
+            cs.SetInt(s_TypeCountID, typeCount);
+            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParams);
+            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParams);
+            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParams);
+            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParams);
+        }
+
         // Bind the shared neuron-firing buffer + count + threshold to the given kernels.
         // Falls back to a 1-element dummy (count 0 => no firing) when no source is wired.
         // Fixed-arity overloads, not params int[]: these run every step per sim.
@@ -507,17 +525,8 @@ namespace Biomes
 
         protected void BindNeuronFiring(int kernel0, int kernel1)
         {
-            ComputeBuffer buf = NeuronFiringOrDummy(out int count);
-            cs.SetBuffer(kernel0, s_NeuronFiringID, buf);
-            if (kernel1 >= 0) cs.SetBuffer(kernel1, s_NeuronFiringID, buf);
-            cs.SetInt(s_NeuronFiringCountID, count);
-            cs.SetFloat(s_FiringThresholdID, firingThreshold);
-        }
-
-        private ComputeBuffer NeuronFiringOrDummy(out int count)
-        {
             ComputeBuffer buf = neuronFiring;
-            count = neuronFiringCount;
+            int count = neuronFiringCount;
             if (buf == null)
             {
                 if (dummyNeuronFiringBuffer == null)
@@ -528,7 +537,10 @@ namespace Biomes
                 buf = dummyNeuronFiringBuffer;
                 count = 0;
             }
-            return buf;
+            cs.SetBuffer(kernel0, s_NeuronFiringID, buf);
+            if (kernel1 >= 0) cs.SetBuffer(kernel1, s_NeuronFiringID, buf);
+            cs.SetInt(s_NeuronFiringCountID, count);
+            cs.SetFloat(s_FiringThresholdID, firingThreshold);
         }
 
         // Bind the shared dispersal speed-response params (consumed via includes/dispersal_speed_response.hlsl).
@@ -627,9 +639,7 @@ namespace Biomes
 
         private void DestroyLiveUmwelt()
         {
-            if (liveUmwelt == null) return;
-            if (Application.isPlaying) Destroy(liveUmwelt);
-            else DestroyImmediate(liveUmwelt);
+            GPUResourceManager.DestroySafe(liveUmwelt);
             liveUmwelt = null;
         }
 

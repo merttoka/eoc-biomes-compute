@@ -52,6 +52,8 @@ namespace Biomes
         private static readonly int s_BlurHeightID = Shader.PropertyToID("Height");
         private static readonly int s_BlurRadiusID = Shader.PropertyToID("Radius");
         private static readonly int s_BlurSigmaID = Shader.PropertyToID("Sigma");
+        private static readonly int s_BlurSrcID = Shader.PropertyToID("Src");
+        private static readonly int s_BlurDestID = Shader.PropertyToID("Dest");
 
         public RenderTexture OutputTexture => _outputTexture;
         public bool DebugUseVideoInput => m_DebugUseVideoInput;
@@ -85,14 +87,7 @@ namespace Biomes
             if (m_DebugUseVideoInput) { UpdateDebugVideoInput(); return; }
             // Debug input switched off at runtime: stop decoding and drop the last frame so
             // nothing (seeder, overlay) keeps reading a frozen clip.
-            if (m_DebugVideoPlayer != null && !m_DebugVideoStopped)
-            {
-                m_DebugVideoPlayer.Stop();
-                m_DebugPrepareRequested = false;
-                m_DebugVideoStopped = true;
-                ClearToTransparent(m_DebugVideoTexture);
-                ClearToTransparent(_outputTexture);
-            }
+            if (m_DebugVideoPlayer != null && !m_DebugVideoStopped) HaltDebugVideo();
             if (enableReceive) UpdateReceivedInput();
         }
 
@@ -129,6 +124,11 @@ namespace Biomes
         {
             if (!m_DebugUseVideoInput) return;
             m_DebugTransportOwned = true;
+            HaltDebugVideo();
+        }
+
+        private void HaltDebugVideo()
+        {
             if (m_DebugVideoPlayer != null) m_DebugVideoPlayer.Stop();
             m_DebugPrepareRequested = false;
             m_DebugVideoStopped = true;
@@ -320,15 +320,15 @@ namespace Biomes
             m_BlurCompute.SetInt(s_BlurHeightID, height);
             m_BlurCompute.SetInt(s_BlurRadiusID, radius);
             m_BlurCompute.SetFloat(s_BlurSigmaID, sigma);
-            m_BlurCompute.SetTexture(m_BlurKernelH, "Src", _outputTexture);
-            m_BlurCompute.SetTexture(m_BlurKernelH, "Dest", m_DebugBlurTemp);
+            m_BlurCompute.SetTexture(m_BlurKernelH, s_BlurSrcID, _outputTexture);
+            m_BlurCompute.SetTexture(m_BlurKernelH, s_BlurDestID, m_DebugBlurTemp);
             {
                 m_BlurCompute.GetKernelThreadGroupSizes(m_BlurKernelH, out uint tx, out uint ty, out uint _);
                 m_BlurCompute.Dispatch(m_BlurKernelH, Mathf.CeilToInt(width / (float)tx), Mathf.CeilToInt(height / (float)ty), 1);
             }
 
-            m_BlurCompute.SetTexture(m_BlurKernelV, "Src", m_DebugBlurTemp);
-            m_BlurCompute.SetTexture(m_BlurKernelV, "Dest", _outputTexture);
+            m_BlurCompute.SetTexture(m_BlurKernelV, s_BlurSrcID, m_DebugBlurTemp);
+            m_BlurCompute.SetTexture(m_BlurKernelV, s_BlurDestID, _outputTexture);
             {
                 m_BlurCompute.GetKernelThreadGroupSizes(m_BlurKernelV, out uint tx, out uint ty, out uint _);
                 m_BlurCompute.Dispatch(m_BlurKernelV, Mathf.CeilToInt(width / (float)tx), Mathf.CeilToInt(height / (float)ty), 1);

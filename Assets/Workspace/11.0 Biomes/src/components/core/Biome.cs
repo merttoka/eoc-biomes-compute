@@ -465,28 +465,20 @@ namespace Biomes
                 debugMaterials[i].SetTexture(s_UnlitColorMapID, debugTextures[i]);   // instance is stable until DestroyDebugGrid
                 debugRenderers[i] = quad.GetComponent<MeshRenderer>();
                 debugRenderers[i].material = debugMaterials[i];
-
-                // Remove collider
-                var col2 = quad.GetComponent<Collider>();
-                if (col2 != null) DestroySafe(col2);
+                GPUResourceManager.DestroySafe(quad.GetComponent<Collider>());
 
                 debugQuads[i] = quad;
             }
         }
 
         /// <summary>Render one biome channel into a 2D RenderTexture (sized at biome
-        /// resolution). Used by debug grid and external texture sending.</summary>
+        /// resolution) with the debug grid's colormap. Used by external texture sending
+        /// and figure export.</summary>
         public void RenderChannelTo(int channel, RenderTexture dst)
         {
             if (gpu == null || dst == null) return;
-            cs.SetInt(s_RezXID, biomeRezX);
-            cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_DebugChannelID, channel);
-            cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
-            BindKeepOut();
-            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
-            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+            BindDebugRender(normalize: false);
+            RenderDebugChannel(channel, dst);
         }
 
         /// <summary>Like RenderChannelTo but stretches the channel by (val-min)*invRange
@@ -495,16 +487,10 @@ namespace Biomes
         public void RenderChannelNormalizedTo(int channel, RenderTexture dst, float min, float invRange)
         {
             if (gpu == null || dst == null) return;
-            cs.SetInt(s_RezXID, biomeRezX);
-            cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_DebugChannelID, channel);
-            cs.SetInt(s_DebugNormalizeID, 1);
-            BindKeepOut();
+            BindDebugRender(normalize: true);
             cs.SetFloat(s_DebugNormMinID, min);
             cs.SetFloat(s_DebugNormInvRangeID, invRange);
-            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
-            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+            RenderDebugChannel(channel, dst);
         }
 
         /// <summary>
@@ -618,12 +604,7 @@ namespace Biomes
             bool grid = showDebugGrid && debugTextures != null;
             if (!grid && debugOutputMat == null) return;
 
-            // Shared uniforms bound once for every channel dispatch below.
-            cs.SetInt(s_RezXID, biomeRezX);
-            cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
-            BindKeepOut();
-            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
+            BindDebugRender(normalize: false);   // once for every channel dispatch below
 
             // Render all channels for debug grid. A quad no camera (Game or Scene view) drew
             // last frame is skipped; it re-renders on the first step after it comes into view.
@@ -645,6 +626,16 @@ namespace Biomes
                 RenderDebugChannel(debugChannel, debugOutTex);
                 debugOutputMat.SetTexture(s_UnlitColorMapID, debugOutTex);
             }
+        }
+
+        // Uniforms shared by every RenderDebugKernel dispatch; channel + target are per call.
+        private void BindDebugRender(bool normalize)
+        {
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt(s_DebugNormalizeID, normalize ? 1 : 0);
+            BindKeepOut();
+            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
         }
 
         private void RenderDebugChannel(int channel, RenderTexture dst)
@@ -966,14 +957,12 @@ namespace Biomes
         {
             if (debugQuads != null)
             {
-                foreach (var q in debugQuads)
-                    if (q != null) DestroySafe(q);
+                foreach (var q in debugQuads) GPUResourceManager.DestroySafe(q);
                 debugQuads = null;
             }
             if (debugMaterials != null)
             {
-                foreach (var m in debugMaterials)
-                    if (m != null) DestroySafe(m);
+                foreach (var m in debugMaterials) GPUResourceManager.DestroySafe(m);
                 debugMaterials = null;
             }
             // Free the RTs now: a showDebugGrid off→on toggle would otherwise stack a new
@@ -982,12 +971,6 @@ namespace Biomes
                 foreach (var t in debugTextures) gpu.Release(t);
             debugTextures = null;
             debugRenderers = null;
-        }
-
-        private static void DestroySafe(Object o)
-        {
-            if (Application.isPlaying) Destroy(o);
-            else DestroyImmediate(o);
         }
 
         // Biome is initialized by SimulationManager.Reset(), not OnEnable
@@ -1009,13 +992,12 @@ namespace Biomes
 
             _labelStyle ??= new GUIStyle { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             _labelStyle.normal.textColor = labelColor;
-            var style = _labelStyle;
 
             for (int i = 0; i < debugQuads.Length; i++)
             {
                 if (debugQuads[i] == null) continue;
                 var pos = debugQuads[i].transform.position + Vector3.up * labelYOffset;
-                UnityEditor.Handles.Label(pos, ChannelNames[i], style);
+                UnityEditor.Handles.Label(pos, ChannelNames[i], _labelStyle);
             }
         }
 #endif

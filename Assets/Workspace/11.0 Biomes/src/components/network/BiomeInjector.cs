@@ -189,6 +189,7 @@ namespace Biomes
         private int _rbResultCount, _rbPendingCount;
         private bool _rbValid, _rbInFlight;
         private AsyncGPUReadbackRequest _rbReq;
+        private System.Action<AsyncGPUReadbackRequest> _onAgentReadback;
 
         private ComputeBuffer _buffer;
         private Stamp[] _scratch;
@@ -492,8 +493,6 @@ namespace Biomes
         // Completion of an async agent-position readback. The just-filled _rbPending becomes the
         // readable result; the previous result buffer is recycled for the next request (ping-pong),
         // so stamping never reads a buffer the GPU is mid-write on.
-        private System.Action<AsyncGPUReadbackRequest> _onAgentReadback;
-
         private void OnAgentReadback(AsyncGPUReadbackRequest req)
         {
             _rbInFlight = false;

@@ -44,6 +44,11 @@ RWStructuredBuffer<uint> sortedBoidIndices;
 StructuredBuffer<uint> cellOffsetsRead;
 StructuredBuffer<uint> sortedIndicesRead;
 
+// Binning (HashAndCount, Scatter) and neighbour lookup (Move) must agree exactly.
+uint2 CellOf(float2 p) {
+    return uint2(min((uint)(p.x / cellSize.x), gridW - 1), min((uint)(p.y / cellSize.y), gridH - 1));
+}
+
 // Agents copied into cell order (ReorderAgentsKernel) so the neighbour loop in
 // MoveAgentsKernel streams contiguous 20-byte records instead of gathering
 // agentsIn[sortedIndices[j]] at random — the loop is the sim's bandwidth hotspot.
@@ -123,12 +128,10 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
                 * float2((float)rezX, (float)rezY);
         a.position = p;
     } else {
-        float2 c = Hash2u(id.x * 747796405u + time * 2891336453u);
+        float2 c = SpawnHash2(id.x, time, 0);
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
-    // Integer-hashed heading (see PhysarumSim ResetAgentsKernel).
-    float ang0 = SpawnAngle(Hash1u(id.x * 747796405u + time));
-    a.velocity = float2(cos(ang0), sin(ang0));
+    a.velocity = SpawnHeading(id.x, time);
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
 }
@@ -147,9 +150,8 @@ void ClearCellCountsKernel(uint3 id : SV_DISPATCHTHREADID) {
 void HashAndCountKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
     Agent b = agentsIn[id.x];
-    uint cx = min((uint)(b.position.x / cellSize.x), gridW - 1);
-    uint cy = min((uint)(b.position.y / cellSize.y), gridH - 1);
-    InterlockedAdd(cellCounts[cy * gridW + cx], 1);
+    uint2 cell = CellOf(b.position);
+    InterlockedAdd(cellCounts[cell.y * gridW + cell.x], 1);
 }
 
 // Exclusive prefix sum over cellCounts -> cellOffsets, also zeroing cellCounts so
@@ -196,9 +198,8 @@ void PrefixSumKernel(uint3 gtid : SV_GROUPTHREADID) {
 void ScatterKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
     Agent b = agentsIn[id.x];
-    uint cx = min((uint)(b.position.x / cellSize.x), gridW - 1);
-    uint cy = min((uint)(b.position.y / cellSize.y), gridH - 1);
-    uint cellKey = cy * gridW + cx;
+    uint2 cell = CellOf(b.position);
+    uint cellKey = cell.y * gridW + cell.x;
     uint localIdx;
     InterlockedAdd(cellCounts[cellKey], 1, localIdx);
     sortedBoidIndices[cellOffsets[cellKey] + localIdx] = id.x;
@@ -266,8 +267,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float fRX = (float)rezX;
     float fRY = (float)rezY;
 
-    uint myCellX = min((uint)(b.position.x / cellSize.x), gridW - 1);
-    uint myCellY = min((uint)(b.position.y / cellSize.y), gridH - 1);
+    uint2 myCell = CellOf(b.position);
     uint totalCells = gridW * gridH;
 
     // With fewer than 3 cells on an axis, -1 and +1 wrap onto the same cell: visit each once.
@@ -275,8 +275,8 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     int dyLo = gridH >= 3 ? -1 : 0, dyHi = gridH >= 2 ? 1 : 0;
     for (int dx = dxLo; dx <= dxHi; dx++) {
         for (int dy = dyLo; dy <= dyHi; dy++) {
-            uint ncx = (myCellX + dx + gridW) % gridW;
-            uint ncy = (myCellY + dy + gridH) % gridH;
+            uint ncx = (myCell.x + dx + gridW) % gridW;
+            uint ncy = (myCell.y + dy + gridH) % gridH;
             uint neighborCell = ncy * gridW + ncx;
 
             uint cellStart = cellOffsetsRead[neighborCell];

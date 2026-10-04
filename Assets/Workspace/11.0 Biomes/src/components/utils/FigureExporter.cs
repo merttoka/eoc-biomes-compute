@@ -164,9 +164,7 @@ namespace Biomes
 
         private void ReleaseBiomeScratch()
         {
-            if (_biomeScratch == null) return;
-            _biomeScratch.Release();
-            if (Application.isPlaying) Destroy(_biomeScratch); else DestroyImmediate(_biomeScratch);
+            GPUResourceManager.DestroyTexture(_biomeScratch);
             _biomeScratch = null;
         }
 
@@ -314,8 +312,7 @@ namespace Biomes
             RenderTexture.active = prev;
             if (tmp != null) RenderTexture.ReleaseTemporary(tmp);
             System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
-            if (Application.isPlaying) UnityEngine.Object.Destroy(tex);
-            else UnityEngine.Object.DestroyImmediate(tex);
+            GPUResourceManager.DestroySafe(tex);
         }
     }
 }

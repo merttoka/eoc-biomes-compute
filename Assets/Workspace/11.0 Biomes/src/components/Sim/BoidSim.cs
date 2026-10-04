@@ -156,12 +156,7 @@ namespace Biomes
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
-            cs.SetInt(s_TypeCountID, count);
-
-            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParamsBuffer);
+            BindTypeParams(typeParamsBuffer, count);
         }
 
         // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
@@ -194,9 +189,8 @@ namespace Biomes
 
         private void GPUSpatialHashBuild()
         {
-            // Cells at least one range wide that tile the torus exactly. Ceil-sized cells left a
-            // partial last row/column at the wrap, so boids within range across the seam could
-            // sit two cells apart and never see each other.
+            // Cells at least one range wide that tile the torus exactly: a partial last row/column
+            // at the wrap would put boids within range across the seam two cells apart, unseen.
             float range = MaxRangeAcrossTypes();
             int gw = Mathf.Max(1, Mathf.FloorToInt(rezX / range));
             int gh = Mathf.Max(1, Mathf.FloorToInt(rezY / range));
@@ -258,15 +252,6 @@ namespace Biomes
             cs.SetTexture(diffuseTextureKernel, s_TrailReadID, trailReadArray);
             cs.SetTexture(diffuseTextureKernel, s_TrailWriteID, trailWriteArray);
             Dispatch(diffuseTextureKernel, rezX, rezY, 1);
-        }
-
-        protected override void Render()
-        {
-            cs.SetTexture(renderKernel, s_TrailReadID, trailReadArray);
-            cs.SetTexture(renderKernel, s_OutTexID, outTex);
-            Dispatch(renderKernel, rezX, rezY, 1);
-            if (outputMat != null)
-                outputMat.SetTexture(s_UnlitColorMapID, outTex);
         }
 
         #region Parameter Control

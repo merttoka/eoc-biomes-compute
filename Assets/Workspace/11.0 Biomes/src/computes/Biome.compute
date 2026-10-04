@@ -412,7 +412,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         // density instead of a one-way ramp to flat 1.0. relaxRate 0 = identity.
         float relaxed = lerp(decayed, baseline, relaxRate);
         // Flow is a signed velocity (GenerateFlowKernel's ±1 range); every other
-        // channel is a 0..1 amount. A 0 floor here erased negative flow each step.
+        // channel is a 0..1 amount. A 0 floor would erase negative flow each step.
         float lo = (c == CH_FLOW_X || c == CH_FLOW_Y) ? -1.0 : 0.0;
         fieldWrite[uint3(id.xy, c)] = clamp(relaxed, lo, 1);
     }
@@ -485,10 +485,10 @@ void BuildPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
 // back to the full loop.
 //
 // Stamps are applied to a per-pixel register copy of each touched channel and written back
-// once. Re-reading a texel this thread just wrote is not coherent on Metal without a texture
-// fence, so overlapping same-channel stamps used to randomly lose contributions (the old
-// kernel wasn't even reproducible run to run). Intermediates stay float; the single final
-// write rounds to half. Matches a double-precision CPU chain to half precision.
+// once: re-reading a texel this thread just wrote is not coherent on Metal without a texture
+// fence, so overlapping same-channel stamps would randomly lose contributions. Intermediates
+// stay float; the single final write rounds to half (matches a double-precision CPU chain to
+// half precision).
 #define INJECT_MASK_WORDS 32   // 1024 stamps
 groupshared uint g_stampMask[INJECT_MASK_WORDS];
 

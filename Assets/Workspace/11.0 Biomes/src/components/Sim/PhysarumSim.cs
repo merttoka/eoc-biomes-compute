@@ -109,12 +109,7 @@ namespace Biomes
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
-            cs.SetInt(s_TypeCountID, count);
-
-            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParamsBuffer);
+            BindTypeParams(typeParamsBuffer, count);
         }
 
         // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
@@ -148,15 +143,6 @@ namespace Biomes
             Dispatch(writeTrailsKernel, n, 1, 1);
 
             (readAgentsBuffer, writeAgentsBuffer) = (writeAgentsBuffer, readAgentsBuffer);
-        }
-
-        protected override void Render()
-        {
-            cs.SetTexture(renderKernel, s_TrailReadID, trailReadArray);
-            cs.SetTexture(renderKernel, s_OutTexID, outTex);
-            Dispatch(renderKernel, rezX, rezY, 1);
-            if (outputMat != null)
-                outputMat.SetTexture(s_UnlitColorMapID, outTex);
         }
 
         #region Parameter Control

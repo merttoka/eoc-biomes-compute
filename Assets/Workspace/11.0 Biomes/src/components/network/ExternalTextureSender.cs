@@ -153,7 +153,7 @@ namespace Biomes
         {
             int w = simManager.biome.RezX, h = simManager.biome.RezY;
             if (live.extractRT != null && live.extractRT.width == w && live.extractRT.height == h) return;
-            if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
+            GPUResourceManager.DestroyTexture(live.extractRT);
             live.extractRT = new RenderTexture(w, h, 0) { enableRandomWrite = true, name = "BiomeExtract" };
             live.extractRT.Create();
         }
@@ -171,7 +171,7 @@ namespace Biomes
             int ch = ndi ? NdiHeight(h) : h;
             if (live.scaleRT == null || live.scaleRT.width != cw || live.scaleRT.height != ch)
             {
-                if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
+                GPUResourceManager.DestroyTexture(live.scaleRT);
                 live.scaleRT = new RenderTexture(cw, ch, 0) { name = "DownscaleSend" };
                 live.scaleRT.Create();
             }
@@ -196,7 +196,7 @@ namespace Biomes
             if (live.cropRT == null || live.cropRT.width != w || live.cropRT.height != h
                 || live.cropRT.graphicsFormat != fmt)
             {
-                if (live.cropRT != null) { live.cropRT.Release(); Destroy(live.cropRT); }
+                GPUResourceManager.DestroyTexture(live.cropRT);
                 live.cropRT = new RenderTexture(w, h, 0, fmt) { name = "NdiCropSend" };
                 live.cropRT.Create();
             }
@@ -230,9 +230,9 @@ namespace Biomes
             {
                 if (live == null) continue;
                 live.backend?.Dispose();
-                if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
-                if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
-                if (live.cropRT != null) { live.cropRT.Release(); Destroy(live.cropRT); }
+                GPUResourceManager.DestroyTexture(live.extractRT);
+                GPUResourceManager.DestroyTexture(live.scaleRT);
+                GPUResourceManager.DestroyTexture(live.cropRT);
                 if (live.go != null) Destroy(live.go);
             }
             _live.Clear();
