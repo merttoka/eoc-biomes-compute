@@ -399,7 +399,9 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   Done too — a re-cloned `agentParams`/`liveUmwelt` gets the reached waypoint re-imposed
   (`SyncLiveInstances`), so a sim started after the transition shows the interpolated state,
   not its preset. `SimTimeline.interpolatorGroup` + `PlayInterpolators` / `StopInterpolators` /
-  `SkipInterpolators` cues schedule it (timeline Play/Stop call `StopAll`): e.g. presets = set A,
+  `SkipInterpolators` cues schedule it (timeline Stop calls `StopAll`; Play calls `StopAll`, or
+  `PlayAll` for a `playOnStart` group, so every take starts its queue the same way; the group's own
+  `Start()` may `PlayAll` in the same frame, which lands in the same state): e.g. presets = set A,
   `waypoints` = set B, `durationSteps = 4·simRate`, cue `PlayInterpolators @ 70 s` → A until 70,
   4 s crossfade, B from 74 regardless of when sims start/stop. Spec:
   [[superpowers/specs/2026-09-09-umwelt-interpolation-and-timeline-video-design]].
