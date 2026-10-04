@@ -9,9 +9,10 @@ int spawnMode;             // 0 = neuron positions (legacy), 1 = bottom edge, 2 
 float spawnBandFraction;   // mode 1: band height as a fraction of canvas height
 
 // Two [0,1) values per (id, time, attempt), integer-hashed so they stay uniform at any
-// agent count (see Hash1u).
+// agent count (see Hash1u). The salt keeps attempt 0 off SpawnHeading's seed: spawns run at
+// time 0, where both would hash id * 747796405u and tie each agent's heading to its x.
 float2 SpawnHash2(uint id, uint time, uint attempt) {
-    return Hash2u(id * 747796405u + time * 2891336453u + attempt * 1013904223u);
+    return Hash2u(id * 747796405u + time * 2891336453u + attempt * 1013904223u + 0xC2B2AE35u);
 }
 
 // Spawn position for modes 1-3: uniform x, band-limited y (modes 1 and 3), resampled a

@@ -39,6 +39,7 @@ namespace Biomes
         private RenderTexture m_DebugVideoTexture;
         private RenderTexture m_DebugBlurTemp;
         private RenderTexture _outputTexture;
+        private bool _outputBlank;   // OutputTexture was cleared and nothing has been copied in since
         private int _lastDebugCopyFrame = -1;
 
         private ITextureReceiverBackend _backend;
@@ -59,9 +60,10 @@ namespace Biomes
         public bool DebugUseVideoInput => m_DebugUseVideoInput;
         public bool IsDebugVideoPlaying => m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying;
 
-        /// <summary>True while the debug clip holds no content (never started, or stopped and cleared).
+        /// <summary>True while OutputTexture holds no content: the debug clip never started or was stopped
+        /// (both clear it), or debug input was switched off and nothing has been received since.
         /// TextureChannelSeeder skips a receiver in this state so SetToward/MinToward routes don't write zeros.</summary>
-        public bool IsDebugVideoStopped => m_DebugUseVideoInput && m_DebugVideoStopped;
+        public bool IsOutputBlank => _outputBlank;
 
         public void Initialize()
         {
@@ -134,6 +136,7 @@ namespace Biomes
             m_DebugVideoStopped = true;
             ClearToTransparent(m_DebugVideoTexture);
             ClearToTransparent(_outputTexture);
+            _outputBlank = true;
         }
 
         private static void ClearToTransparent(RenderTexture rt)
@@ -153,6 +156,7 @@ namespace Biomes
             if (rx == null || rx.width < 2 || rx.height < 2) return;
             EnsureOutputTexture(rx.width, rx.height);
             Graphics.Blit(rx, _outputTexture);
+            _outputBlank = false;
         }
 
         private void EnsureBackend()
@@ -189,6 +193,7 @@ namespace Biomes
             _lastDebugCopyFrame = Time.frameCount;
 
             Graphics.Blit(m_DebugVideoTexture, _outputTexture);
+            _outputBlank = false;
 
             if (m_DebugApplyGaussianBlur && m_BlurCompute != null)
                 ApplyGaussianBlur();
@@ -216,6 +221,7 @@ namespace Biomes
             _outputTexture.Create();
             gpu.Track(_outputTexture);
             ClearToTransparent(_outputTexture);   // fresh RT contents are undefined; a stopped clip never copies over them
+            _outputBlank = true;
             _lastDebugCopyFrame = -1;             // let this frame's copy run
         }
 

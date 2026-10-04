@@ -188,6 +188,7 @@ namespace Biomes
         private NativeArray<AgentLayout> _rbResult, _rbPending;
         private int _rbResultCount, _rbPendingCount;
         private bool _rbValid, _rbInFlight;
+        private int _rbEpoch, _rbRequestEpoch;   // bumped while the sim isn't Running: drops pre-stop readbacks
         private AsyncGPUReadbackRequest _rbReq;
         private System.Action<AsyncGPUReadbackRequest> _onAgentReadback;
 
@@ -426,8 +427,15 @@ namespace Biomes
         {
             // Running only, like the manager's own deposits: a Fading sim's agents are frozen
             // (stamping would pin hot spots at their last positions), and a Stopped sim's
-            // buffer may already be released by a manager reallocation.
-            if (firingAgentSim.runState != SimRunState.Running) return k;
+            // buffer may already be released by a manager reallocation. Their last positions go
+            // stale here too: drop the held result and any readback in flight, so a restart
+            // doesn't stamp them for its first frames.
+            if (firingAgentSim.runState != SimRunState.Running)
+            {
+                _rbValid = false;
+                _rbEpoch++;
+                return k;
+            }
 
             var buf = firingAgentSim.GetAgentPositionBuffer();
             int agentCount = firingAgentSim.GetAgentCount();
@@ -471,6 +479,7 @@ namespace Biomes
                         Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 }
                 _rbPendingCount = readCount;
+                _rbRequestEpoch = _rbEpoch;
                 _onAgentReadback ??= OnAgentReadback;   // method group → new delegate per call otherwise
                 _rbReq = AsyncGPUReadback.RequestIntoNativeArray(ref _rbPending, buf, readCount * buf.stride, 0, _onAgentReadback);
                 _rbInFlight = true;
@@ -497,6 +506,7 @@ namespace Biomes
         {
             _rbInFlight = false;
             if (req.hasError) return; // keep last good result
+            if (_rbRequestEpoch != _rbEpoch) return; // requested before the sim stopped: stale
             (_rbResult, _rbPending) = (_rbPending, _rbResult);
             _rbResultCount = _rbPendingCount;
             _rbValid = true;

@@ -143,10 +143,18 @@ namespace Biomes
         private int compositeBlendKernel;
 
         // frameBlend: the last two sim composites, the step the newer one shows (-1 = none yet),
-        // and the fixed-clock time of the latest step (the blend weight is the time since it, in steps).
+        // when the latest step ran and the interval it closed (the blend weight is the time since
+        // it, in steps). Double clocks: a float Time.time is too coarse for sub-step weights after
+        // about a day of uptime.
         private RenderTexture _blendPrev, _blendCurr;
         private int _stepSerial, _blendStepSerial = -1;
-        private float _lastStepTime;
+        private double _lastStepTime;
+        private float _stepInterval = 1f / 60f;
+
+        // Project pacing before this manager first applied its own; restored when both
+        // vSyncDivisor and limitFPS are off, so a live edit can turn pacing back off.
+        private bool _baseTimingCaptured;
+        private int _baseVSyncCount, _baseTargetFrameRate;
         private ComputeBuffer simWeightsBuffer;
         private readonly float[] _simWeightsCache = new float[8];
 
@@ -213,9 +221,14 @@ namespace Biomes
         // isn't (e.g. the Editor with the Game view's VSync off).
         private void ApplyFrameTiming()
         {
-            if (vSyncDivisor > 0) QualitySettings.vSyncCount = vSyncDivisor;
-            else if (limitFPS) QualitySettings.vSyncCount = 0;
-            if (limitFPS) Application.targetFrameRate = targetFPS;
+            if (!_baseTimingCaptured)
+            {
+                _baseVSyncCount = QualitySettings.vSyncCount;
+                _baseTargetFrameRate = Application.targetFrameRate;
+                _baseTimingCaptured = true;
+            }
+            QualitySettings.vSyncCount = vSyncDivisor > 0 ? vSyncDivisor : limitFPS ? 0 : _baseVSyncCount;
+            Application.targetFrameRate = limitFPS ? targetFPS : _baseTargetFrameRate;
         }
 
         // Inspector edits to the pacing fields apply live in Play (never touch the project's
@@ -326,17 +339,23 @@ namespace Biomes
                 Step();
         }
 
-        // Render is decoupled from the sim: exactly one composite per rendered frame,
-        // showing the latest stepped state (FixedUpdate always runs before LateUpdate
-        // within a frame). On fast HW render free-runs above simRate; on slow HW it
-        // composites the most recent step.
+        // Render is decoupled from the sim: one output per rendered frame, showing the latest
+        // stepped state (FixedUpdate always runs before LateUpdate within a frame), or with
+        // frameBlend a blend of the last two. On fast HW render free-runs above simRate; on
+        // slow HW it shows the most recent step.
         void LateUpdate() => Render();
 
         public void Step()
         {
             _simStepCount++;
             _stepSerial++;
-            _lastStepTime = Time.fixedTime;
+            // Fixed clock when FixedUpdate drives the step; frame clock when a BiomeCellRig steps
+            // this manager from Update at its own cellRate (then the interval is measured).
+            bool fixedStep = Time.inFixedTimeStep;
+            double stepTime = fixedStep ? Time.fixedTimeAsDouble : Time.timeAsDouble;
+            if (stepTime > _lastStepTime)   // steps sharing one tick (stepsPerTick > 1) keep the interval
+                _stepInterval = fixedStep ? Time.fixedDeltaTime : Mathf.Min((float)(stepTime - _lastStepTime), 1f);
+            _lastStepTime = stepTime;
 
             // 0. Update external input
             externalInput?.UpdateInput();
@@ -494,6 +513,9 @@ namespace Biomes
             if (frameBlend && Application.isPlaying && gpu != null)
             {
                 EnsureBlendTargets();
+                // Show the state one step behind the clock: prev at the moment of a step, curr one
+                // step later. Saturates at curr when steps stop (paused, stepsPerTick 0).
+                float alpha = Mathf.Clamp01((float)((Time.timeAsDouble - _lastStepTime) / _stepInterval));
                 if (_stepSerial != _blendStepSerial)   // a new sim state since the last composite
                 {
                     (_blendPrev, _blendCurr) = (_blendCurr, _blendPrev);
@@ -502,9 +524,12 @@ namespace Biomes
                         Graphics.CopyTexture(_blendCurr, _blendPrev);
                     _blendStepSerial = _stepSerial;
                 }
-                // Show the state one step behind the clock: prev at the moment of a step, curr one
-                // step later. Saturates at curr when steps stop (paused, stepsPerTick 0).
-                float alpha = Mathf.Clamp01((Time.time - _lastStepTime) / Time.fixedDeltaTime);
+                else if (alpha >= 1f)
+                {
+                    // Stepping has stalled (paused): recomposite so changes made between steps —
+                    // mixer weights, StopSim cuts, StartSim, overlay, keep-out — still show.
+                    CompositeInto(_blendCurr);
+                }
                 compositeCS.SetFloat(s_BlendAlphaID, alpha);
                 compositeCS.SetTexture(compositeBlendKernel, s_BlendPrevID, _blendPrev);
                 compositeCS.SetTexture(compositeBlendKernel, s_BlendCurrID, _blendCurr);
