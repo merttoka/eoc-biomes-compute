@@ -1,20 +1,27 @@
-// Alternative agent spawn modes (SimulationBase.SpawnMode). Mode 0 keeps each
-// sim's legacy inline logic (neuron positions, scatter fallback); modes 1/2 are
-// shared here. Requires random.hlsl (Random2, Hash1u), keepout.hlsl
-// (KeepOutField), and rezX/rezY — include after all three.
+// Agent spawn helpers (SimulationBase.SpawnMode). Mode 0 positions stay in each sim
+// (neuron positions, scatter fallback); modes 1-3 and the spawn hashes are shared here.
+// Requires random.hlsl (Hash1u, Hash2u), keepout.hlsl (KeepOutField), and rezX/rezY —
+// include after all three.
 #ifndef SPAWN_INCLUDED
 #define SPAWN_INCLUDED
 
 int spawnMode;             // 0 = neuron positions (legacy), 1 = bottom edge, 2 = scatter, 3 = top edge
 float spawnBandFraction;   // mode 1: band height as a fraction of canvas height
 
-// Spawn position for modes 1/2: uniform x, band-limited y (mode 1), resampled a
+// Two [0,1) values per (id, time, attempt), integer-hashed so they stay uniform at any
+// agent count (see Hash1u). The salt keeps attempt 0 off SpawnHeading's seed: spawns run at
+// time 0, where both would hash id * 747796405u and tie each agent's heading to its x.
+float2 SpawnHash2(uint id, uint time, uint attempt) {
+    return Hash2u(id * 747796405u + time * 2891336453u + attempt * 1013904223u + 0xC2B2AE35u);
+}
+
+// Spawn position for modes 1-3: uniform x, band-limited y (modes 1 and 3), resampled a
 // few times to land clear of any keep-out rect (a bottom hole splits the floor
 // into the side segments, as on cutout installs).
 float2 AltSpawnPosition(uint id, uint time) {
     float2 uv = float2(0.5, 0.5);
     for (uint t = 0; t < 8; t++) {
-        float2 c = Random2(id * .0001 + time * .001 + t * .1337);
+        float2 c = SpawnHash2(id, time, t);
         uv = (spawnMode == 1) ? float2(c.x, c.y * spawnBandFraction)
            : (spawnMode == 3) ? float2(c.x, 1.0 - c.y * spawnBandFraction)
            : c;
@@ -29,6 +36,12 @@ float SpawnAngle(float seed01) {
     if (spawnMode == 1) return  1.5707963 + (seed01 - 0.5) * 1.2;   // up cone
     if (spawnMode == 3) return -1.5707963 + (seed01 - 0.5) * 1.2;   // down cone
     return seed01 * 6.2831853;
+}
+
+// Unit spawn heading. seed = the agent id, or a group id for agents that share a heading.
+float2 SpawnHeading(uint seed, uint time) {
+    float a = SpawnAngle(Hash1u(seed * 747796405u + time));
+    return float2(cos(a), sin(a));
 }
 
 #endif

@@ -85,9 +85,7 @@ namespace Biomes
 
         public override void Reset()
         {
-            agentParams = paramsSO != null
-                ? Instantiate(paramsSO)
-                : ScriptableObject.CreateInstance<BoidParams>();
+            agentParams = CloneParams(paramsSO);
             base.Reset();
         }
 
@@ -156,12 +154,7 @@ namespace Biomes
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
-            cs.SetInt(s_TypeCountID, count);
-
-            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParamsBuffer);
+            BindTypeParams(typeParamsBuffer, count);
         }
 
         // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
@@ -194,12 +187,14 @@ namespace Biomes
 
         private void GPUSpatialHashBuild()
         {
-            float cs_cellSize = MaxRangeAcrossTypes();
-            int gw = Mathf.CeilToInt((float)rezX / cs_cellSize);
-            int gh = Mathf.CeilToInt((float)rezY / cs_cellSize);
+            // Cells at least one range wide that tile the torus exactly: a partial last row/column
+            // at the wrap would put boids within range across the seam two cells apart, unseen.
+            float range = MaxRangeAcrossTypes();
+            int gw = Mathf.Max(1, Mathf.FloorToInt(rezX / range));
+            int gh = Mathf.Max(1, Mathf.FloorToInt(rezY / range));
 
             int n = AllocatedAgentCount;   // buffers are sized for this; live agentsCount takes effect on Reset
-            cs.SetFloat(s_CellSizeID, cs_cellSize);
+            cs.SetVector(s_CellSizeID, new Vector2((float)rezX / gw, (float)rezY / gh));
             cs.SetInt(s_GridWID, gw);
             cs.SetInt(s_GridHID, gh);
             cs.SetInt(s_AgentsCountID, n);
@@ -257,15 +252,6 @@ namespace Biomes
             Dispatch(diffuseTextureKernel, rezX, rezY, 1);
         }
 
-        protected override void Render()
-        {
-            cs.SetTexture(renderKernel, s_TrailReadID, trailReadArray);
-            cs.SetTexture(renderKernel, s_OutTexID, outTex);
-            Dispatch(renderKernel, rezX, rezY, 1);
-            if (outputMat != null)
-                outputMat.SetTexture(s_UnlitColorMapID, outTex);
-        }
-
         #region Parameter Control
 
         private float R(string p, float v) { var (mn, mx) = agentParams.GetRange(p); return MapAndClamp(v, mn, mx); }
@@ -273,7 +259,7 @@ namespace Biomes
 
         public override void SetParameter(string paramName, int index, float value)
         {
-            if (index < 0 || index >= agentParams.types.Count) return;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return;
             var t = agentParams.types[index];
             switch (paramName)
             {
@@ -293,7 +279,7 @@ namespace Biomes
 
         public override void SetParameterDelta(string paramName, int index, float delta)
         {
-            if (index < 0 || index >= agentParams.types.Count) return;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return;
             var t = agentParams.types[index];
             switch (paramName)
             {
@@ -313,7 +299,7 @@ namespace Biomes
 
         public override float GetParameter(string paramName, int index)
         {
-            if (index < 0 || index >= agentParams.types.Count) return 0f;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return 0f;
             var t = agentParams.types[index];
             return paramName switch
             {

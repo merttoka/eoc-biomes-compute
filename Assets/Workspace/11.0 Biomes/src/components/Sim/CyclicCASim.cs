@@ -64,9 +64,7 @@ namespace Biomes
 
             // Re-clone from the pristine asset every reset, exactly as the agent sims do, so
             // live tweaks and resolution scaling never compound into the on-disk preset.
-            caParams = paramsSO != null
-                ? Instantiate(paramsSO)
-                : ScriptableObject.CreateInstance<CyclicCAParams>();
+            caParams = CloneParams(paramsSO);
             base.Reset();
         }
 

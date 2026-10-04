@@ -164,9 +164,7 @@ namespace Biomes
 
         private void ReleaseBiomeScratch()
         {
-            if (_biomeScratch == null) return;
-            _biomeScratch.Release();
-            if (Application.isPlaying) Destroy(_biomeScratch); else DestroyImmediate(_biomeScratch);
+            GPUResourceManager.DestroyTexture(_biomeScratch);
             _biomeScratch = null;
         }
 
@@ -299,6 +297,7 @@ namespace Biomes
 
         public static void Save(RenderTexture rt, string path, bool encodeSRGB = true)
         {
+            var prev = RenderTexture.active;   // before the Blit, which leaves its dest active
             RenderTexture src = rt, tmp = null;
             if (encodeSRGB)
             {
@@ -308,14 +307,12 @@ namespace Biomes
                 src = tmp;
             }
             var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
-            var prev = RenderTexture.active;
             RenderTexture.active = src;
             tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);   // CPU copy is all EncodeToPNG needs; no Apply() upload
             RenderTexture.active = prev;
             if (tmp != null) RenderTexture.ReleaseTemporary(tmp);
             System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
-            if (Application.isPlaying) UnityEngine.Object.Destroy(tex);
-            else UnityEngine.Object.DestroyImmediate(tex);
+            GPUResourceManager.DestroySafe(tex);
         }
     }
 }

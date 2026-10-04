@@ -68,9 +68,7 @@ namespace Biomes
 
         public override void Reset()
         {
-            agentParams = paramsSO != null
-                ? Instantiate(paramsSO)
-                : ScriptableObject.CreateInstance<TermiteParams>();
+            agentParams = CloneParams(paramsSO);
             base.Reset();
         }
 
@@ -125,12 +123,7 @@ namespace Biomes
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
-            cs.SetInt(s_TypeCountID, count);
-
-            cs.SetBuffer(moveAgentsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(writeTrailsKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(diffuseTextureKernel, s_TypeParamsID, typeParamsBuffer);
-            cs.SetBuffer(renderKernel, s_TypeParamsID, typeParamsBuffer);
+            BindTypeParams(typeParamsBuffer, count);
         }
 
         // Fade ticks re-bind typeParams (diffuseRate drives the decay) like every live step does.
@@ -164,22 +157,13 @@ namespace Biomes
             (readAgentsBuffer, writeAgentsBuffer) = (writeAgentsBuffer, readAgentsBuffer);
         }
 
-        protected override void Render()
-        {
-            cs.SetTexture(renderKernel, s_TrailReadID, trailReadArray);
-            cs.SetTexture(renderKernel, s_OutTexID, outTex);
-            Dispatch(renderKernel, rezX, rezY, 1);
-            if (outputMat != null)
-                outputMat.SetTexture(s_UnlitColorMapID, outTex);
-        }
-
         #region Parameter Control
         private float R(string p, float v) { var (mn, mx) = agentParams.GetRange(p); return MapAndClamp(v, mn, mx); }
         private float D(string p, float f, float d) { var (mn, mx) = agentParams.GetRange(p); return ClampDelta(f, d, mn, mx); }
 
         public override void SetParameter(string paramName, int index, float value)
         {
-            if (index < 0 || index >= agentParams.types.Count) return;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return;
             var t = agentParams.types[index];
             switch (paramName)
             {
@@ -196,7 +180,7 @@ namespace Biomes
 
         public override void SetParameterDelta(string paramName, int index, float delta)
         {
-            if (index < 0 || index >= agentParams.types.Count) return;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return;
             var t = agentParams.types[index];
             switch (paramName)
             {
@@ -213,7 +197,7 @@ namespace Biomes
 
         public override float GetParameter(string paramName, int index)
         {
-            if (index < 0 || index >= agentParams.types.Count) return 0f;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return 0f;
             var t = agentParams.types[index];
             return paramName switch
             {

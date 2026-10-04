@@ -102,6 +102,14 @@ the only driver: `Reset()` (re)initializes everything; `FixedUpdate()` calls `St
 `Render()` once per rendered frame. Unity's `Time.maximumDeltaTime` (exposed as
 `maxAllowedTimestep`) caps catch-up on slow hardware. `SimStepCount` is the canonical
 sim clock (monotonic, increments per `Step()`), used by time-based tooling.
+Frames above `simRate` only repeat the last step unless **`frameBlend`** is on (default off):
+the manager then composites into one of two internal buffers when a new step exists (and every
+frame while stepping is stalled, so paused edits still show) and each frame writes
+`lerp(prev, curr, timeSinceLastStep / stepInterval)` into the stable
+`compositeOutTex` — one step of latency, smooth motion on 120/240 Hz displays (recorder and
+FigureExporter frames are blended too). **`vSyncDivisor`** (0–4) presents every Nth refresh
+(4 on a 240 Hz monitor = evenly paced 60 fps); `targetFPS` remains the cap when vsync is off or
+unavailable (in the Editor, the Game view's VSync option).
 
 `Reset()` is **clear-in-place** ([[adr/0008-clear-in-place-reset]]): each owner
 (`SimulationManager`, `Biome`, every `SimulationBase`, `NeuronFiringSource`,
@@ -151,7 +159,9 @@ a `FieldSimulationBase` is bursting; once the burst goes idle it stops publishin
 takes the deposit over — these channels deliberately do bleed and advect (`diffuseRate` 0.96,
 `decayRate` 0.004), so the trace erodes rather than sitting inert). Per-channel
 behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
-from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
+from `BiomeFieldConfig` and is uploaded as a structured buffer. In Play the biome runs on a
+copy of the config (`fieldConfig` shows `(Clone)`): inspector and MFT edits never write the
+shared asset; **Save Field Config To Asset** on `Biome` copies them back. The channel count is
 hardcoded in two sync'd places — `BiomeChannel.Count/Names` (the C# source of truth; both
 `ExternalTextureSender` and the debug grid reference `BiomeChannel.Names` directly) and
 `Biome.compute` `CH_COUNT`; **adding a channel means updating both** plus each
@@ -165,7 +175,8 @@ react → diffuse + decay
 (`CopyChannelsExcept`, with a literal mask of the channels the pass writes itself) so they
 survive the swap; **any new partial pass must do the same.** Field samples use
 texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow transports
-the chemical fields only — agents are never pushed by it. Resolution is independent of
+the chemical fields only — agents are never pushed by it. FlowX/FlowY are **signed**
+(−1..1); every other channel is clamped to 0..1. Resolution is independent of
 sim resolution; sim↔field coordinates are mapped by ratio.
 
 ### 3.4 Simulations — agent sims and field sims
@@ -214,7 +225,9 @@ and **shared neuron firing**
 
 - **`PhysarumSim`** — slime-mold agents (sense-angle/distance, turn, deposit, eat).
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
-  ranges, food-seeking).
+  ranges, food-seeking). Cells are at least one max range wide and sized per axis to tile
+  the torus exactly, so neighbours across the wrap are always in adjacent cells; separation
+  and cohesion use the minimum-image (wrapped) displacement to them.
 - **`CyclicCASim`** — cyclic (Griffeath) cellular automaton, an excitable medium of smooth
   spiral waves. A cell advances to the next state when `threshold` neighbours already hold
   it. Publishes to `Excitability`.
@@ -298,8 +311,10 @@ each a list of per-type structs plus a list of `ParamRange` (min/max for 0–1
 control mapping).
 
 - **`paramsSO`** — the saved preset asset, assigned in the inspector, never mutated.
-- **`agentParams`** — a runtime `Instantiate` clone created on `Reset()`; this is
-  what all live control mutates. `GPUStep()` re-uploads it every step, so mutating
+- **`agentParams`** — a runtime clone created on `Reset()` by `SimulationBase.CloneParams`
+  (which destroys the previous clone; CA sims' `caParams` too); this is
+  what all live control mutates. Before the first `Reset()` the slot is null and
+  `Get/SetParameter` are no-ops. `GPUStep()` re-uploads it every step, so mutating
   the clone is immediately reflected on the GPU with no extra plumbing.
 - **`IParamSet`** — interface giving by-name *raw* access (`GetValue`/`SetValue`/
   `GetRange`/`TypeCount`) to any params object, live clone or on-disk asset.
@@ -335,8 +350,11 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   stamp producers: external **sources** (sensors/OSC → any channel), and **firing-driven
   Dispersal** pulses (intensity-scaled, radius-expanding) at either fixed **neuron CSV
   positions** or **live agent positions** of a chosen sim (`FiringDispersalSource`, e.g. the
-  termites — `i % neuronCount` selects the firing neuron). Runs after sim write-back, before
-  `Biome.Step()`, so stamps ride the full field evolution. Spec:
+  termites — `i % neuronCount` selects the firing neuron; Running sims only). Runs after sim
+  write-back, before `Biome.Step()`, so stamps ride the full field evolution.
+  `InjectStampKernel` culls stamps per 8×8 tile and applies each pixel's survivors in index
+  order on register copies of the touched channels, writing each texel once (re-reading a
+  just-written texel is not coherent on Metal). Spec:
   [[superpowers/specs/2026-06-11-termite-biome-features-design]].
 - **`TextureChannelSeeder`** — routes a **whole raster** into biome channels every step
   (step 3.6, right after the injector): one route per source component (R/G/B/A/luminance →
@@ -401,15 +419,17 @@ packages compile on every platform; availability is gated at runtime
   is `lerp(color.rgb, overlay.rgb, overlayStrength * overlay.a)`; any transport call marks the clip
   transport-owned so autoplay never revives a paused/stopped clip, and `Prepare()` fires once
   when autoplay is off) into an `OutputTexture`. `TextureChannelSeeder` skips a receiver whose
-  debug clip is stopped (`IsDebugVideoStopped`), so SetToward/MinToward routes don't write
-  zeros while the timeline holds the clip. In 11.0 that texture feeds the composite
+  output is blank (`IsOutputBlank`: debug clip stopped, or debug input switched off with
+  nothing received since), so SetToward/MinToward routes don't write zeros. In 11.0 that texture feeds the composite
   overlay and `TextureChannelSeeder` (→ biome channels); no 11.0 sim kernel samples it as
   steering influence. Replaces `ExternalInputProvider`. `selfDrive` + a custom inspector preview/source-picker let
   you verify reception standalone. Note: receive needs the source's *exact* canonical
   name (NDI `"<MACHINE> (Name)"`, Syphon `"App/Name"`) — hence the discovery dropdown.
 - **`ExternalTextureSender`** — sends selected textures (composite, per-sim outputs,
   biome channel layers) out; per-stream protocol + resolution scale, default
-  `EoC/<name>` stream names. Biome layers extracted via `Biome.RenderChannelTo` only
+  `EoC/<name>` stream names. NDI frames are cropped (centred) to width % 16 / height % 8,
+  the sizes KlakNDI encodes; editing a stream's `enabled`, protocol or name in Play rebuilds
+  that stream only (the others keep their servers). Biome layers extracted via `Biome.RenderChannelTo` only
   while enabled. `SetSource` is idempotent (set-on-change) — required because
   `SyphonServer`'s source-setter tears down its publish coroutine. Clear-in-place reset
   keeps the source texture instance stable, so this set-on-change never re-fires on a
@@ -419,7 +439,9 @@ packages compile on every platform; availability is gated at runtime
   allocates through it and `ReleaseAll()` cleans up. Each `SimulationManager`, `Biome`,
   and `SimulationBase` holds its own instance. Instances **persist across resets**
   (clear-in-place — [[adr/0008-clear-in-place-reset]]); `ReleaseAll()` runs only on a
-  resolution/structural realloc, disable, or destroy.
+  resolution/structural realloc, disable, or destroy. Its static `DestroySafe` /
+  `DestroyTexture` hold the Play/edit-mode destroy rule (`Destroy` is illegal outside Play)
+  for objects it doesn't track.
 
 - **Recording the composite** (`SimulationManager` › Recording) — two pixel-exact paths, no
   Game View dependence: (a) `recorderTarget`, a RenderTexture *asset* (sRGB ARGB32) the manager

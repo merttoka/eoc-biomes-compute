@@ -98,7 +98,7 @@ MonoBehaviour:
     depositAmount: 0.02
     eatAmount: 0.01
     diffuseRate: 0.985
-    hue: 0.46184146
+    hue: 0.82
     saturation: 0.80603987
     firingSpeedMul: 2
     firingDepositAmount: 1

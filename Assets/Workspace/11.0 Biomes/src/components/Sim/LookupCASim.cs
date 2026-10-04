@@ -68,9 +68,7 @@ namespace Biomes
             // clone that serializes into the scene. See FieldSimulationBase.IsConfigured.
             if (!IsConfigured) return;
 
-            caParams = paramsSO != null
-                ? Instantiate(paramsSO)
-                : ScriptableObject.CreateInstance<LookupCAParams>();
+            caParams = CloneParams(paramsSO);
             // Force a rebuild: the clone is a fresh object and the cached signature refers to
             // whatever the previous clone held.
             _tableStates = -1;

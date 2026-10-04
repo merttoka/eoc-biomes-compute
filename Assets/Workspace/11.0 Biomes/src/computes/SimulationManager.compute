@@ -1,6 +1,7 @@
 // Composite render: blend sim outputs into final output
 
 #pragma kernel CompositeRenderKernel
+#pragma kernel CompositeBlendKernel
 
 uint rezX;
 uint rezY;
@@ -82,8 +83,8 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     color.rgb *= keep;
     color = saturate(color);
 
-    // Mound overlay, fused here instead of a second full-res read-modify-write pass.
-    // The quantize reproduces the ARGBHalf store + reload the separate pass did.
+    // Mound overlay. The half quantize matches the ARGBHalf composite store, so the result
+    // equals painting the walls over the stored composite.
     if (moundStrength > 0.0)
     {
         color.rgb = f16tof32(f32tof16(color.rgb));
@@ -96,4 +97,17 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         color.rgb = lerp(color.rgb, moundColor.rgb, wall * moundStrength);
     }
     compositeOut[id.xy] = color;
+}
+
+
+// frameBlend: the displayed frame between the last two sim composites (alpha = fraction of a
+// fixed step elapsed since the newer one).
+Texture2D<float4> blendPrev;
+Texture2D<float4> blendCurr;
+float blendAlpha;
+
+[numthreads(8, 8, 1)]
+void CompositeBlendKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    compositeOut[id.xy] = lerp(blendPrev[id.xy], blendCurr[id.xy], blendAlpha);
 }

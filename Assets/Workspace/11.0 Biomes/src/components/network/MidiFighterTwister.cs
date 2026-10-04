@@ -304,18 +304,20 @@ namespace Biomes
 
             // Last column of last HW bank: Biome cross-field interactions
             int biomeCol = 4 * HW_BANK_COUNT - 1;
+            // Resolve biome.fieldConfig per call, not here: bindings are built in OnEnable, which
+            // can run before the biome swaps in its Play-mode copy (Biome.Reset) — a captured
+            // reference would keep writing the shared asset.
             var biome = m_SimManager?.biome;
-            var config = biome?.fieldConfig;
-            if (config != null)
+            if (biome != null && biome.fieldConfig != null)
             {
                 bindings[ColRowToEncoderIdx(biomeCol, 0)] = MakeBiomeCrossFieldBinding("wasteToNutrient",
-                    v => config.wasteToNutrientRate = v, () => config.wasteToNutrientRate, 0f, 0.1f);
+                    v => biome.fieldConfig.wasteToNutrientRate = v, () => biome.fieldConfig.wasteToNutrientRate, 0f, 0.1f);
                 bindings[ColRowToEncoderIdx(biomeCol, 1)] = MakeBiomeCrossFieldBinding("temp→Flow",
-                    v => config.temperatureToFlowStrength = v, () => config.temperatureToFlowStrength, 0f, 1f);
+                    v => biome.fieldConfig.temperatureToFlowStrength = v, () => biome.fieldConfig.temperatureToFlowStrength, 0f, 1f);
                 bindings[ColRowToEncoderIdx(biomeCol, 2)] = MakeBiomeCrossFieldBinding("temp→Perm",
-                    v => config.temperatureToPermeability = v, () => config.temperatureToPermeability, 0f, 1f);
+                    v => biome.fieldConfig.temperatureToPermeability = v, () => biome.fieldConfig.temperatureToPermeability, 0f, 1f);
                 bindings[ColRowToEncoderIdx(biomeCol, 3)] = MakeBiomeCrossFieldBinding("noiseScale",
-                    v => config.noiseScale = v, () => config.noiseScale, 0f, 10f);
+                    v => biome.fieldConfig.noiseScale = v, () => biome.fieldConfig.noiseScale, 0f, 10f);
             }
         }
 

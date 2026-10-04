@@ -83,16 +83,11 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
                 * float2((float)rezX, (float)rezY);
         a.position = p;
     } else {
-        float2 c = Random2(id.x * .0001 + time * .001);
+        float2 c = SpawnHash2(id.x, time, 0);
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
 
-    if (spawnMode == 1 || spawnMode == 3) {
-        float ang0 = SpawnAngle(Hash1u(id.x * 747796405u + time));
-        a.direction = float2(cos(ang0), sin(ang0));
-    } else {
-        a.direction = RandomDirection2(id.xy * .001 + sin(time));
-    }
+    a.direction = SpawnHeading(id.x, time);
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
 }

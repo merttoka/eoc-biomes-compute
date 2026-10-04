@@ -45,7 +45,9 @@ bool InsideAnyKeepOutRect(float2 uv) {
 // flush to a canvas edge (or a corner / full-width band) evicts through a side it
 // actually has. If every on-canvas side lands in another rect (abutting rects), take
 // the nearest one that at least leaves this rect; that rect evicts it in turn, and
-// the second sweep covers rects earlier in the list.
+// the second sweep covers rects earlier in the list. If no pushed point is on-canvas
+// (feather wider than every gap to the border), clamp to the border through the nearest
+// side the rect doesn't touch: inside the feather ramp, but out of the hole.
 // An evicted point stays below u/v = 1 so the caller's * rez never lands on pixel rez.
 float2 EvictFromKeepOut(float2 uv) {
     float push = keepOutFeather + 1e-3;
@@ -58,17 +60,21 @@ float2 EvictFromKeepOut(float2 uv) {
             float2 cand[4] = { float2(r.x - push, uv.y), float2(r.z + push, uv.y),
                                float2(uv.x, r.y - push), float2(uv.x, r.w + push) };
             float  dist[4] = { uv.x - r.x, r.z - uv.x, uv.y - r.y, r.w - uv.y };
-            float best = 1e9, bestHop = 1e9;
-            float2 pick = uv, hop = uv;
+            float best = 1e9, bestHop = 1e9, bestClamp = 1e9;
+            float2 pick = uv, hop = uv, clamped = uv;
             for (int k = 0; k < 4; k++) {
                 bool onCanvas = cand[k].x >= 0.0 && cand[k].x <= 1.0
                              && cand[k].y >= 0.0 && cand[k].y <= 1.0;
-                if (!onCanvas) continue;
+                if (!onCanvas) {
+                    float2 c = saturate(cand[k]);
+                    if (dist[k] < bestClamp && !InsideKeepOutRect(c, r)) { bestClamp = dist[k]; clamped = c; }
+                    continue;
+                }
                 if (dist[k] < best && !InsideAnyKeepOutRect(cand[k])) { best = dist[k]; pick = cand[k]; }
                 if (dist[k] < bestHop) { bestHop = dist[k]; hop = cand[k]; }
             }
-            if (best >= 1e9) pick = hop;   // no free side: hop into the neighbour, evicted next
-            evicted = evicted || bestHop < 1e9;
+            if (best >= 1e9) pick = bestHop < 1e9 ? hop : clamped;   // no free side: hop into the neighbour (evicted next), else the border
+            evicted = evicted || bestHop < 1e9 || bestClamp < 1e9;
             uv = pick;   // a rect covering the whole canvas has no exit; the point stays
         }
     }

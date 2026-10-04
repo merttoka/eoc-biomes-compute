@@ -20,8 +20,15 @@ namespace Biomes
         private int _stepCounter;
 
         [Header("Config")]
+        [Tooltip("Authored field config. In Play the biome runs on a copy (shown as \"(Clone)\"), so live " +
+                 "edits — inspector or MFT knobs — never write the shared asset; use \"Save Field Config " +
+                 "To Asset\" to keep them.")]
         public BiomeFieldConfig fieldConfig;
         public ComputeShader cs;
+
+        // Play-mode copy fieldConfig points at, and the asset it was taken from.
+        private BiomeFieldConfig _runtimeFieldConfig;
+        private BiomeFieldConfig _fieldConfigAsset;
 
         [Header("Habitat confinement")]
         [Tooltip("Strength of steer-back when an agent is outside its preferred permeability band.")]
@@ -215,6 +222,8 @@ namespace Biomes
         [Button]
         public void Reset()
         {
+            UseRuntimeFieldConfig();
+
             // Clear-in-place: reallocate the field arrays + debug grid only when the biome
             // resolution changes. A normal reset re-uploads channel settings and re-clears
             // the fields, keeping the same texture instances.
@@ -456,28 +465,20 @@ namespace Biomes
                 debugMaterials[i].SetTexture(s_UnlitColorMapID, debugTextures[i]);   // instance is stable until DestroyDebugGrid
                 debugRenderers[i] = quad.GetComponent<MeshRenderer>();
                 debugRenderers[i].material = debugMaterials[i];
-
-                // Remove collider
-                var col2 = quad.GetComponent<Collider>();
-                if (col2 != null) DestroySafe(col2);
+                GPUResourceManager.DestroySafe(quad.GetComponent<Collider>());
 
                 debugQuads[i] = quad;
             }
         }
 
         /// <summary>Render one biome channel into a 2D RenderTexture (sized at biome
-        /// resolution). Used by debug grid and external texture sending.</summary>
+        /// resolution) with the debug grid's colormap. Used by external texture sending
+        /// and figure export.</summary>
         public void RenderChannelTo(int channel, RenderTexture dst)
         {
             if (gpu == null || dst == null) return;
-            cs.SetInt(s_RezXID, biomeRezX);
-            cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_DebugChannelID, channel);
-            cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
-            BindKeepOut();
-            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
-            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+            BindDebugRender(normalize: false);
+            RenderDebugChannel(channel, dst);
         }
 
         /// <summary>Like RenderChannelTo but stretches the channel by (val-min)*invRange
@@ -486,16 +487,10 @@ namespace Biomes
         public void RenderChannelNormalizedTo(int channel, RenderTexture dst, float min, float invRange)
         {
             if (gpu == null || dst == null) return;
-            cs.SetInt(s_RezXID, biomeRezX);
-            cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_DebugChannelID, channel);
-            cs.SetInt(s_DebugNormalizeID, 1);
-            BindKeepOut();
+            BindDebugRender(normalize: true);
             cs.SetFloat(s_DebugNormMinID, min);
             cs.SetFloat(s_DebugNormInvRangeID, invRange);
-            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
-            cs.SetTexture(renderDebugKernel, s_DebugOutTexID, dst);
-            Dispatch(renderDebugKernel, biomeRezX, biomeRezY, 1);
+            RenderDebugChannel(channel, dst);
         }
 
         /// <summary>
@@ -591,11 +586,10 @@ namespace Biomes
             }
             RenderTexture.active = prevActive;
 
-            tmp.Release();
-            Destroy(tmp);
-            Destroy(readback);
-            if (rawRT != null) { rawRT.Release(); Destroy(rawRT); }
-            if (rawTex != null) Destroy(rawTex);
+            GPUResourceManager.DestroyTexture(tmp);
+            GPUResourceManager.DestroySafe(readback);
+            GPUResourceManager.DestroyTexture(rawRT);
+            GPUResourceManager.DestroySafe(rawTex);
 
             Debug.Log($"[Biome] Exported {BiomeChannel.Count} channel PNGs → {dir}{(exportNormalized ? " (normalized)" : "")}");
 
@@ -609,12 +603,7 @@ namespace Biomes
             bool grid = showDebugGrid && debugTextures != null;
             if (!grid && debugOutputMat == null) return;
 
-            // Shared uniforms bound once for every channel dispatch below.
-            cs.SetInt(s_RezXID, biomeRezX);
-            cs.SetInt(s_RezYID, biomeRezY);
-            cs.SetInt(s_DebugNormalizeID, 0);   // realtime: never normalize
-            BindKeepOut();
-            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
+            BindDebugRender(normalize: false);   // once for every channel dispatch below
 
             // Render all channels for debug grid. A quad no camera (Game or Scene view) drew
             // last frame is skipped; it re-renders on the first step after it comes into view.
@@ -636,6 +625,16 @@ namespace Biomes
                 RenderDebugChannel(debugChannel, debugOutTex);
                 debugOutputMat.SetTexture(s_UnlitColorMapID, debugOutTex);
             }
+        }
+
+        // Uniforms shared by every RenderDebugKernel dispatch; channel + target are per call.
+        private void BindDebugRender(bool normalize)
+        {
+            cs.SetInt(s_RezXID, biomeRezX);
+            cs.SetInt(s_RezYID, biomeRezY);
+            cs.SetInt(s_DebugNormalizeID, normalize ? 1 : 0);
+            BindKeepOut();
+            cs.SetTexture(renderDebugKernel, s_FieldReadID, fieldReadArray);
         }
 
         private void RenderDebugChannel(int channel, RenderTexture dst)
@@ -923,18 +922,46 @@ namespace Biomes
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 
+        // The asset is shared across scenes (e.g. Scene_SIGGRAPH and _DAC_4k): edits made in
+        // Play would otherwise outlive the session and reach disk on the next SaveAssets.
+        private void UseRuntimeFieldConfig()
+        {
+            if (!Application.isPlaying || fieldConfig == null || fieldConfig == _runtimeFieldConfig) return;
+            if (_runtimeFieldConfig != null) Destroy(_runtimeFieldConfig);
+            _fieldConfigAsset = fieldConfig;
+            _runtimeFieldConfig = Instantiate(fieldConfig);
+            fieldConfig = _runtimeFieldConfig;
+        }
+
+        /// <summary>Editor-only: copy the Play-mode field config back into the authored asset.</summary>
+        [Button("Save Field Config To Asset")]
+        public void SaveFieldConfigToAsset()
+        {
+#if UNITY_EDITOR
+            if (_runtimeFieldConfig == null || _fieldConfigAsset == null)
+            {
+                Debug.Log("[Biome] No runtime field config to save (enter Play first).", this);
+                return;
+            }
+            string assetName = _fieldConfigAsset.name;               // CopySerialized would stamp "(Clone)"
+            UnityEditor.EditorUtility.CopySerialized(_runtimeFieldConfig, _fieldConfigAsset);
+            _fieldConfigAsset.name = assetName;
+            UnityEditor.EditorUtility.SetDirty(_fieldConfigAsset);
+            UnityEditor.AssetDatabase.SaveAssets();
+            Debug.Log($"[Biome] Saved live field config into {assetName}.", _fieldConfigAsset);
+#endif
+        }
+
         private void DestroyDebugGrid()
         {
             if (debugQuads != null)
             {
-                foreach (var q in debugQuads)
-                    if (q != null) DestroySafe(q);
+                foreach (var q in debugQuads) GPUResourceManager.DestroySafe(q);
                 debugQuads = null;
             }
             if (debugMaterials != null)
             {
-                foreach (var m in debugMaterials)
-                    if (m != null) DestroySafe(m);
+                foreach (var m in debugMaterials) GPUResourceManager.DestroySafe(m);
                 debugMaterials = null;
             }
             // Free the RTs now: a showDebugGrid off→on toggle would otherwise stack a new
@@ -945,15 +972,14 @@ namespace Biomes
             debugRenderers = null;
         }
 
-        private static void DestroySafe(Object o)
-        {
-            if (Application.isPlaying) Destroy(o);
-            else DestroyImmediate(o);
-        }
-
         // Biome is initialized by SimulationManager.Reset(), not OnEnable
         void OnDisable() => Release();
-        void OnDestroy() => Release();
+        void OnDestroy()
+        {
+            Release();
+            if (_runtimeFieldConfig != null) Destroy(_runtimeFieldConfig);
+            _runtimeFieldConfig = null;
+        }
 
 #if UNITY_EDITOR
         private GUIStyle _labelStyle;   // reused across Scene-view repaints
@@ -965,13 +991,12 @@ namespace Biomes
 
             _labelStyle ??= new GUIStyle { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             _labelStyle.normal.textColor = labelColor;
-            var style = _labelStyle;
 
             for (int i = 0; i < debugQuads.Length; i++)
             {
                 if (debugQuads[i] == null) continue;
                 var pos = debugQuads[i].transform.position + Vector3.up * labelYOffset;
-                UnityEditor.Handles.Label(pos, ChannelNames[i], style);
+                UnityEditor.Handles.Label(pos, ChannelNames[i], _labelStyle);
             }
         }
 #endif

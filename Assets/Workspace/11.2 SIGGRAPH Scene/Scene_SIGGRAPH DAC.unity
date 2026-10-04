@@ -2360,7 +2360,7 @@ MonoBehaviour:
   maxAllowedTimestep: 0.1
   stepsPerTick: 1
   limitFPS: 1
-  targetFPS: 90
+  targetFPS: 60
   ownsGlobalTiming: 1
   biome: {fileID: 1919109757}
   injector: {fileID: 1919109756}

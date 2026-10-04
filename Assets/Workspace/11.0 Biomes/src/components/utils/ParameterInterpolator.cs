@@ -250,11 +250,7 @@ namespace Biomes
             SyncLiveInstances(sim);
             if (phase == Phase.Done) return;
 
-            if (simReset)
-            {
-                int elapsedBefore = prevStep - _legStartStep;
-                _legStartStep = now - elapsedBefore;       // same progress, new clock origin
-            }
+            if (simReset) _legStartStep += now - prevStep;   // same progress, new clock origin
 
             int elapsed = now - _legStartStep;
 

@@ -39,6 +39,7 @@ namespace Biomes
         private RenderTexture m_DebugVideoTexture;
         private RenderTexture m_DebugBlurTemp;
         private RenderTexture _outputTexture;
+        private bool _outputBlank;   // OutputTexture was cleared and nothing has been copied in since
         private int _lastDebugCopyFrame = -1;
 
         private ITextureReceiverBackend _backend;
@@ -52,14 +53,17 @@ namespace Biomes
         private static readonly int s_BlurHeightID = Shader.PropertyToID("Height");
         private static readonly int s_BlurRadiusID = Shader.PropertyToID("Radius");
         private static readonly int s_BlurSigmaID = Shader.PropertyToID("Sigma");
+        private static readonly int s_BlurSrcID = Shader.PropertyToID("Src");
+        private static readonly int s_BlurDestID = Shader.PropertyToID("Dest");
 
         public RenderTexture OutputTexture => _outputTexture;
         public bool DebugUseVideoInput => m_DebugUseVideoInput;
         public bool IsDebugVideoPlaying => m_DebugVideoPlayer != null && m_DebugVideoPlayer.isPlaying;
 
-        /// <summary>True while the debug clip holds no content (never started, or stopped and cleared).
+        /// <summary>True while OutputTexture holds no content: the debug clip never started or was stopped
+        /// (both clear it), or debug input was switched off and nothing has been received since.
         /// TextureChannelSeeder skips a receiver in this state so SetToward/MinToward routes don't write zeros.</summary>
-        public bool IsDebugVideoStopped => m_DebugUseVideoInput && m_DebugVideoStopped;
+        public bool IsOutputBlank => _outputBlank;
 
         public void Initialize()
         {
@@ -85,14 +89,7 @@ namespace Biomes
             if (m_DebugUseVideoInput) { UpdateDebugVideoInput(); return; }
             // Debug input switched off at runtime: stop decoding and drop the last frame so
             // nothing (seeder, overlay) keeps reading a frozen clip.
-            if (m_DebugVideoPlayer != null && !m_DebugVideoStopped)
-            {
-                m_DebugVideoPlayer.Stop();
-                m_DebugPrepareRequested = false;
-                m_DebugVideoStopped = true;
-                ClearToTransparent(m_DebugVideoTexture);
-                ClearToTransparent(_outputTexture);
-            }
+            if (m_DebugVideoPlayer != null && !m_DebugVideoStopped) HaltDebugVideo();
             if (enableReceive) UpdateReceivedInput();
         }
 
@@ -129,11 +126,17 @@ namespace Biomes
         {
             if (!m_DebugUseVideoInput) return;
             m_DebugTransportOwned = true;
+            HaltDebugVideo();
+        }
+
+        private void HaltDebugVideo()
+        {
             if (m_DebugVideoPlayer != null) m_DebugVideoPlayer.Stop();
             m_DebugPrepareRequested = false;
             m_DebugVideoStopped = true;
             ClearToTransparent(m_DebugVideoTexture);
             ClearToTransparent(_outputTexture);
+            _outputBlank = true;
         }
 
         private static void ClearToTransparent(RenderTexture rt)
@@ -153,6 +156,7 @@ namespace Biomes
             if (rx == null || rx.width < 2 || rx.height < 2) return;
             EnsureOutputTexture(rx.width, rx.height);
             Graphics.Blit(rx, _outputTexture);
+            _outputBlank = false;
         }
 
         private void EnsureBackend()
@@ -172,7 +176,8 @@ namespace Biomes
         {
             _backend?.Dispose();
             _backend = null;
-            if (_backendGO != null) { Destroy(_backendGO); _backendGO = null; }
+            GPUResourceManager.DestroySafe(_backendGO);
+            _backendGO = null;
         }
 
         private void UpdateDebugVideoInput()
@@ -189,6 +194,7 @@ namespace Biomes
             _lastDebugCopyFrame = Time.frameCount;
 
             Graphics.Blit(m_DebugVideoTexture, _outputTexture);
+            _outputBlank = false;
 
             if (m_DebugApplyGaussianBlur && m_BlurCompute != null)
                 ApplyGaussianBlur();
@@ -200,12 +206,7 @@ namespace Biomes
                 _outputTexture.width == width && _outputTexture.height == height)
                 return;
 
-            if (_outputTexture != null)
-            {
-                _outputTexture.Release();
-                Object.Destroy(_outputTexture);
-            }
-
+            gpu.Release(_outputTexture);
             _outputTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
             _outputTexture.name = "ExternalInfluenceOutput";
             _outputTexture.enableRandomWrite = true;
@@ -216,6 +217,7 @@ namespace Biomes
             _outputTexture.Create();
             gpu.Track(_outputTexture);
             ClearToTransparent(_outputTexture);   // fresh RT contents are undefined; a stopped clip never copies over them
+            _outputBlank = true;
             _lastDebugCopyFrame = -1;             // let this frame's copy run
         }
 
@@ -253,12 +255,7 @@ namespace Biomes
                 if (m_DebugVideoTexture == null || !m_DebugVideoTexture.IsCreated() ||
                     m_DebugVideoTexture.width != vw || m_DebugVideoTexture.height != vh)
                 {
-                    if (m_DebugVideoTexture != null)
-                    {
-                        m_DebugVideoTexture.Release();
-                        Destroy(m_DebugVideoTexture);
-                    }
-
+                    gpu.Release(m_DebugVideoTexture);
                     m_DebugVideoTexture = new RenderTexture(vw, vh, 0, RenderTextureFormat.ARGB32);
                     m_DebugVideoTexture.name = "DebugVideoInput";
                     m_DebugVideoTexture.enableRandomWrite = false;
@@ -295,11 +292,7 @@ namespace Biomes
                 m_DebugBlurTemp.width != _outputTexture.width ||
                 m_DebugBlurTemp.height != _outputTexture.height)
             {
-                if (m_DebugBlurTemp != null)
-                {
-                    m_DebugBlurTemp.Release();
-                    Destroy(m_DebugBlurTemp);
-                }
+                gpu.Release(m_DebugBlurTemp);
                 m_DebugBlurTemp = new RenderTexture(_outputTexture.width, _outputTexture.height, 0, RenderTextureFormat.ARGB32);
                 m_DebugBlurTemp.name = "DebugVideoBlurTemp";
                 m_DebugBlurTemp.enableRandomWrite = true;
@@ -320,15 +313,15 @@ namespace Biomes
             m_BlurCompute.SetInt(s_BlurHeightID, height);
             m_BlurCompute.SetInt(s_BlurRadiusID, radius);
             m_BlurCompute.SetFloat(s_BlurSigmaID, sigma);
-            m_BlurCompute.SetTexture(m_BlurKernelH, "Src", _outputTexture);
-            m_BlurCompute.SetTexture(m_BlurKernelH, "Dest", m_DebugBlurTemp);
+            m_BlurCompute.SetTexture(m_BlurKernelH, s_BlurSrcID, _outputTexture);
+            m_BlurCompute.SetTexture(m_BlurKernelH, s_BlurDestID, m_DebugBlurTemp);
             {
                 m_BlurCompute.GetKernelThreadGroupSizes(m_BlurKernelH, out uint tx, out uint ty, out uint _);
                 m_BlurCompute.Dispatch(m_BlurKernelH, Mathf.CeilToInt(width / (float)tx), Mathf.CeilToInt(height / (float)ty), 1);
             }
 
-            m_BlurCompute.SetTexture(m_BlurKernelV, "Src", m_DebugBlurTemp);
-            m_BlurCompute.SetTexture(m_BlurKernelV, "Dest", _outputTexture);
+            m_BlurCompute.SetTexture(m_BlurKernelV, s_BlurSrcID, m_DebugBlurTemp);
+            m_BlurCompute.SetTexture(m_BlurKernelV, s_BlurDestID, _outputTexture);
             {
                 m_BlurCompute.GetKernelThreadGroupSizes(m_BlurKernelV, out uint tx, out uint ty, out uint _);
                 m_BlurCompute.Dispatch(m_BlurKernelV, Mathf.CeilToInt(width / (float)tx), Mathf.CeilToInt(height / (float)ty), 1);

@@ -19,7 +19,10 @@ namespace Biomes
     }
 
     /// <summary>Sends selected textures (composite / per-sim / biome layer) out over
-    /// Syphon/NDI/Spout. One Klak sender per enabled stream, pushed each LateUpdate.</summary>
+    /// Syphon/NDI/Spout. One Klak sender per enabled stream, pushed each LateUpdate — after
+    /// SimulationManager's and CompositeSequencer's, so the downscale and NDI-crop copies made
+    /// here read this frame's composite, not the last one.</summary>
+    [DefaultExecutionOrder(1001)]   // after CompositeSequencer (1000)
     public class ExternalTextureSender : MonoBehaviour
     {
         [Header("References")]
@@ -40,7 +43,11 @@ namespace Biomes
             public RenderTexture scaleRT;    // downscaled output
             public RenderTexture cropRT;     // full-res output cropped to NDI-legal size
             public bool warned;
-            public bool enabled;             // stream.enabled when built; a toggle rebuilds
+            // Settings the backend was built with; a Play-mode edit to any of them rebuilds
+            // this stream only, so the other streams' servers stay up.
+            public bool enabled;
+            public ShareProtocol protocol;
+            public string streamName;
         }
         private readonly List<Live> _live = new();
 
@@ -59,21 +66,23 @@ namespace Biomes
                 return;
             }
             Teardown();
-            for (int i = 0; i < streams.Count; i++)
+            foreach (var s in streams)
+                _live.Add(Build(s));
+        }
+
+        private Live Build(SendStream s)
+        {
+            var live = new Live { enabled = s.enabled, protocol = s.protocol, streamName = s.streamName };
+            if (s.enabled && ExternalTextureShare.IsAvailable(s.protocol))
             {
-                var s = streams[i];
-                var live = new Live { enabled = s.enabled };
-                if (s.enabled && ExternalTextureShare.IsAvailable(s.protocol))
-                {
-                    string name = string.IsNullOrEmpty(s.streamName) ? DefaultName(s) : s.streamName;
-                    live.go = new GameObject($"Sender_{name}");
-                    live.go.transform.SetParent(transform, false);
-                    live.go.SetActive(false);
-                    live.backend = ExternalTextureShare.CreateSender(live.go, s.protocol, name, resources);
-                    live.go.SetActive(true);
-                }
-                _live.Add(live);
+                string name = string.IsNullOrEmpty(s.streamName) ? DefaultName(s) : s.streamName;
+                live.go = new GameObject($"Sender_{name}");
+                live.go.transform.SetParent(transform, false);
+                live.go.SetActive(false);
+                live.backend = ExternalTextureShare.CreateSender(live.go, s.protocol, name, resources);
+                live.go.SetActive(true);
             }
+            return live;
         }
 
         void OnEnable() => Rebuild();
@@ -93,18 +102,23 @@ namespace Biomes
         void LateUpdate()
         {
             if (simManager == null) return;
-            if (_live.Count != streams.Count || EnabledToggled()) Rebuild();
+            if (_live.Count != streams.Count) Rebuild();
 
             for (int i = 0; i < streams.Count; i++)
             {
                 var s = streams[i];
                 var live = _live[i];
-                if (live == null || live.backend == null) continue;
+                if (live.enabled != s.enabled || live.protocol != s.protocol || live.streamName != s.streamName)
+                {
+                    TeardownStream(live);
+                    _live[i] = live = Build(s);
+                }
+                if (live.backend == null) continue;
 
                 Texture src = ResolveSource(s, live);
                 if (src == null) continue;
 
-                bool ndi = s.protocol == ShareProtocol.NDI;
+                bool ndi = live.protocol == ShareProtocol.NDI;
                 if (s.resolutionScale < 0.999f)
                     src = Downscale(src, s.resolutionScale, live, ndi);
                 else if (ndi)
@@ -112,13 +126,6 @@ namespace Biomes
 
                 live.backend.SetSource(src);
             }
-        }
-
-        private bool EnabledToggled()
-        {
-            for (int i = 0; i < streams.Count; i++)
-                if (streams[i].enabled != _live[i].enabled) return true;
-            return false;
         }
 
         private Texture ResolveSource(SendStream s, Live live)
@@ -153,7 +160,7 @@ namespace Biomes
         {
             int w = simManager.biome.RezX, h = simManager.biome.RezY;
             if (live.extractRT != null && live.extractRT.width == w && live.extractRT.height == h) return;
-            if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
+            GPUResourceManager.DestroyTexture(live.extractRT);
             live.extractRT = new RenderTexture(w, h, 0) { enableRandomWrite = true, name = "BiomeExtract" };
             live.extractRT.Create();
         }
@@ -171,7 +178,7 @@ namespace Biomes
             int ch = ndi ? NdiHeight(h) : h;
             if (live.scaleRT == null || live.scaleRT.width != cw || live.scaleRT.height != ch)
             {
-                if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
+                GPUResourceManager.DestroyTexture(live.scaleRT);
                 live.scaleRT = new RenderTexture(cw, ch, 0) { name = "DownscaleSend" };
                 live.scaleRT.Create();
             }
@@ -196,7 +203,7 @@ namespace Biomes
             if (live.cropRT == null || live.cropRT.width != w || live.cropRT.height != h
                 || live.cropRT.graphicsFormat != fmt)
             {
-                if (live.cropRT != null) { live.cropRT.Release(); Destroy(live.cropRT); }
+                GPUResourceManager.DestroyTexture(live.cropRT);
                 live.cropRT = new RenderTexture(w, h, 0, fmt) { name = "NdiCropSend" };
                 live.cropRT.Create();
             }
@@ -226,16 +233,18 @@ namespace Biomes
 
         private void Teardown()
         {
-            foreach (var live in _live)
-            {
-                if (live == null) continue;
-                live.backend?.Dispose();
-                if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
-                if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
-                if (live.cropRT != null) { live.cropRT.Release(); Destroy(live.cropRT); }
-                if (live.go != null) Destroy(live.go);
-            }
+            foreach (var live in _live) TeardownStream(live);
             _live.Clear();
+        }
+
+        private void TeardownStream(Live live)
+        {
+            if (live == null) return;
+            live.backend?.Dispose();
+            GPUResourceManager.DestroyTexture(live.extractRT);
+            GPUResourceManager.DestroyTexture(live.scaleRT);
+            GPUResourceManager.DestroyTexture(live.cropRT);
+            if (live.go != null) Destroy(live.go);
         }
     }
 }
