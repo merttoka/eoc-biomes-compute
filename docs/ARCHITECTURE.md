@@ -102,6 +102,13 @@ the only driver: `Reset()` (re)initializes everything; `FixedUpdate()` calls `St
 `Render()` once per rendered frame. Unity's `Time.maximumDeltaTime` (exposed as
 `maxAllowedTimestep`) caps catch-up on slow hardware. `SimStepCount` is the canonical
 sim clock (monotonic, increments per `Step()`), used by time-based tooling.
+Frames above `simRate` only repeat the last step unless **`frameBlend`** is on (default off):
+the manager then composites into one of two internal buffers only when a new step exists and
+each frame writes `lerp(prev, curr, timeSinceLastStep / fixedDeltaTime)` into the stable
+`compositeOutTex` — one step of latency, smooth motion on 120/240 Hz displays (recorder and
+FigureExporter frames are blended too). **`vSyncDivisor`** (0–4) presents every Nth refresh
+(4 on a 240 Hz monitor = evenly paced 60 fps); `targetFPS` remains the cap when vsync is off or
+unavailable (in the Editor, the Game view's VSync option).
 
 `Reset()` is **clear-in-place** ([[adr/0008-clear-in-place-reset]]): each owner
 (`SimulationManager`, `Biome`, every `SimulationBase`, `NeuronFiringSource`,

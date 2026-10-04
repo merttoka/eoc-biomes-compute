@@ -87,6 +87,17 @@ On `review/deferred-behaviour-fixes` (changes the look, approved):
   higher `simRate` (agent motion and decay are per step, so the sim also runs faster and costs
   more) or render-side frame blending between the last two composites (not built).
 
+- Built on request: **`frameBlend`** (default off) and **`vSyncDivisor`** (0–4) on
+  `SimulationManager`. Blend composites only on new steps and blends the last two composites
+  per frame by the time since the latest step. Verified in Play (Scene_BraveNewWork): with it
+  off, frames without a sim step were exact repeats (0 of 72 changed); on, every such frame
+  showed a new image (60/60, 99/99) while the sim held 60 steps/s; buffers exist only while on;
+  `vSyncDivisor 4` sets `QualitySettings.vSyncCount = 4` (the Editor applies it only with the
+  Game view's VSync on — it was off). `com.unity.pipeline` reinstalled for the test and removed
+  again.
+
 ## Open / next session
 1. Merge order: `review/biomes-siggraph-perf-regression` first, then this branch.
-2. Decide whether to build opt-in frame blending for > 60 Hz displays.
+2. Try `frameBlend` + `vSyncDivisor 1` (240 fps) or `targetFPS 240` on the 240 Hz monitor —
+   the Editor's fps here was throttled by the test's per-frame readbacks, so smoothness is
+   unmeasured. For recordings, keep `frameBlend` off unless blended frames are wanted.
