@@ -34,6 +34,11 @@ eoc-biomes-compute/
 
 **Unity:** open the project in Unity Hub (HDRP). First import regenerates `Library/`. One folder per show: `11.1 CURRENTS Scene/Scene_CURRENTS.unity` (the active build scene) and `11.2 SIGGRAPH Scene/Scene_SIGGRAPH.unity`; DAC minimal-test takes `_DAC_interior.unity` / `_DAC_exterior.unity` / `_DAC_4k.unity` (3840×2160 record target, biome rez 1024×576) under `11.2 SIGGRAPH Scene/assets/DAC_params/0-minimal-test/` (SimTimeline-driven 120 s cue list, per-scene record RTs); the TouchDesigner side of the DAC loop (StreamDiffusion attention-map guide, resolution-agnostic crop rect) lives in `tools/touchdesigner/`; quick validation in `11.0 Biomes/TestScene.unity`. The shared sim engine (`src/`, `docs/`) lives in `11.0 Biomes/`; per-show scenes carry only their curated assets/materials.
 
+**Local media (not in git):** `11.2 SIGGRAPH Scene/data/` is git-ignored (~2.8 GB). Copy these in from your media backup before playing the DAC takes; without them the debug video and audio stay empty. The firing blob (`StreamingAssets/biomes11/organoid_firing.f16`) and neuron positions CSV are tracked.
+- `data/videos/TesMovie_1920x1152_25.0_PRORES_PRORES422LT_ALAC_0045.mov` (1.2 GB, debug video in the DAC takes)
+- `data/videos/TesMovie_3100x1000_25.0_PRORES_PRORES422LT_ALAC_0046.mov` (1.6 GB)
+- `data/SimulacraNaturaeNeuroEcologies125000_131000.wav` (22 MB, audio for the 125000–131000 firing cut)
+
 **Memory daemon:**
 ```bash
 cd memory/daemon
