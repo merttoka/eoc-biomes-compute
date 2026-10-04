@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ca1367129a96429c8c977fbb8a2efdc, type: 3}
+  m_Name: UmweltTermite_Alt
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.UmweltMapping
+  reads:
+  - channel: 0
+    weight: 1
+    effect: 0
+  - channel: 7
+    weight: -0.24
+    effect: 0
+  - channel: 1
+    weight: 0.8
+    effect: 0
+  - channel: 2
+    weight: -0.65
+    effect: 0
+  - channel: 10
+    weight: -0.5
+    effect: 0
+  - channel: 10
+    weight: 1
+    effect: 3
+  - channel: 11
+    weight: 0.6
+    effect: 0
+  - channel: 12
+    weight: 1
+    effect: 0
+  - channel: 12
+    weight: 0.6
+    effect: 1
+  writes:
+  - channel: 3
+    amount: 1
+  - channel: 6
+    amount: 0.01
+  - channel: 0
+    amount: -0.01
+  - channel: 11
+    amount: -0.004
+  preferredPermeabilityMin: 0
+  preferredPermeabilityMax: 0.5
+  metabolicHeat: 0.045
+  oxygenConsumption: 0.035
+  enableDeath: 0
+  deathThresholdOxygen: 0.05
+  deathThresholdPermeability: 0.1
+  corpseWasteAmount: 0.5
+  corpseDecayRate: 0.01
