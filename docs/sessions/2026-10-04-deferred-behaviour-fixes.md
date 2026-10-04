@@ -72,11 +72,21 @@ On `review/deferred-behaviour-fixes` (changes the look, approved):
 - `BiomeWriteFused` has the same in-thread re-read pattern, but only if one umwelt writes a
   channel twice (e.g. Temperature + metabolic heat); no umwelt in 11.1–11.3 does. Left as is.
 
+## Follow-up (same session)
+- MFT inspector shows a note: biome knobs edit the Play-mode config copy; keep changes via
+  Biome › Save Field Config To Asset; Project-window asset edits don't reach a running sim.
+- 11.3 `Scene_BraveNewWork` `targetFPS` 90 → 60.
+- Intent checks closed — all deliberate, still being explored: `Scene_SIGGRAPH` 3100×1000 +
+  receiver off (7588c5d), termite `wallBuildAmount` 0.03 (e06f3e8), DiurnalSun off in
+  `Scene_SIGGRAPH DAC`.
+- `com.unity.pipeline` removed: it is an Editor-only bridge for the Unity CLI/agents (eval, Play,
+  capture, tests) with no runtime or build effect. Reinstall with `unity pipeline install` when
+  an agent needs to drive the Editor.
+- Rendering above 60 fps adds nothing while `simRate` is 60: extra frames repeat the last sim
+  state (34% empty frames at 90). Smoother motion on the 120/240 Hz displays needs either a
+  higher `simRate` (agent motion and decay are per step, so the sim also runs faster and costs
+  more) or render-side frame blending between the last two composites (not built).
+
 ## Open / next session
-1. Answer the three intent checks from the review: 7588c5d `Scene_SIGGRAPH` 3100×1000 + receiver
-   off; e06f3e8 termite `wallBuildAmount` 0.003 → 0.03; DiurnalSun disabled in
-   `Scene_SIGGRAPH DAC`.
-2. Merge order: `review/biomes-siggraph-perf-regression` first, then this branch.
-3. `com.unity.pipeline` still uncommitted in `Packages/` — keep or revert.
-4. 11.3 `Scene_BraveNewWork` has `targetFPS 90` / `simRate 60` and no frame export — the same 60
-   cap would apply (left alone: outside this review's scope).
+1. Merge order: `review/biomes-siggraph-perf-regression` first, then this branch.
+2. Decide whether to build opt-in frame blending for > 60 Hz displays.

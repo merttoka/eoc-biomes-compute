@@ -52,6 +52,13 @@ namespace Biomes
 
         public override void OnInspectorGUI()
         {
+            EditorGUILayout.HelpBox(
+                "Biome knobs (Bank 2, last column) edit the biome's Play-mode copy of its " +
+                "BiomeFieldConfig: changes reset when Play ends and never touch the asset. " +
+                "To keep them, press Biome › Save Field Config To Asset before leaving Play. " +
+                "Editing the asset in the Project window during Play doesn't reach the running sim.",
+                MessageType.Info);
+
             DrawDefaultInspector();
 
             var mft = (MidiFighterTwister)target;
