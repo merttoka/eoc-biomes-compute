@@ -123,8 +123,10 @@ Each texel accumulates a soft Gaussian disc from every stamp into the target cha
 ### Placement (the one correctness rule)
 **Write stamps into `fieldReadArray` *before* `Biome.Step()`, in the same slot
 `WriteField` already uses** (`SimulationManager.Step`, between the umwelt-write
-loop and `biome.Step()`; `Biome.cs:300` binds `fieldReadArray`). Then the
-ping-pong's `CopyAllChannels` carries it through every pass. This:
+loop and `biome.Step()`; `Biome.cs:300` binds `fieldReadArray`). Then every pass
+of the ping-pong carries it through: the partial passes (`GenerateFlow`, `Interact`)
+copy each channel they don't write with `CopyChannelsExcept(xy, skipMask)`, and
+`Advect`/`Diffuse` write every channel. This:
 - **cannot trigger the clobber bug** (it's upstream of `GenerateFlow`, not a pass inside the chain),
 - needs **no swap and no parity reasoning** (the "5th-pass parity hazard" the panel raised is a *false alarm* — `DispatchFieldPass` swaps every call, so `fieldReadArray` always holds the latest output regardless of pass count; the real invariant is copy-through),
 - avoids `WriteFieldKernel`'s non-atomic per-agent texel race,

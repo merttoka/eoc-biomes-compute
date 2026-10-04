@@ -116,9 +116,11 @@ reads each).
 ~1.2 M samples; Diffuse 4.2 M × 1 × 9 = 38 M; biome write-back 6 × 131 k. Keep at 131 k.
 
 **Biome PDE:** 4 passes (`GenerateFlow`, `Advect`, `Interact`, `Diffuse`), each over the
-biome grid and each calling `CopyAllChannels` (10 layers). At 960×270 this is small
-(~0.26 M px), but it runs every step and re-renders all 10 debug channels when
-`showDebugGrid` is on.
+biome grid and each storing every channel layer (15): `GenerateFlow` and `Interact` carry
+the channels they don't compute through with `CopyChannelsExcept(xy, skipMask)`, `Advect`
+and `Diffuse` write all of them. At 960×270 this is small (~0.26 M px), but it runs every
+step, and with `showDebugGrid` on the debug grid re-renders every channel whose quad is
+visible.
 
 ### Rough bandwidth tally (physarum alone, per step)
 Move ~90 M × ~8 B ≈ 0.72 GB · Diffuse ~151 M × ~8 B ≈ 1.2 GB · WriteTrails ~40 M × ~8 B ≈
