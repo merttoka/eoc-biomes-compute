@@ -151,7 +151,9 @@ a `FieldSimulationBase` is bursting; once the burst goes idle it stops publishin
 takes the deposit over — these channels deliberately do bleed and advect (`diffuseRate` 0.96,
 `decayRate` 0.004), so the trace erodes rather than sitting inert). Per-channel
 behavior (diffuse rate, decay, advected-by-flow, initial value, homeostatic relax) comes
-from `BiomeFieldConfig` and is uploaded as a structured buffer. The channel count is
+from `BiomeFieldConfig` and is uploaded as a structured buffer. In Play the biome runs on a
+copy of the config (`fieldConfig` shows `(Clone)`): inspector and MFT edits never write the
+shared asset; **Save Field Config To Asset** on `Biome` copies them back. The channel count is
 hardcoded in two sync'd places — `BiomeChannel.Count/Names` (the C# source of truth; both
 `ExternalTextureSender` and the debug grid reference `BiomeChannel.Names` directly) and
 `Biome.compute` `CH_COUNT`; **adding a channel means updating both** plus each
@@ -165,7 +167,8 @@ react → diffuse + decay
 (`CopyChannelsExcept`, with a literal mask of the channels the pass writes itself) so they
 survive the swap; **any new partial pass must do the same.** Field samples use
 texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow transports
-the chemical fields only — agents are never pushed by it. Resolution is independent of
+the chemical fields only — agents are never pushed by it. FlowX/FlowY are **signed**
+(−1..1); every other channel is clamped to 0..1. Resolution is independent of
 sim resolution; sim↔field coordinates are mapped by ratio.
 
 ### 3.4 Simulations — agent sims and field sims
@@ -214,7 +217,8 @@ and **shared neuron firing**
 
 - **`PhysarumSim`** — slime-mold agents (sense-angle/distance, turn, deposit, eat).
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
-  ranges, food-seeking).
+  ranges, food-seeking). Cells are at least one max range wide and sized per axis to tile
+  the torus exactly, so neighbours across the wrap are always in adjacent cells.
 - **`CyclicCASim`** — cyclic (Griffeath) cellular automaton, an excitable medium of smooth
   spiral waves. A cell advances to the next state when `threshold` neighbours already hold
   it. Publishes to `Excitability`.
@@ -335,8 +339,11 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   stamp producers: external **sources** (sensors/OSC → any channel), and **firing-driven
   Dispersal** pulses (intensity-scaled, radius-expanding) at either fixed **neuron CSV
   positions** or **live agent positions** of a chosen sim (`FiringDispersalSource`, e.g. the
-  termites — `i % neuronCount` selects the firing neuron). Runs after sim write-back, before
-  `Biome.Step()`, so stamps ride the full field evolution. Spec:
+  termites — `i % neuronCount` selects the firing neuron; Running sims only). Runs after sim
+  write-back, before `Biome.Step()`, so stamps ride the full field evolution.
+  `InjectStampKernel` culls stamps per 8×8 tile and applies each pixel's survivors in index
+  order on register copies of the touched channels, writing each texel once (re-reading a
+  just-written texel is not coherent on Metal). Spec:
   [[superpowers/specs/2026-06-11-termite-biome-features-design]].
 - **`TextureChannelSeeder`** — routes a **whole raster** into biome channels every step
   (step 3.6, right after the injector): one route per source component (R/G/B/A/luminance →
@@ -409,7 +416,8 @@ packages compile on every platform; availability is gated at runtime
   name (NDI `"<MACHINE> (Name)"`, Syphon `"App/Name"`) — hence the discovery dropdown.
 - **`ExternalTextureSender`** — sends selected textures (composite, per-sim outputs,
   biome channel layers) out; per-stream protocol + resolution scale, default
-  `EoC/<name>` stream names. Biome layers extracted via `Biome.RenderChannelTo` only
+  `EoC/<name>` stream names. NDI frames are cropped (centred) to width % 16 / height % 8,
+  the sizes KlakNDI encodes; toggling a stream's `enabled` in Play rebuilds. Biome layers extracted via `Biome.RenderChannelTo` only
   while enabled. `SetSource` is idempotent (set-on-change) — required because
   `SyphonServer`'s source-setter tears down its publish coroutine. Clear-in-place reset
   keeps the source texture instance stable, so this set-on-change never re-fires on a
