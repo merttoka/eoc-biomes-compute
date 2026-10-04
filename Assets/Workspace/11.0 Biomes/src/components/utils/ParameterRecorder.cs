@@ -148,7 +148,7 @@ namespace Biomes
             {
                 snapshot[i] = new Dictionary<string, float>();
                 var sim = simManager.simulations[i];
-                if (sim == null) continue;
+                if (sim == null || sim.LiveParamSet == null) continue;   // not started: nothing to record yet
 
                 var paramNames = sim.ModulatableParams;
                 // Query each param for each type

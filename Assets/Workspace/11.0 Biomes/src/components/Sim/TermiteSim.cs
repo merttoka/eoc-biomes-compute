@@ -68,9 +68,7 @@ namespace Biomes
 
         public override void Reset()
         {
-            agentParams = paramsSO != null
-                ? Instantiate(paramsSO)
-                : ScriptableObject.CreateInstance<TermiteParams>();
+            agentParams = CloneParams(paramsSO);
             base.Reset();
         }
 
@@ -165,7 +163,7 @@ namespace Biomes
 
         public override void SetParameter(string paramName, int index, float value)
         {
-            if (index < 0 || index >= agentParams.types.Count) return;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return;
             var t = agentParams.types[index];
             switch (paramName)
             {
@@ -182,7 +180,7 @@ namespace Biomes
 
         public override void SetParameterDelta(string paramName, int index, float delta)
         {
-            if (index < 0 || index >= agentParams.types.Count) return;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return;
             var t = agentParams.types[index];
             switch (paramName)
             {
@@ -199,7 +197,7 @@ namespace Biomes
 
         public override float GetParameter(string paramName, int index)
         {
-            if (index < 0 || index >= agentParams.types.Count) return 0f;
+            if (agentParams == null || index < 0 || index >= agentParams.types.Count) return 0f;
             var t = agentParams.types[index];
             return paramName switch
             {

@@ -102,6 +102,10 @@ namespace Biomes
         /// <summary>What the runtime should read: the clone when present, else the asset (pre-Reset).</summary>
         public UmweltMapping LiveUmwelt => liveUmwelt != null ? liveUmwelt : umwelt;
 
+        // The runtime params clone CloneParams made. Only this is ever destroyed: the concrete
+        // sim's public runtime slot is serialized and could hold an asset.
+        private ScriptableObject _paramsClone;
+
         // Perception texture: biome fields filtered through Umwelt (built by Biome each frame)
         // R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
         [NonSerialized] public RenderTexture perceptionTex;
@@ -635,12 +639,23 @@ namespace Biomes
         {
             Release();
             DestroyLiveUmwelt();
+            GPUResourceManager.DestroySafe(_paramsClone);
         }
 
         private void DestroyLiveUmwelt()
         {
             GPUResourceManager.DestroySafe(liveUmwelt);
             liveUmwelt = null;
+        }
+
+        /// <summary>Clone the preset (or a default instance when unassigned) as this sim's runtime
+        /// params, destroying the clone the previous Reset made so resets don't leak one each.</summary>
+        protected T CloneParams<T>(T preset) where T : ScriptableObject
+        {
+            GPUResourceManager.DestroySafe(_paramsClone);
+            var clone = preset != null ? Instantiate(preset) : ScriptableObject.CreateInstance<T>();
+            _paramsClone = clone;
+            return clone;
         }
 
         [Button("Export as PNG")]

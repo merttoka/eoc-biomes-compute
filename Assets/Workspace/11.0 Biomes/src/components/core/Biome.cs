@@ -586,11 +586,10 @@ namespace Biomes
             }
             RenderTexture.active = prevActive;
 
-            tmp.Release();
-            Destroy(tmp);
-            Destroy(readback);
-            if (rawRT != null) { rawRT.Release(); Destroy(rawRT); }
-            if (rawTex != null) Destroy(rawTex);
+            GPUResourceManager.DestroyTexture(tmp);
+            GPUResourceManager.DestroySafe(readback);
+            GPUResourceManager.DestroyTexture(rawRT);
+            GPUResourceManager.DestroySafe(rawTex);
 
             Debug.Log($"[Biome] Exported {BiomeChannel.Count} channel PNGs → {dir}{(exportNormalized ? " (normalized)" : "")}");
 

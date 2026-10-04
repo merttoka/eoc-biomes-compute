@@ -176,7 +176,8 @@ namespace Biomes
         {
             _backend?.Dispose();
             _backend = null;
-            if (_backendGO != null) { Destroy(_backendGO); _backendGO = null; }
+            GPUResourceManager.DestroySafe(_backendGO);
+            _backendGO = null;
         }
 
         private void UpdateDebugVideoInput()
@@ -205,12 +206,7 @@ namespace Biomes
                 _outputTexture.width == width && _outputTexture.height == height)
                 return;
 
-            if (_outputTexture != null)
-            {
-                _outputTexture.Release();
-                Object.Destroy(_outputTexture);
-            }
-
+            gpu.Release(_outputTexture);
             _outputTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32);
             _outputTexture.name = "ExternalInfluenceOutput";
             _outputTexture.enableRandomWrite = true;
@@ -259,12 +255,7 @@ namespace Biomes
                 if (m_DebugVideoTexture == null || !m_DebugVideoTexture.IsCreated() ||
                     m_DebugVideoTexture.width != vw || m_DebugVideoTexture.height != vh)
                 {
-                    if (m_DebugVideoTexture != null)
-                    {
-                        m_DebugVideoTexture.Release();
-                        Destroy(m_DebugVideoTexture);
-                    }
-
+                    gpu.Release(m_DebugVideoTexture);
                     m_DebugVideoTexture = new RenderTexture(vw, vh, 0, RenderTextureFormat.ARGB32);
                     m_DebugVideoTexture.name = "DebugVideoInput";
                     m_DebugVideoTexture.enableRandomWrite = false;
@@ -301,11 +292,7 @@ namespace Biomes
                 m_DebugBlurTemp.width != _outputTexture.width ||
                 m_DebugBlurTemp.height != _outputTexture.height)
             {
-                if (m_DebugBlurTemp != null)
-                {
-                    m_DebugBlurTemp.Release();
-                    Destroy(m_DebugBlurTemp);
-                }
+                gpu.Release(m_DebugBlurTemp);
                 m_DebugBlurTemp = new RenderTexture(_outputTexture.width, _outputTexture.height, 0, RenderTextureFormat.ARGB32);
                 m_DebugBlurTemp.name = "DebugVideoBlurTemp";
                 m_DebugBlurTemp.enableRandomWrite = true;
