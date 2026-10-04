@@ -38,6 +38,7 @@ namespace Biomes
             public GameObject go;
             public RenderTexture extractRT;  // biome channel extract (biome res)
             public RenderTexture scaleRT;    // downscaled output
+            public RenderTexture cropRT;     // full-res output cropped to NDI-legal size
             public bool warned;
             public bool enabled;             // stream.enabled when built; a toggle rebuilds
         }
@@ -103,8 +104,11 @@ namespace Biomes
                 Texture src = ResolveSource(s, live);
                 if (src == null) continue;
 
+                bool ndi = s.protocol == ShareProtocol.NDI;
                 if (s.resolutionScale < 0.999f)
-                    src = Downscale(src, s.resolutionScale, live);
+                    src = Downscale(src, s.resolutionScale, live, ndi);
+                else if (ndi)
+                    src = CropForNdi(src, live);
 
                 live.backend.SetSource(src);
             }
@@ -154,18 +158,51 @@ namespace Biomes
             live.extractRT.Create();
         }
 
-        private Texture Downscale(Texture src, float scale, Live live)
+        // KlakNDI only encodes frames whose width is a multiple of 16 and height a multiple
+        // of 8. NDI streams drop the remainder (at most 15 columns / 7 rows), centred.
+        private static int NdiWidth(int w) => w >= 16 ? w - w % 16 : w;
+        private static int NdiHeight(int h) => h >= 8 ? h - h % 8 : h;
+
+        private Texture Downscale(Texture src, float scale, Live live, bool ndi)
         {
             int w = Mathf.Max(1, Mathf.CeilToInt(src.width * scale));
             int h = Mathf.Max(1, Mathf.CeilToInt(src.height * scale));
-            if (live.scaleRT == null || live.scaleRT.width != w || live.scaleRT.height != h)
+            int cw = ndi ? NdiWidth(w) : w;
+            int ch = ndi ? NdiHeight(h) : h;
+            if (live.scaleRT == null || live.scaleRT.width != cw || live.scaleRT.height != ch)
             {
                 if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
-                live.scaleRT = new RenderTexture(w, h, 0) { name = "DownscaleSend" };
+                live.scaleRT = new RenderTexture(cw, ch, 0) { name = "DownscaleSend" };
                 live.scaleRT.Create();
             }
-            Graphics.Blit(src, live.scaleRT);
+            if (cw == w && ch == h)
+            {
+                Graphics.Blit(src, live.scaleRT);
+            }
+            else
+            {
+                // Same scale as the uncropped frame, centre window only (no stretch).
+                var window = new Vector2((float)cw / w, (float)ch / h);
+                Graphics.Blit(src, live.scaleRT, window, (Vector2.one - window) * 0.5f);
+            }
             return live.scaleRT;
+        }
+
+        private Texture CropForNdi(Texture src, Live live)
+        {
+            int w = NdiWidth(src.width), h = NdiHeight(src.height);
+            if (w == src.width && h == src.height) return src;
+            var fmt = src.graphicsFormat;
+            if (live.cropRT == null || live.cropRT.width != w || live.cropRT.height != h
+                || live.cropRT.graphicsFormat != fmt)
+            {
+                if (live.cropRT != null) { live.cropRT.Release(); Destroy(live.cropRT); }
+                live.cropRT = new RenderTexture(w, h, 0, fmt) { name = "NdiCropSend" };
+                live.cropRT.Create();
+            }
+            Graphics.CopyTexture(src, 0, 0, (src.width - w) / 2, (src.height - h) / 2, w, h,
+                                 live.cropRT, 0, 0, 0, 0);
+            return live.cropRT;
         }
 
         private Texture WarnOnce(Live live, string msg)
@@ -195,6 +232,7 @@ namespace Biomes
                 live.backend?.Dispose();
                 if (live.extractRT != null) { live.extractRT.Release(); Destroy(live.extractRT); }
                 if (live.scaleRT != null) { live.scaleRT.Release(); Destroy(live.scaleRT); }
+                if (live.cropRT != null) { live.cropRT.Release(); Destroy(live.cropRT); }
                 if (live.go != null) Destroy(live.go);
             }
             _live.Clear();
