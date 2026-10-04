@@ -194,12 +194,15 @@ namespace Biomes
 
         private void GPUSpatialHashBuild()
         {
-            float cs_cellSize = MaxRangeAcrossTypes();
-            int gw = Mathf.CeilToInt((float)rezX / cs_cellSize);
-            int gh = Mathf.CeilToInt((float)rezY / cs_cellSize);
+            // Cells at least one range wide that tile the torus exactly. Ceil-sized cells left a
+            // partial last row/column at the wrap, so boids within range across the seam could
+            // sit two cells apart and never see each other.
+            float range = MaxRangeAcrossTypes();
+            int gw = Mathf.Max(1, Mathf.FloorToInt(rezX / range));
+            int gh = Mathf.Max(1, Mathf.FloorToInt(rezY / range));
 
             int n = AllocatedAgentCount;   // buffers are sized for this; live agentsCount takes effect on Reset
-            cs.SetFloat(s_CellSizeID, cs_cellSize);
+            cs.SetVector(s_CellSizeID, new Vector2((float)rezX / gw, (float)rezY / gh));
             cs.SetInt(s_GridWID, gw);
             cs.SetInt(s_GridHID, gh);
             cs.SetInt(s_AgentsCountID, n);

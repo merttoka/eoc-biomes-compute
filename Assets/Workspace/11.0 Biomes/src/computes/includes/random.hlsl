@@ -60,3 +60,8 @@ float Hash1u(uint x) {
     x ^= x >> 16;
     return x * (1.0 / 4294967296.0);
 }
+
+// Two decorrelated [0,1) values from one integer seed.
+float2 Hash2u(uint x) {
+    return float2(Hash1u(x), Hash1u(x + 0x9E3779B9u));
+}

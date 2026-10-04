@@ -89,7 +89,7 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
                 * float2((float)rezX, (float)rezY);
         a.position = p;
     } else {
-        float2 c = Random2(id.x * .0001 + time * .001);
+        float2 c = Hash2u(id.x * 747796405u + time * 2891336453u);
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
 

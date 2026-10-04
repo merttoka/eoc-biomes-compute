@@ -411,7 +411,10 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
         // (Temperature) it caps — a dynamic equilibrium proportional to local agent
         // density instead of a one-way ramp to flat 1.0. relaxRate 0 = identity.
         float relaxed = lerp(decayed, baseline, relaxRate);
-        fieldWrite[uint3(id.xy, c)] = clamp(relaxed, 0, 1);
+        // Flow is a signed velocity (GenerateFlowKernel's ±1 range); every other
+        // channel is a 0..1 amount. A 0 floor here erased negative flow each step.
+        float lo = (c == CH_FLOW_X || c == CH_FLOW_Y) ? -1.0 : 0.0;
+        fieldWrite[uint3(id.xy, c)] = clamp(relaxed, lo, 1);
     }
 }
 
@@ -476,29 +479,98 @@ void BuildPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
 // Runs pre-Step, in-place into fieldRead (bound as fieldWrite) — like WriteField,
 // so it rides the field ping-pong with no clobber risk. Soft Gaussian discs.
 // ════════════════════════════════════════════════
+// Each 8x8 group first culls the stamp list against its tile (a stamp whose disc misses
+// every pixel centre in the tile can't touch any of them), marking survivors in a bitmask;
+// pixels then visit the survivors in ascending index order. Lists longer than the mask fall
+// back to the full loop.
+//
+// Stamps are applied to a per-pixel register copy of each touched channel and written back
+// once. Re-reading a texel this thread just wrote is not coherent on Metal without a texture
+// fence, so overlapping same-channel stamps used to randomly lose contributions (the old
+// kernel wasn't even reproducible run to run). Intermediates stay float; the single final
+// write rounds to half. Matches a double-precision CPU chain to half precision.
+#define INJECT_MASK_WORDS 32   // 1024 stamps
+groupshared uint g_stampMask[INJECT_MASK_WORDS];
+
+void ApplyInjectStamp(InjectStamp st, float2 uv, float aspect, uint2 px,
+                      inout float vals[CH_COUNT], inout uint loaded) {
+    if (st.radius <= 0) return;
+    float2 d = uv - st.uv;
+    d.x *= aspect;                 // keep discs round on non-square fields
+    float dist = length(d);
+    if (dist >= st.radius) return;
+
+    float w = pow(saturate(1.0 - dist / st.radius), max(st.falloff, 1e-3));
+    uint c = (uint)st.channel;
+    if ((loaded & (1u << c)) == 0) {
+        vals[c] = fieldWrite[uint3(px, c)];
+        loaded |= 1u << c;
+    }
+    float cur = vals[c];
+
+    float v;
+    if (st.mode == 1)       v = max(cur, saturate(st.amount * w));          // max-toward (stable gradient)
+    else if (st.mode == 2)  v = saturate(lerp(cur, st.amount, w));          // set-toward
+    else if (st.mode == 3)  v = lerp(cur, min(cur, saturate(st.amount)), w); // min-toward (one-way close)
+    else                    v = saturate(cur + st.amount * w);              // additive
+    vals[c] = v;
+}
+
 [numthreads(8, 8, 1)]
-void InjectStampKernel(uint3 id : SV_DISPATCHTHREADID) {
-    if (id.x >= rezX || id.y >= rezY) return;
-
-    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
+void InjectStampKernel(uint3 id : SV_DISPATCHTHREADID, uint3 gid : SV_GROUPID, uint gi : SV_GROUPINDEX) {
     float aspect = (float)rezX / (float)rezY;
+    bool culled = injectStampCount <= INJECT_MASK_WORDS * 32;
+    uint words = (injectStampCount + 31) >> 5;
 
-    for (uint s = 0; s < injectStampCount; s++) {
-        InjectStamp st = injectStamps[s];
-        if (st.radius <= 0) continue;
-        float2 d = uv - st.uv;
-        d.x *= aspect;                 // keep discs round on non-square fields
-        float dist = length(d);
-        if (dist >= st.radius) continue;
+    if (culled) {
+        // Thread gi builds mask word gi (stamps 32·gi .. 32·gi+31) — no shared atomics.
+        if (gi < words) {
+            // Pixel-centre uv bounds of this tile, clamped to the field.
+            uint2 p0 = gid.xy * 8;
+            uint2 p1 = min(p0 + 7, uint2(rezX - 1, rezY - 1));
+            float2 lo = (float2(p0) + 0.5) / float2(rezX, rezY);
+            float2 hi = (float2(p1) + 0.5) / float2(rezX, rezY);
+            uint bits = 0;
+            for (uint b = 0; b < 32; b++) {
+                uint si = (gi << 5) + b;
+                if (si >= injectStampCount) break;
+                InjectStamp st = injectStamps[si];
+                if (st.radius <= 0) continue;
+                float2 d = st.uv - clamp(st.uv, lo, hi);   // nearest tile point
+                d.x *= aspect;
+                // Margin keeps the test conservative against rounding; extra survivors are
+                // harmless, ApplyInjectStamp's per-pixel test still decides.
+                if (length(d) < st.radius * 1.001 + 1e-6)
+                    bits |= 1u << b;
+            }
+            g_stampMask[gi] = bits;
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
 
-        float w = pow(saturate(1.0 - dist / st.radius), max(st.falloff, 1e-3));
-        uint3 c = uint3(id.xy, (uint)st.channel);
-        float cur = fieldWrite[c];
+    if (id.x >= rezX || id.y >= rezY) return;
+    float2 uv = float2((id.x + 0.5) / (float)rezX, (id.y + 0.5) / (float)rezY);
 
-        if (st.mode == 1)       fieldWrite[c] = max(cur, saturate(st.amount * w)); // max-toward (stable gradient)
-        else if (st.mode == 2)  fieldWrite[c] = saturate(lerp(cur, st.amount, w)); // set-toward
-        else if (st.mode == 3)  fieldWrite[c] = lerp(cur, min(cur, saturate(st.amount)), w); // min-toward (one-way close)
-        else                    fieldWrite[c] = saturate(cur + st.amount * w);     // additive
+    float vals[CH_COUNT];
+    uint loaded = 0;
+    if (culled) {
+        for (uint w = 0; w < words; w++) {
+            uint bits = g_stampMask[w];
+            while (bits != 0) {
+                uint b = firstbitlow(bits);
+                bits &= bits - 1;          // ascending: lowest set bit first
+                ApplyInjectStamp(injectStamps[(w << 5) + b], uv, aspect, id.xy, vals, loaded);
+            }
+        }
+    } else {
+        for (uint s = 0; s < injectStampCount; s++)
+            ApplyInjectStamp(injectStamps[s], uv, aspect, id.xy, vals, loaded);
+    }
+
+    while (loaded != 0) {
+        uint c = firstbitlow(loaded);
+        loaded &= loaded - 1;
+        fieldWrite[uint3(id.xy, c)] = vals[c];
     }
 }
 

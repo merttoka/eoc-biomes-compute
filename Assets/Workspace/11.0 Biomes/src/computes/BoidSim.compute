@@ -37,7 +37,7 @@ RWStructuredBuffer<Agent> agentsOut;
 // Spatial hash
 uint gridW;
 uint gridH;
-float cellSize;
+float2 cellSize;      // per axis: rez / cell count, so the grid tiles the torus exactly
 RWStructuredBuffer<uint> cellCounts;
 RWStructuredBuffer<uint> cellOffsets;
 RWStructuredBuffer<uint> sortedBoidIndices;
@@ -123,15 +123,12 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
                 * float2((float)rezX, (float)rezY);
         a.position = p;
     } else {
-        float2 c = Random2(id.x * .0001 + time * .001);
+        float2 c = Hash2u(id.x * 747796405u + time * 2891336453u);
         a.position = float2(c.x * (float)rezX, c.y * (float)rezY);
     }
-    if (spawnMode == 1 || spawnMode == 3) {
-        float ang0 = SpawnAngle(Hash1u(id.x * 747796405u + time));
-        a.velocity = float2(cos(ang0), sin(ang0));
-    } else {
-        a.velocity = RandomDirection2(id.xy * .001 + sin(time));
-    }
+    // Integer-hashed heading (see PhysarumSim ResetAgentsKernel).
+    float ang0 = SpawnAngle(Hash1u(id.x * 747796405u + time));
+    a.velocity = float2(cos(ang0), sin(ang0));
     a.typeId = (id.x * typeCount) / agentsCount;
     agentsOut[id.x] = a;
 }
@@ -150,8 +147,8 @@ void ClearCellCountsKernel(uint3 id : SV_DISPATCHTHREADID) {
 void HashAndCountKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
     Agent b = agentsIn[id.x];
-    uint cx = min((uint)(b.position.x / cellSize), gridW - 1);
-    uint cy = min((uint)(b.position.y / cellSize), gridH - 1);
+    uint cx = min((uint)(b.position.x / cellSize.x), gridW - 1);
+    uint cy = min((uint)(b.position.y / cellSize.y), gridH - 1);
     InterlockedAdd(cellCounts[cy * gridW + cx], 1);
 }
 
@@ -199,8 +196,8 @@ void PrefixSumKernel(uint3 gtid : SV_GROUPTHREADID) {
 void ScatterKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
     Agent b = agentsIn[id.x];
-    uint cx = min((uint)(b.position.x / cellSize), gridW - 1);
-    uint cy = min((uint)(b.position.y / cellSize), gridH - 1);
+    uint cx = min((uint)(b.position.x / cellSize.x), gridW - 1);
+    uint cy = min((uint)(b.position.y / cellSize.y), gridH - 1);
     uint cellKey = cy * gridW + cx;
     uint localIdx;
     InterlockedAdd(cellCounts[cellKey], 1, localIdx);
@@ -269,12 +266,15 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     float fRX = (float)rezX;
     float fRY = (float)rezY;
 
-    uint myCellX = min((uint)(b.position.x / cellSize), gridW - 1);
-    uint myCellY = min((uint)(b.position.y / cellSize), gridH - 1);
+    uint myCellX = min((uint)(b.position.x / cellSize.x), gridW - 1);
+    uint myCellY = min((uint)(b.position.y / cellSize.y), gridH - 1);
     uint totalCells = gridW * gridH;
 
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
+    // With fewer than 3 cells on an axis, -1 and +1 wrap onto the same cell: visit each once.
+    int dxLo = gridW >= 3 ? -1 : 0, dxHi = gridW >= 2 ? 1 : 0;
+    int dyLo = gridH >= 3 ? -1 : 0, dyHi = gridH >= 2 ? 1 : 0;
+    for (int dx = dxLo; dx <= dxHi; dx++) {
+        for (int dy = dyLo; dy <= dyHi; dy++) {
             uint ncx = (myCellX + dx + gridW) % gridW;
             uint ncy = (myCellY + dy + gridH) % gridH;
             uint neighborCell = ncy * gridW + ncx;
