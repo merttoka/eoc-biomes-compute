@@ -44,8 +44,19 @@ namespace Biomes
         private ParameterRecording currentRecording;
         private ParameterRecording loadedRecording;
 
-        // Snapshot: [simIndex][paramName][typeIndex] = value
-        private Dictionary<string, float>[] _prevSnapshot;
+        // One sim's parameters at one frame: values[t * names.Count + p] = GetParameter(names[p], t)
+        // for t < typeCount. Two sets per sim (previous / current frame) swap every frame, so
+        // recording allocates nothing per frame beyond the change events themselves.
+        private sealed class SimSnapshot
+        {
+            public IReadOnlyList<string> names;   // the sim's ModulatableParams; null = not started, nothing read
+            public int typeCount;
+            public float[] values = Array.Empty<float>();
+        }
+
+        private const int MaxProbedTypes = 8;
+        private SimSnapshot[] _prevSnapshot = Array.Empty<SimSnapshot>();
+        private SimSnapshot[] _currSnapshot = Array.Empty<SimSnapshot>();
 
         private int _playbackEventIndex;
 
@@ -83,7 +94,10 @@ namespace Biomes
                 currentRecording.simNames.Add(sim != null ? sim.SimName : "null");
             }
 
-            _prevSnapshot = TakeSnapshot();
+            _prevSnapshot = Array.Empty<SimSnapshot>();
+            _currSnapshot = Array.Empty<SimSnapshot>();
+            MatchSimCount();
+            TakeSnapshot(_prevSnapshot);
             isRecording = true;
             isPlaying = false;
             Debug.Log("ParameterRecorder: recording started");
@@ -100,39 +114,61 @@ namespace Biomes
 
         private void RecordFrame()
         {
-            var snapshot = TakeSnapshot();
+            MatchSimCount();
+            TakeSnapshot(_currSnapshot);
             int step = simManager.SimStepCount;
 
-            for (int simIdx = 0; simIdx < simManager.simulations.Count; simIdx++)
+            for (int simIdx = 0; simIdx < _currSnapshot.Length; simIdx++)
             {
-                var sim = simManager.simulations[simIdx];
-                if (sim == null) continue;
+                if (simManager.simulations[simIdx] == null) continue;
 
                 var prev = _prevSnapshot[simIdx];
-                var curr = snapshot[simIdx];
+                var curr = _currSnapshot[simIdx];
+                if (prev.names == null || curr.names == null) continue;
 
-                foreach (var kvp in curr)
+                // Type-major, param-minor: the order the events have always been written in.
+                int n = curr.names.Count;
+                for (int t = 0; t < curr.typeCount; t++)
                 {
-                    if (prev.TryGetValue(kvp.Key, out float prevVal))
+                    for (int p = 0; p < n; p++)
                     {
-                        if (Mathf.Abs(kvp.Value - prevVal) > changeThreshold)
+                        if (!TryGetPrevious(prev, curr.names, p, t, out float prevVal)) continue;
+                        float value = curr.values[t * n + p];
+                        if (Mathf.Abs(value - prevVal) > changeThreshold)
                         {
-                            // Parse key: "paramName:typeIndex"
-                            ParseKey(kvp.Key, out string paramName, out int typeIndex);
                             currentRecording.events.Add(new ParameterEvent
                             {
                                 step = step,
                                 simIndex = simIdx,
-                                paramName = paramName,
-                                typeIndex = typeIndex,
-                                value = kvp.Value,
+                                paramName = curr.names[p],
+                                typeIndex = t,
+                                value = value,
                             });
                         }
                     }
                 }
             }
 
-            _prevSnapshot = snapshot;
+            (_prevSnapshot, _currSnapshot) = (_currSnapshot, _prevSnapshot);
+        }
+
+        // The previous frame's value of (names[p], t). Absent when that frame didn't read it:
+        // the sim had not started, or probed fewer types. A slot whose param list changed
+        // (another sim assigned) matches by name.
+        private static bool TryGetPrevious(SimSnapshot prev, IReadOnlyList<string> names, int p, int t, out float value)
+        {
+            value = 0f;
+            if (t >= prev.typeCount) return false;
+            int prevP = p;
+            if (!ReferenceEquals(prev.names, names))
+            {
+                prevP = -1;
+                for (int i = 0; i < prev.names.Count; i++)
+                    if (prev.names[i] == names[p]) { prevP = i; break; }
+                if (prevP < 0) return false;
+            }
+            value = prev.values[t * prev.names.Count + prevP];
+            return true;
         }
 
         // Events hold RAW values (captured via GetParameter); SetParameter maps a 0..1 knob
@@ -141,40 +177,61 @@ namespace Biomes
         private static void ApplyRecorded(SimulationBase sim, ParameterEvent evt) =>
             sim.LiveParamSet?.SetValue(evt.paramName, evt.typeIndex, evt.value);
 
-        private Dictionary<string, float>[] TakeSnapshot()
+        // Both snapshot sets get one slot per sim, sized for the sim's param list, so steady-state
+        // frames never allocate. New slots start unread: no events on their first frame.
+        private void MatchSimCount()
         {
-            var snapshot = new Dictionary<string, float>[simManager.simulations.Count];
-            for (int i = 0; i < simManager.simulations.Count; i++)
+            var sims = simManager.simulations;
+            if (_currSnapshot.Length != sims.Count)
             {
-                snapshot[i] = new Dictionary<string, float>();
+                Array.Resize(ref _prevSnapshot, sims.Count);
+                Array.Resize(ref _currSnapshot, sims.Count);
+            }
+            for (int i = 0; i < sims.Count; i++)
+            {
+                int size = sims[i] != null ? sims[i].ModulatableParams.Count * MaxProbedTypes : 0;
+                _prevSnapshot[i] = Fit(_prevSnapshot[i], size);
+                _currSnapshot[i] = Fit(_currSnapshot[i], size);
+            }
+
+            static SimSnapshot Fit(SimSnapshot s, int size)
+            {
+                s ??= new SimSnapshot();
+                if (s.values.Length < size) Array.Resize(ref s.values, size);   // keeps the read values
+                return s;
+            }
+        }
+
+        // Type indices are probed rather than read from LiveParamSet.TypeCount, which keeps the
+        // event stream identical to existing recordings: up to 8, stopping after the first index
+        // > 0 whose params all read 0 (that row is kept). Agent sims read 0 past their type
+        // count; the CA sims ignore the index and repeat type 0 in all 8 rows.
+        private void TakeSnapshot(SimSnapshot[] into)
+        {
+            for (int i = 0; i < into.Length; i++)
+            {
+                var snap = into[i];
+                snap.names = null;
+                snap.typeCount = 0;
                 var sim = simManager.simulations[i];
                 if (sim == null || sim.LiveParamSet == null) continue;   // not started: nothing to record yet
 
-                var paramNames = sim.ModulatableParams;
-                // Query each param for each type
-                // We need to know type count — use GetParameter with increasing indices until it returns 0
-                // Heuristic: try up to 8 types
-                for (int typeIdx = 0; typeIdx < 8; typeIdx++)
+                var names = sim.ModulatableParams;
+                int n = names.Count;
+                snap.names = names;
+                for (int t = 0; t < MaxProbedTypes; t++)
                 {
                     bool anyValid = false;
-                    foreach (var pName in paramNames)
+                    for (int p = 0; p < n; p++)
                     {
-                        float val = sim.GetParameter(pName, typeIdx);
-                        string key = $"{pName}:{typeIdx}";
-                        snapshot[i][key] = val;
+                        float val = sim.GetParameter(names[p], t);
+                        snap.values[t * n + p] = val;
                         if (val != 0f) anyValid = true;
                     }
-                    if (!anyValid && typeIdx > 0) break;
+                    snap.typeCount = t + 1;
+                    if (!anyValid && t > 0) break;
                 }
             }
-            return snapshot;
-        }
-
-        private static void ParseKey(string key, out string paramName, out int typeIndex)
-        {
-            int sep = key.LastIndexOf(':');
-            paramName = key.Substring(0, sep);
-            typeIndex = int.Parse(key.Substring(sep + 1));
         }
 
         // ═══════════════ SAVE / LOAD ═══════════════
