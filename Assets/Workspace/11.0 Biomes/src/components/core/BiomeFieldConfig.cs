@@ -138,9 +138,5 @@ namespace Biomes
                  "central-difference magnitude is tiny (Humidity diffuseRate 0.97 smooths the field), so " +
                  "this lifts the drying-wake edge into a usable termite build cue. 0 = no gradient signal.")]
         [Range(0f, 32f)]  public float humidityGradientGain = 12f;         // |∇Humidity| magnitude gain
-
-        [Header("Initial Matter Map")]
-        [Range(0f, 10f)] public float noiseScale = 3f;
-        [Range(0f, 1f)]  public float noiseThreshold = 0.3f;  // below this = solid (low permeability)
     }
 }
