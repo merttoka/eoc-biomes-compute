@@ -8,8 +8,8 @@ namespace Biomes
     /// Serialized as int — append only.</summary>
     public enum AgentFamily { Any, Physarum, Boid, Termite }
 
-    /// <summary>One palette color: the rendered color at full trail intensity, optionally tagged
-    /// with the sim family it belongs to.</summary>
+    /// <summary>One palette color: what a type shows on screen at full trail intensity (sRGB),
+    /// optionally tagged with the sim family it belongs to.</summary>
     [Serializable]
     public class PaletteSwatch
     {

@@ -102,6 +102,40 @@ public class AgentColorTests
     }
 
     [Test]
+    public void ToDisplay_IsTheGammaEncodedKernelColor()
+    {
+        // Kernels write linear light; the screen shows it sRGB-encoded (linear project).
+        var kernel = AgentColor.ToRgb(0.6f, 0.4f, 0.7f);
+        AssertColor(kernel.gamma, AgentColor.ToDisplay(0.6f, 0.4f, 0.7f));
+    }
+
+    [Test]
+    public void FromDisplay_MidGrey_IsDarkerLinearLight()
+    {
+        // #8C8C8C on screen comes from ~0.262 in the kernel, not 0.549.
+        var (h, s, b) = AgentColor.FromDisplay(new Color(0x8C / 255f, 0x8C / 255f, 0x8C / 255f), 0.3f, 0.9f);
+        Assert.That(h, Is.EqualTo(0.3f));
+        Assert.That(s, Is.EqualTo(0f));
+        Assert.That(b, Is.EqualTo(Mathf.GammaToLinearSpace(0x8C / 255f)).Within(Eps));
+    }
+
+    [Test]
+    public void FromDisplay_OfToDisplay_RecoversHsb()
+    {
+        foreach (float s in new[] { 0.1f, 0.5f, 1f })
+        foreach (float b in new[] { 0.2f, 0.8f, 1f })
+        for (int i = 0; i < 24; i++)
+        {
+            float h = i / 24f;
+            var (h2, s2, b2) = AgentColor.FromDisplay(AgentColor.ToDisplay(h, s, b));
+            string at = $"h {h} s {s} b {b}";
+            Assert.That(HueDistance(h2, h), Is.LessThan(Eps), at);
+            Assert.That(s2, Is.EqualTo(s).Within(Eps), at);
+            Assert.That(b2, Is.EqualTo(b).Within(Eps), at);
+        }
+    }
+
+    [Test]
     public void FromRgb_HueWrapsIntoUnitRange()
     {
         // Red with a trace of blue lands on hue 6/6 in float; it must wrap to [0, 1).

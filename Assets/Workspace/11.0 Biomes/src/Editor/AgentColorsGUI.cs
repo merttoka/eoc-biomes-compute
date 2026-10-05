@@ -6,8 +6,8 @@ namespace Biomes
 {
     /// <summary>
     /// "Colors" section of the agent params inspector: a color field per type that shows (and
-    /// takes) the exact rendered color, H/S/B sliders, palette apply / per-type pick, and saving
-    /// the current colors into a palette.
+    /// takes) the exact on-screen color, H/S/B sliders over the kernel's values, palette apply /
+    /// per-type pick, and saving the current colors into a palette.
     /// </summary>
     internal static class AgentColorsGUI
     {
@@ -87,10 +87,10 @@ namespace Biomes
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUI.BeginChangeCheck();
-                var picked = EditorGUILayout.ColorField(new GUIContent($"Type {i}"), AgentColor.ToRgb(h, s, b),
+                var picked = EditorGUILayout.ColorField(new GUIContent($"Type {i}"), AgentColor.ToDisplay(h, s, b),
                     showEyedropper: true, showAlpha: false, hdr: false);
                 if (EditorGUI.EndChangeCheck())
-                    Write(target, p, i, AgentColor.FromRgb(picked, h, s));
+                    Write(target, p, i, AgentColor.FromDisplay(picked, h, s));
 
                 using (new EditorGUI.DisabledScope(palette == null || palette.swatches.Count == 0))
                 {
@@ -99,7 +99,7 @@ namespace Biomes
                     if (GUI.Button(rect, content, EditorStyles.miniButton))
                         PopupWindow.Show(rect, new SwatchPopup(palette, p.Family, color =>
                         {
-                            Write(target, p, i, AgentColor.FromRgb(color, h, s));
+                            Write(target, p, i, AgentColor.FromDisplay(color, h, s));
                             editor.Repaint();
                         }));
                 }

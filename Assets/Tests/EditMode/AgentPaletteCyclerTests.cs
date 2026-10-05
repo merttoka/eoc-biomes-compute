@@ -90,15 +90,16 @@ public class AgentPaletteCyclerTests
         Select(0, instant: false);
         Tick(2f);
         float hue = (float)Live.GetType().GetMethod("GetValue").Invoke(Live, new object[] { "hue", 0 });
-        Assert.That(hue, Is.EqualTo(AgentColor.FromRgb(Color.red, 0.12f, 0.5f).h));
+        Assert.That(hue, Is.EqualTo(AgentColor.FromDisplay(Color.red, 0.12f, 0.5f).h));
     }
 
     [Test]
     public void GreySwatch_KeepsEachTypesHue()
     {
         Select(1, instant: true);
-        AssertHsb((Authored0.h, 0f, 0.5f), 0);
-        AssertHsb((Authored1.h, 0f, 0.5f), 1);
+        float b = Mathf.GammaToLinearSpace(0.5f);   // on-screen mid grey is darker linear light
+        AssertHsb((Authored0.h, 0f, b), 0);
+        AssertHsb((Authored1.h, 0f, b), 1);
     }
 
     [Test]

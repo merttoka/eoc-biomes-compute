@@ -4,7 +4,8 @@ using UnityEngine;
 namespace Biomes
 {
     /// <summary>
-    /// Agent colors to assign to sim types. A swatch is the rendered color at full trail intensity;
+    /// Agent colors to assign to sim types. A swatch is the color a type shows on screen at full
+    /// trail intensity (sRGB — what the picker, eyedropper and hex codes mean; see AgentColor.ToDisplay);
     /// one tagged with a family is meant for that sim (assignment rule: <see cref="PaletteAssign"/>).
     /// Applied from the agent params inspector, or cycled live by SimulationManager.
     /// </summary>
@@ -21,7 +22,7 @@ namespace Biomes
             out (float h, float s, float b) hsb)
         {
             int k = PaletteAssign.SwatchIndex(swatches, family, typeIndex);
-            hsb = k < 0 ? default : AgentColor.FromRgb(swatches[k].color, fallbackHue, fallbackSat);
+            hsb = k < 0 ? default : AgentColor.FromDisplay(swatches[k].color, fallbackHue, fallbackSat);
             return k >= 0;
         }
 
@@ -43,7 +44,7 @@ namespace Biomes
             for (int i = 0; i < colors.Length; i++)
             {
                 var (h, s, b) = p.GetHsb(i);
-                colors[i] = AgentColor.ToRgb(h, s, b);
+                colors[i] = AgentColor.ToDisplay(h, s, b);
             }
             PaletteAssign.StoreFamily(swatches, p.Family, colors);
         }

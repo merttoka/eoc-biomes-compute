@@ -14,8 +14,8 @@ namespace Biomes
 
         /// <summary>
         /// Generate a palette of n perceptually distinct colors as agent hue / saturation /
-        /// brightness. Converted with AgentColor.FromRgb, so each type renders as the generated
-        /// Lab color, lightness included.
+        /// brightness. Converted with AgentColor.FromDisplay, so each type shows on screen as the
+        /// generated Lab color, lightness included.
         /// </summary>
         public static List<(float h, float s, float b)> GenerateHSB(int count,
             float lightnessMin = 35f, float lightnessMax = 80f,
@@ -27,7 +27,7 @@ namespace Biomes
 
             var result = new List<(float h, float s, float b)>();
             foreach (var lab in labPalette)
-                result.Add(AgentColor.FromRgb(LabToRGB(lab)));
+                result.Add(AgentColor.FromDisplay(LabToRGB(lab)));
             return result;
         }
 

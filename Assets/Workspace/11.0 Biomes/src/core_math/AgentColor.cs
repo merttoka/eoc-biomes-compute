@@ -49,6 +49,18 @@ namespace Biomes
             return (h, range / max, max);
         }
 
+        /// <summary>
+        /// The color a type shows on screen: kernels write linear light, which the display
+        /// gamma-encodes (linear color space). Palettes, the color picker, the eyedropper and hex
+        /// codes all speak this sRGB color.
+        /// </summary>
+        public static Color ToDisplay(float h, float s, float b) => ToRgb(h, s, b).gamma;
+
+        /// <summary>The hue / saturation / brightness that show on screen as <paramref name="c"/>
+        /// (inverse of <see cref="ToDisplay"/>; fallbacks as in <see cref="FromRgb"/>).</summary>
+        public static (float h, float s, float b) FromDisplay(Color c, float fallbackHue = 0f, float fallbackSat = 0f) =>
+            FromRgb(c.linear, fallbackHue, fallbackSat);
+
         // Inverse of the smoothstep cubic 3p² − 2p³ on [0, 1].
         private static float InvSmooth(float q) =>
             0.5f - Mathf.Sin(Mathf.Asin(Mathf.Clamp(1f - 2f * q, -1f, 1f)) / 3f);

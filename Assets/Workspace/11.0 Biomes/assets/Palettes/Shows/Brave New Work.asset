@@ -14,29 +14,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.AgentColorPalette
   notes: "Brave New Work (11.3 Scene_BraveNewWork). Physarum/Boid/Termite: 11.3 assets/*Params (Boid and Termite equal CURRENTS)."
   swatches:
-  - color: {r: 0.8, g: 0.622503571, b: 0.15213496, a: 1}
+  - color: {r: 0.906331753, g: 0.810920914, b: 0.426409386, a: 1}
     family: 1
-  - color: {r: 0.8, g: 0.298786928, b: 0.797142355, a: 1}
+  - color: {r: 0.906331753, g: 0.5827539, b: 0.904899455, a: 1}
     family: 1
-  - color: {r: 0.16937912, g: 0.689408774, b: 0.8, a: 1}
+  - color: {r: 0.448435774, g: 0.848547792, b: 0.906331753, a: 1}
     family: 1
-  - color: {r: 0.259623511, g: 0.8, b: 0.25897224, a: 1}
+  - color: {r: 0.546491001, g: 0.906331753, b: 0.545861852, a: 1}
     family: 1
-  - color: {r: 0.2404884, g: 0.43811544, b: 0.8, a: 1}
+  - color: {r: 0.527606083, g: 0.693021979, b: 0.906331753, a: 1}
     family: 1
-  - color: {r: 0.8, g: 0.513166761, b: 0.4619892, a: 1}
+  - color: {r: 0.906331753, g: 0.743963321, b: 0.709743368, a: 1}
     family: 1
-  - color: {r: 0.8, g: 0.16291512, b: 0.276787279, a: 1}
+  - color: {r: 0.906331753, g: 0.440339589, b: 0.562750841, a: 1}
     family: 1
-  - color: {r: 0.788279535, g: 0.155168104, b: 0.8, a: 1}
+  - color: {r: 0.90043812, g: 0.430385519, b: 0.906331753, a: 1}
     family: 1
-  - color: {r: 0.163779544, g: 0.8, b: 0.790867539, a: 1}
+  - color: {r: 0.441433008, g: 0.906331753, b: 0.901743871, a: 1}
     family: 2
-  - color: {r: 0.4, g: 0.8, b: 0.5408, a: 1}
+  - color: {r: 0.665185085, g: 0.906331753, b: 0.761615736, a: 1}
     family: 2
-  - color: {r: 0.368, g: 0.797223706, b: 0.8, a: 1}
+  - color: {r: 0.640593824, g: 0.904940271, b: 0.906331753, a: 1}
     family: 2
-  - color: {r: 0.8, g: 0.549937584, b: 0.464, a: 1}
+  - color: {r: 0.906331753, g: 0.767336771, b: 0.7111285, a: 1}
     family: 2
-  - color: {r: 0.1889764, g: 0.344121971, b: 1, a: 1}
+  - color: {r: 0.471933263, g: 0.621419252, b: 1, a: 1}
     family: 3

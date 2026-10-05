@@ -6,8 +6,8 @@ using Biomes;
 
 /// <summary>
 /// Each show palette must reproduce what its scene exhibited: per family, the tagged swatches
-/// in order invert (AgentColor.FromRgb) to the source asset's hue/saturation at the brightness
-/// the kernels hardcoded (Physarum/Boid 0.8, Termite 1.0).
+/// (on-screen colors) in order invert (AgentColor.FromDisplay) to the source asset's
+/// hue/saturation at the brightness the kernels hardcoded (Physarum/Boid 0.8, Termite 1.0).
 /// </summary>
 public class PalettePresetTests
 {
@@ -84,7 +84,7 @@ public class PalettePresetTests
         for (int i = 0; i < colors.Count; i++)
         {
             // Source values as fallbacks: a grey swatch (s = 0) keeps the source hue, as Apply does.
-            var (h, s, b) = AgentColor.FromRgb(colors[i], source[i].h, source[i].s);
+            var (h, s, b) = AgentColor.FromDisplay(colors[i], source[i].h, source[i].s);
             float dh = Mathf.Abs(h - source[i].h) % 1f;
             string at = $"{palette} {family} type {i}";
             Assert.That(Mathf.Min(dh, 1f - dh), Is.LessThan(Eps), at + " hue");

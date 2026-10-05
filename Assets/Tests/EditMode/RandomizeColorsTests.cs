@@ -5,7 +5,7 @@ using UnityEngine;
 using Biomes;
 
 /// <summary>
-/// Randomize Colors sets brightness too, so each type renders at the Lab lightness the
+/// Randomize Colors sets brightness too, so each type shows on screen at the Lab lightness the
 /// generator picked it at. Reflection: ColorPalette and the params live in Assembly-CSharp,
 /// which the test assembly cannot reference.
 /// </summary>
@@ -30,7 +30,7 @@ public class RandomizeColorsTests
         foreach (var boxed in colors)
         {
             var (h, s, b) = ((float, float, float))boxed;
-            var lab = (Vector3)toLab.Invoke(null, new object[] { AgentColor.ToRgb(h, s, b) });
+            var lab = (Vector3)toLab.Invoke(null, new object[] { AgentColor.ToDisplay(h, s, b) });
             Assert.That(lab.x, Is.InRange(39.5f, 50.5f), $"L* of ({h}, {s}, {b})");
         }
     }
