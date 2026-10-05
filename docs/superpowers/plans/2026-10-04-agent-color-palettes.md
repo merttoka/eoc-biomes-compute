@@ -1136,6 +1136,11 @@ palette("Curated", "Viridis", "Curated: matplotlib viridis in 8 steps, dark purp
 print("ok")
 ```
 
+> **Superseded in the final review:** swatches are on-screen (sRGB) colors — `tagged()` wraps
+> `hsb2rgb(...)` in an sRGB encode (`ToDisplay`), and every UI/palette boundary uses
+> `AgentColor.ToDisplay`/`FromDisplay`. See the spec's "Screen vs kernel" paragraph before
+> regenerating the show assets.
+
 Run: `python3 $T/gen_palettes.py` → `ok`. Check: `find "Assets/Workspace/11.0 Biomes/assets/Palettes" -name '*.asset' | wc -l` → 10, every `.asset` and folder has a `.meta`.
 
 - [ ] **Step 5: Run to verify it passes.** `$T/benchtest.sh`. Expected: `failed=0`, `PalettePresetTests` 14 cases pass.
