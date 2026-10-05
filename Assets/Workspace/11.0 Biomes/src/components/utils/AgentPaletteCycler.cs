@@ -71,8 +71,9 @@ namespace Biomes
                 // A sim that was not running when the change began has nothing to fade from: it jumps.
                 bool fades = from != null && i < from.Length;
                 var a = fades ? from[i] : p.GetHsb(i);
+                // A settled fade writes the target itself: the hue lerp's wrap can land on 1.0 for 0.
                 if (TryTarget(sim, p, i, a, out var to))
-                    p.SetHsb(i, fades ? Lerp(a, to, t) : to);
+                    p.SetHsb(i, fades && _progress < 1f ? Lerp(a, to, t) : to);
             }
         }
 

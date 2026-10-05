@@ -82,6 +82,18 @@ public class AgentPaletteCyclerTests
     }
 
     [Test]
+    public void CompletedFade_LandsExactlyOnThePaletteValue()
+    {
+        // 0.12 → red: the shortest-arc lerp's float wrap at t = 1 lands on hue 1.0, not red's ~0
+        // (same color, but a knob reading the param would sit at the wrong end).
+        SetHsb(Live, 0, (0.12f, 0.5f, 0.8f));
+        Select(0, instant: false);
+        Tick(2f);
+        float hue = (float)Live.GetType().GetMethod("GetValue").Invoke(Live, new object[] { "hue", 0 });
+        Assert.That(hue, Is.EqualTo(AgentColor.FromRgb(Color.red, 0.12f, 0.5f).h));
+    }
+
+    [Test]
     public void GreySwatch_KeepsEachTypesHue()
     {
         Select(1, instant: true);
