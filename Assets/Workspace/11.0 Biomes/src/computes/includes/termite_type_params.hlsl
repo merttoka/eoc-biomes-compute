@@ -11,6 +11,7 @@ struct TermiteTypeParams {
     float diffuseRate;
     float hue;
     float saturation;
-};  // 48 bytes (12 floats)
+    float brightness;          // HSB value at full trail (appended last: no older field moves)
+};  // 52 bytes (13 floats)
 StructuredBuffer<TermiteTypeParams> typeParams;
 uint typeCount;

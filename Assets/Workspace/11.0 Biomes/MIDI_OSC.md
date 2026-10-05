@@ -182,7 +182,7 @@ Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31)
 
 ## Param Ranges
 
-Both sims support **1-8 agent types** (set `typeCount` on the params ScriptableObject).
+Each agent sim supports **1-8 agent types** (set `typeCount` on the params ScriptableObject).
 
 Min/max ranges for MIDI/OSC mapping are configurable on each params SO under **"MIDI/OSC Ranges"**. These control:
 
@@ -190,13 +190,19 @@ Min/max ranges for MIDI/OSC mapping are configurable on each params SO under **"
 - Randomize range for RandomizeParams buttons
 - LED ring feedback normalization
 
-### Physarum (9 params)
+### Physarum (10 params)
 
-moveSpeed, senseAngle, turnAngle, senseDistance, depositAmount, eatAmount, diffuseRate, hue, saturation
+moveSpeed, senseAngle, turnAngle, senseDistance, depositAmount, eatAmount, diffuseRate, hue, saturation, brightness
 
-### Boid (11 params)
+### Boid (12 params)
 
-maxSpeed, maxForce, separateRange, alignRange, attractRange, depositAmount, eatAmount, foodSeek, hue, saturation, diffuseRate
+maxSpeed, maxForce, separateRange, alignRange, attractRange, depositAmount, eatAmount, foodSeek, hue, saturation, diffuseRate, brightness
+
+### Termite (9 params)
+
+moveSpeed, senseAngle, turnAngle, senseDistance, depositAmount, diffuseRate, hue, saturation, brightness
+
+`brightness` is the HSB value a type renders at full trail (0–1; defaults 0.8 Physarum/Boid, 1.0 Termite — the old hardcoded look).
 
 ### Biome Cross-Field (Soft Bank 2, col 3 of HW bank 4)
 

@@ -20,6 +20,7 @@ namespace Biomes
         public float diffuseRate = 0.985f;
         public float hue = 0f;
         public float saturation = 0.5f;
+        public float brightness = 0.8f;   // HSB value at full trail; 0.8 = the constant the kernel used to hardcode
         public float firingSpeedMul = 2f;
         public float firingDepositAmount = 1f;
     }
@@ -43,6 +44,7 @@ namespace Biomes
             new("foodSeek",        0f,    5f),
             new("hue",             0f,    1f),
             new("saturation",      0f,    1f),
+            new("brightness",      0f,    1f),
             new("diffuseRate",     0.9f,  1f),
             new("firingSpeedMul",      1f,  5f),
             new("firingDepositAmount", 0f,  1f),
@@ -69,6 +71,7 @@ namespace Biomes
                 "foodSeek"      => t.foodSeekingStrength,
                 "hue"           => t.hue,
                 "saturation"    => t.saturation,
+                "brightness"    => t.brightness,
                 "diffuseRate"   => t.diffuseRate,
                 _ => 0f,
             };
@@ -90,6 +93,7 @@ namespace Biomes
                 case "foodSeek":      t.foodSeekingStrength = raw; break;
                 case "hue":           t.hue                = raw; break;
                 case "saturation":    t.saturation          = raw; break;
+                case "brightness":    t.brightness          = raw; break;
                 case "diffuseRate":   t.diffuseRate         = raw; break;
             }
         }

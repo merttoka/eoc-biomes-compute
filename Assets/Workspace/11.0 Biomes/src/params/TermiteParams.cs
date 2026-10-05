@@ -19,6 +19,7 @@ namespace Biomes
         public float diffuseRate = 0.97f;
         public float hue = 0.6f;              // blue-ish default
         public float saturation = 0.7f;
+        public float brightness = 1f;     // HSB value at full trail; 1 = the kernel's old implicit value
     }
 
     [CreateAssetMenu(fileName = "TermiteParams", menuName = "Biomes/TermiteParams")]
@@ -42,6 +43,7 @@ namespace Biomes
             new("diffuseRate",              0.9f,  1f),
             new("hue",                      0f,    1f),
             new("saturation",               0f,    1f),
+            new("brightness",               0f,    1f),
         };
 
         public (float min, float max) GetRange(string paramName)
@@ -67,6 +69,7 @@ namespace Biomes
                 "diffuseRate"              => t.diffuseRate,
                 "hue"                      => t.hue,
                 "saturation"               => t.saturation,
+                "brightness"               => t.brightness,
                 _ => 0f,
             };
         }
@@ -89,6 +92,7 @@ namespace Biomes
                 case "diffuseRate":              t.diffuseRate = raw; break;
                 case "hue":                      t.hue = raw; break;
                 case "saturation":               t.saturation = raw; break;
+                case "brightness":               t.brightness = raw; break;
             }
         }
 

@@ -14,7 +14,7 @@ namespace Biomes
         private static readonly IReadOnlyList<string> s_ModulatableParams = new[]
             { "moveSpeed", "senseAngle", "turnAngle", "senseDistance",
               "depositAmount", "eatAmount", "diffuseRate",
-              "hue", "saturation" };
+              "hue", "saturation", "brightness" };
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
         // Dispersal speed response (dispersalSpeedMode/Mult/ConstantSpeed) lives on SimulationBase.
@@ -45,6 +45,7 @@ namespace Biomes
             public float depositAmount, eatAmount;
             public float diffuseRate, hue, saturation;
             public float firingSpeedMul, firingDepositAmount;
+            public float brightness;   // last, matching the HLSL struct
         }
         #endregion
 
@@ -104,6 +105,7 @@ namespace Biomes
                     saturation = t.saturation,
                     firingSpeedMul = t.firingSpeedMul,
                     firingDepositAmount = t.firingDepositAmount,
+                    brightness = t.brightness,
                 };
             }
             typeParamsBuffer.SetData(_typeParamsCache);
@@ -163,6 +165,7 @@ namespace Biomes
                 case "diffuseRate":   t.diffuseRate   = R(paramName, value); break;
                 case "hue":           t.hue           = R(paramName, value); break;
                 case "saturation":    t.saturation    = R(paramName, value); break;
+                case "brightness":    t.brightness    = R(paramName, value); break;
             }
         }
 
@@ -181,6 +184,7 @@ namespace Biomes
                 case "diffuseRate":   t.diffuseRate   = D(paramName, t.diffuseRate, delta); break;
                 case "hue":           t.hue           = D(paramName, t.hue, delta); break;
                 case "saturation":    t.saturation    = D(paramName, t.saturation, delta); break;
+                case "brightness":    t.brightness    = D(paramName, t.brightness, delta); break;
             }
         }
 
@@ -199,6 +203,7 @@ namespace Biomes
                 "diffuseRate"   => t.diffuseRate,
                 "hue"           => t.hue,
                 "saturation"    => t.saturation,
+                "brightness"    => t.brightness,
                 _ => 0f,
             };
         }
