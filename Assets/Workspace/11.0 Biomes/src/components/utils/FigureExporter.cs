@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using EasyButtons;
 
@@ -90,6 +91,7 @@ namespace Biomes
                 finally { biome.exportFolder = prevFolder; }
             }
 
+            if (!IsRecordingFrames) _readbacks.Release();
             Debug.Log($"[FigureExporter] Exported {exported} PNGs → {dir}");
         }
 
@@ -144,6 +146,9 @@ namespace Biomes
         // allocates per call — cached here because frame capture runs every frame).
         // Rebuilt if the biome resolution changes; released on disable.
         private RenderTexture _biomeScratch;
+
+        // PNG readback textures, kept across frames while recording (several sizes per frame).
+        private readonly PngExport.ReadbackCache _readbacks = new();
 
         private RenderTexture BiomeScratch(Biome biome)
         {
@@ -211,6 +216,7 @@ namespace Biomes
                       $"ffmpeg -framerate {videoFps:F0} -i \"{_framesDir}/<subfolder>/%06d.png\" " +
                       "-c:v libx264 -pix_fmt yuv420p -vf \"crop=trunc(iw/2)*2:trunc(ih/2)*2\" out.mp4");
             _framesDir = null;
+            _readbacks.Release();
         }
 
         // Runs after SimulationManager.LateUpdate (execution-order offset on the class),
@@ -269,10 +275,11 @@ namespace Biomes
         {
             StopFrameExport();
             ReleaseBiomeScratch();
+            _readbacks.Release();
         }
 
         private void SavePNG(RenderTexture rt, string path) =>
-            PngExport.Save(rt, path, encodeSRGB);
+            PngExport.Save(rt, path, encodeSRGB, _readbacks);
     }
 
     /// <summary>
@@ -295,7 +302,10 @@ namespace Biomes
             return dir;
         }
 
-        public static void Save(RenderTexture rt, string path, bool encodeSRGB = true)
+        /// <param name="readbacks">Reuses its texture for this size instead of creating and
+        /// destroying one per call; pass one when saving every frame.</param>
+        public static void Save(RenderTexture rt, string path, bool encodeSRGB = true,
+                                ReadbackCache readbacks = null)
         {
             var prev = RenderTexture.active;   // before the Blit, which leaves its dest active
             RenderTexture src = rt, tmp = null;
@@ -306,13 +316,58 @@ namespace Biomes
                 Graphics.Blit(rt, tmp);
                 src = tmp;
             }
-            var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            var tex = readbacks != null ? readbacks.Get(rt.width, rt.height) : NewReadback(rt.width, rt.height);
             RenderTexture.active = src;
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);   // CPU copy is all EncodeToPNG needs; no Apply() upload
+            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);   // CPU copy is all the encoder needs; no Apply() upload
             RenderTexture.active = prev;
             if (tmp != null) RenderTexture.ReleaseTemporary(tmp);
-            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
-            GPUResourceManager.DestroySafe(tex);
+            // Same bytes as EncodeToPNG, but the encoded file (MBs at 4K) stays native instead
+            // of becoming a managed array every saved frame.
+            using (var png = ImageConversion.EncodeNativeArrayToPNG(tex.GetPixelData<byte>(0),
+                       tex.graphicsFormat, (uint)rt.width, (uint)rt.height))
+                WriteFile(path, png);
+            if (readbacks == null) GPUResourceManager.DestroySafe(tex);
+        }
+
+        private static Texture2D NewReadback(int width, int height) =>
+            new Texture2D(width, height, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+
+        // Chunked through one reused buffer: Stream.Write(ReadOnlySpan) would copy the whole
+        // file into a fresh managed array first.
+        private static readonly byte[] s_writeChunk = new byte[1 << 16];
+
+        private static void WriteFile(string path, NativeArray<byte> data)
+        {
+            using var file = new System.IO.FileStream(path, System.IO.FileMode.Create,
+                System.IO.FileAccess.Write, System.IO.FileShare.None, bufferSize: 1);
+            for (int offset = 0; offset < data.Length; offset += s_writeChunk.Length)
+            {
+                int count = Math.Min(s_writeChunk.Length, data.Length - offset);
+                NativeArray<byte>.Copy(data, offset, s_writeChunk, 0, count);
+                file.Write(s_writeChunk, 0, count);
+            }
+        }
+
+        /// <summary>CPU readback textures for <see cref="Save"/>, one per size: a frame export
+        /// saves the composite, sim outputs and biome channels — several sizes — every frame.
+        /// The owner calls <see cref="Release"/> when it stops saving.</summary>
+        public sealed class ReadbackCache
+        {
+            private readonly Dictionary<Vector2Int, Texture2D> _bySize = new();
+
+            public Texture2D Get(int width, int height)
+            {
+                var size = new Vector2Int(width, height);
+                if (!_bySize.TryGetValue(size, out var tex) || tex == null)
+                    _bySize[size] = tex = NewReadback(width, height);
+                return tex;
+            }
+
+            public void Release()
+            {
+                foreach (var tex in _bySize.Values) GPUResourceManager.DestroySafe(tex);
+                _bySize.Clear();
+            }
         }
     }
 }

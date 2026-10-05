@@ -228,8 +228,8 @@ namespace Biomes
             BindDispersalSpeedParams();
             int n = AllocatedAgentCount;
             cs.SetInt(s_AgentsCountID, n);
-            cs.SetBuffer(moveAgentsKernel, s_AgentsInID, readAgentsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
+            cs.SetBuffer(moveAgentsKernel, s_SortedIndicesReadID, sortedBoidIndicesBuffer);
             cs.SetBuffer(moveAgentsKernel, s_CellOffsetsReadID, cellOffsetsBuffer);
             cs.SetBuffer(moveAgentsKernel, s_AgentsSortedReadID, sortedAgentsBuffer);
             cs.SetTexture(moveAgentsKernel, s_TrailReadID, trailReadArray);

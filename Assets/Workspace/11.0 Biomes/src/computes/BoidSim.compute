@@ -67,6 +67,7 @@ float persistence;   // per-frame retention of outTex (set from SimulationBase.r
 #include "includes/dispersal_speed_response.hlsl"
 #include "includes/keepout.hlsl"
 #include "includes/spawn.hlsl"
+#include "includes/torus.hlsl"
 
 // Neuron-position seeding (bound by SimulationBase.BuildNeuronPositions)
 StructuredBuffer<float2> neuronPositions;
@@ -255,7 +256,10 @@ float2 Attract(const Agent b, float2 sum, const float count, const BoidTypeParam
 void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
 
-    Agent b = agentsIn[id.x];
+    // Cell-sorted order: neighbouring threads hold neighbouring boids, so their neighbour-cell
+    // loops stream the same agentsSortedRead ranges. The result lands in the boid's own slot.
+    uint self = sortedIndicesRead[id.x];
+    Agent b = agentsSortedRead[id.x];   // == agentsIn[self], copied by ReorderAgentsKernel
     BoidTypeParams p = typeParams[b.typeId];
 
     float2 acceleration = 0;
@@ -358,7 +362,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // perception.a = dispersal speed-boost magnitude (raises the speed cap so boids flee fast).
     float speedMult = perception.g;
     float disp = perception.a;
-    float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
+    float fireMul = IsFiring(self, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveMaxSpeed = p.maxSpeed * speedMult * fireMul;
     ApplyDispersalSpeedResponse(effectiveMaxSpeed, disp);
     b.velocity = Limit(b.velocity, effectiveMaxSpeed);
@@ -371,7 +375,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (b.position.y < 0) b.position.y += fRY;
     if (b.position.y >= fRY) b.position.y -= fRY;
 
-    agentsOut[id.x] = b;
+    agentsOut[self] = b;
 }
 
 
@@ -386,7 +390,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     BoidTypeParams p = typeParams[b.typeId];
     // Wrap, don't clip: round() of a position in [rez-0.5, rez) gives rez, an out-of-bounds
     // UAV write (dropped on D3D, undefined on Metal). The world is a torus, so it is pixel 0.
-    uint2 pos = uint2(round(b.position)) % uint2(rezX, rezY);
+    uint2 pos = WrapTorus(uint2(round(b.position)), uint2(rezX, rezY));
 
     float dep = IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount;
     float own = trailWrite[uint3(pos, b.typeId)];
@@ -413,7 +417,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
 // crossings have coherence ~0 → isotropic. The ridge AXIS is sign-free, matching the
 // symmetric angular weight: the tail forms by retention, not drift. trailAnisotropy
 // 0 → every weight 1 → the legacy box blur. Taps wrap toroidally: the trail textures
-// are Repeat-wrapped and point-filtered, so integer modulo Loads reproduce the
+// are Repeat-wrapped and point-filtered, so wrapped integer Loads reproduce the
 // SampleLevel taps they replace — and match the agents' own wrapping.
 [numthreads(8, 8, 1)]
 void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
@@ -441,7 +445,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
         for (int oy = -2; oy <= 2; oy++)
             for (int ox = -2; ox <= 2; ox++)
                 tot[n++] = trailRead[uint3(
-                    uint2(int2(id.xy) + int2(ox, oy) * trailTensorStride + rez) % uint2(rez), typeCount)];
+                    uint2(WrapTorus(int2(id.xy) + int2(ox, oy) * trailTensorStride, rez)), typeCount)];
     }
     float jxx = 0, jxy = 0, jyy = 0;
     for (int wy = -1; wy <= 1; wy++) {
@@ -472,7 +476,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint k = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            taps[k] = int2(uint2(int2(id.xy) + int2(dx, dy) + rez) % uint2(rez));
+            taps[k] = WrapTorus(int2(id.xy) + int2(dx, dy), rez);
             float a = 1.0;   // center tap: never down-weighted (wsum >= 1)
             if (dx != 0 || dy != 0) {
                 float al = dot(normalize(float2(dx, dy)), ridge);

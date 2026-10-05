@@ -316,8 +316,6 @@ namespace Biomes
                     v => biome.fieldConfig.temperatureToFlowStrength = v, () => biome.fieldConfig.temperatureToFlowStrength, 0f, 1f);
                 bindings[ColRowToEncoderIdx(biomeCol, 2)] = MakeBiomeCrossFieldBinding("temp→Perm",
                     v => biome.fieldConfig.temperatureToPermeability = v, () => biome.fieldConfig.temperatureToPermeability, 0f, 1f);
-                bindings[ColRowToEncoderIdx(biomeCol, 3)] = MakeBiomeCrossFieldBinding("noiseScale",
-                    v => biome.fieldConfig.noiseScale = v, () => biome.fieldConfig.noiseScale, 0f, 10f);
             }
         }
 

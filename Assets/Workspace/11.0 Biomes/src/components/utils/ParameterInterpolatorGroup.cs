@@ -17,7 +17,7 @@ namespace Biomes
 
         [Header("Playback")]
         [Tooltip("Call Play All as soon as play mode starts (SimulationManager resets the sims in OnEnable, so live params exist by Start). " +
-                 "Same convention as SimTimeline.playOnStart.")]
+                 "Same convention as SimTimeline.playOnStart. A SimTimeline driving this group also restarts it on every timeline Play.")]
         public bool playOnStart = false;
         [Tooltip("Pushed to every interpolator in the list. On: a sim reset (ResetAll / ResetSimsOnly, which zero the sim step counter) " +
                  "rebases the running leg's clock so interpolation continues where it was. Off: each sim reset restarts the queue from waypoint 0.")]

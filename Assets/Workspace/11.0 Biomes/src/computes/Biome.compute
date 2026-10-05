@@ -14,9 +14,9 @@
 #pragma kernel BuildPermeabilityKernel
 #pragma kernel SeedChannelKernel
 
-#include "includes/random.hlsl"
 #include "includes/color.hlsl"
 #include "includes/keepout.hlsl"
+#include "includes/torus.hlsl"
 
 // --- Channel indices (must match BiomeChannel C# enum) ---
 #define CH_NUTRIENT     0
@@ -45,12 +45,11 @@ RWTexture2D<float4> debugOutTex;
 // --- Uniforms ---
 uint rezX;
 uint rezY;
-uint channelCount;
 
 // Per-channel settings buffer: float4(diffuseRate, decayRate, advectedByFlow, initialValue)
 StructuredBuffer<float4> channelSettings;
 // Parallel per-channel homeostatic relaxation rate (relax toward initialValue baseline, or
-// for permeability toward the recomputed noise terrain). 0 = off (old one-way behaviour).
+// for permeability toward permOpenBaseline). 0 = off (old one-way behaviour).
 StructuredBuffer<float> channelRelax;
 // Parallel per-channel diffusion-kernel shaping: float4(kernelShape, flowAnisotropy,
 // permeabilityInfluence, reserved). An all-zero row reproduces the legacy uniform 3x3
@@ -67,8 +66,6 @@ float tempToPermeability;
 float tempToEvaporation;    // Temperature above 0.5 baseline sinks Humidity (evaporation)
 float humidityGradientGain; // |∇Humidity| magnitude gain (raw grad tiny; Humidity diffuseRate smooths it)
 float permOpenBaseline;      // open-ground permeability; termite mounds build downward from it
-float noiseScale;
-float noiseThreshold;
 
 // Debug
 int debugChannel;
@@ -332,7 +329,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Channel-independent per-cell tap data, hoisted out of the channel loop.
     // Taps are TOROIDALLY WRAPPED integer Loads: the field textures are Repeat-wrapped
     // (GPUResourceManager), so the old SampleLevel blur wrapped at the edges; integer
-    // modulo reproduces that exactly (agents wrap too — the world is a torus).
+    // wrapping reproduces that exactly (agents wrap too — the world is a torus).
     int2  taps[9];     // wrapped coords, row-major (dy outer, dx inner) to match GAUSS_W
     float align2[9];   // (tap dir · flow dir)^2; 1 for the center tap (never penalized)
     float permIf[9];   // interface permeability toward each tap; 1 for the center
@@ -346,7 +343,7 @@ void DiffuseFieldsKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint t = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            int2 xy = int2(uint2(int2(id.xy) + int2(dx, dy) + int2(rezX, rezY)) % uint2(rezX, rezY));
+            int2 xy = WrapTorus(int2(id.xy) + int2(dx, dy), int2(rezX, rezY));
             taps[t] = xy;
             align2[t] = 1.0;
             permIf[t] = 1.0;
@@ -523,27 +520,24 @@ void InjectStampKernel(uint3 id : SV_DISPATCHTHREADID, uint3 gid : SV_GROUPID, u
     uint words = (injectStampCount + 31) >> 5;
 
     if (culled) {
-        // Thread gi builds mask word gi (stamps 32·gi .. 32·gi+31) — no shared atomics.
-        if (gi < words) {
-            // Pixel-centre uv bounds of this tile, clamped to the field.
-            uint2 p0 = gid.xy * 8;
-            uint2 p1 = min(p0 + 7, uint2(rezX - 1, rezY - 1));
-            float2 lo = (float2(p0) + 0.5) / float2(rezX, rezY);
-            float2 hi = (float2(p1) + 0.5) / float2(rezX, rezY);
-            uint bits = 0;
-            for (uint b = 0; b < 32; b++) {
-                uint si = (gi << 5) + b;
-                if (si >= injectStampCount) break;
-                InjectStamp st = injectStamps[si];
-                if (st.radius <= 0) continue;
-                float2 d = st.uv - clamp(st.uv, lo, hi);   // nearest tile point
-                d.x *= aspect;
-                // Margin keeps the test conservative against rounding; extra survivors are
-                // harmless, ApplyInjectStamp's per-pixel test still decides.
-                if (length(d) < st.radius * 1.001 + 1e-6)
-                    bits |= 1u << b;
-            }
-            g_stampMask[gi] = bits;
+        // Every thread of the 8x8 group tests every 64th stamp from gi and ORs its hits into
+        // the mask, so the cull takes ceil(N/64) iterations instead of up to 32 on a few threads.
+        if (gi < words) g_stampMask[gi] = 0;
+        GroupMemoryBarrierWithGroupSync();
+        // Pixel-centre uv bounds of this tile, clamped to the field.
+        uint2 p0 = gid.xy * 8;
+        uint2 p1 = min(p0 + 7, uint2(rezX - 1, rezY - 1));
+        float2 lo = (float2(p0) + 0.5) / float2(rezX, rezY);
+        float2 hi = (float2(p1) + 0.5) / float2(rezX, rezY);
+        for (uint si = gi; si < injectStampCount; si += 64) {
+            InjectStamp st = injectStamps[si];
+            if (st.radius <= 0) continue;
+            float2 d = st.uv - clamp(st.uv, lo, hi);   // nearest tile point
+            d.x *= aspect;
+            // Margin keeps the test conservative against rounding; extra survivors are
+            // harmless, ApplyInjectStamp's per-pixel test still decides.
+            if (length(d) < st.radius * 1.001 + 1e-6)
+                InterlockedOr(g_stampMask[si >> 5], 1u << (si & 31));
         }
         GroupMemoryBarrierWithGroupSync();
     }

@@ -200,7 +200,7 @@ maxSpeed, maxForce, separateRange, alignRange, attractRange, depositAmount, eatA
 
 ### Biome Cross-Field (Soft Bank 2, col 3 of HW bank 4)
 
-wasteToNutrientRate, temperatureToFlowStrength, temperatureToPermeability, noiseScale
+wasteToNutrientRate, temperatureToFlowStrength, temperatureToPermeability
 
 ### Umwelt (Soft Bank 3, per sim)
 
