@@ -26,6 +26,16 @@ Reset commands (arg ignored — any value triggers; all marshalled to the main t
 | `/sim_resetBoids` | respawn only Boid sims |
 | `/sim_resetTermites` | respawn only Termite sims |
 
+Agent palettes (`SimulationManager` → **Agent Palettes**: fill `Palettes`, set `Fade Seconds`; marshalled to the main thread):
+
+| Address | Args | Effect |
+| ------- | ---- | ------ |
+| `/palette_next` | — | fade to the next palette in the cycle (Preset → palettes → Preset …) |
+| `/palette_prev` | — | fade to the previous one |
+| `/palette` | 1 int | select directly; −1 = Preset (authored colors), out of range clamps |
+
+The active palette survives every reset path; per-type colors stay live on `/<p>_hue_<i>`, `/<p>_saturation_<i>`, `/<p>_brightness_<i>`.
+
 **Biome injector** — assign a `BiomeInjector` to OSCMapping's `Biome Injector` field.
 Registers one address per source, keyed by the source's **Name** (use OSC-safe names, no
 spaces). Drives external installation inputs (plants → Oxygen, robot proximity →
@@ -162,7 +172,7 @@ Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 
 | Bot (L3/R3) | RandomizeParams | RandomizeColors |
 
 
-Other assignable actions: RandomizeAll, ExportPNG, TogglePause, CycleDebugChannel, ClearBiome, ToggleDebugGrid, PrevSoftBank, NextSoftBank, CycleScreen, ToggleScreen, SaveSnapshot (new timestamped preset), SaveToCurrentParams (overwrite the assigned preset asset in place with live params).
+Other assignable actions: RandomizeAll, ExportPNG, TogglePause, CycleDebugChannel, ClearBiome, ToggleDebugGrid, PrevSoftBank, NextSoftBank, CycleScreen, ToggleScreen, SaveSnapshot (new timestamped preset), SaveToCurrentParams (overwrite the assigned preset asset in place with live params), NextPalette, PreviousPalette (step the `SimulationManager` palette cycle; e.g. put NextPalette on R3 in place of RandomizeColors).
 
 Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31). Same physical button = same action on all HW banks. Only configure HW bank 1 CC numbers in inspector.
 

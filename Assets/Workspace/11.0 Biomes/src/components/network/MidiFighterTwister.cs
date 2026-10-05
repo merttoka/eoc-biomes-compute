@@ -182,6 +182,8 @@ namespace Biomes
             ToggleScreen,
             SaveSnapshot,
             SaveToCurrentParams,
+            NextPalette,
+            PreviousPalette,
         }
 
         // Fine-tune state per encoder
@@ -820,6 +822,14 @@ namespace Biomes
                         sim?.LiveParamSet?.RandomizeParams();
                         sim?.LiveParamSet?.RandomizeColors();
                     }
+                    break;
+
+                case SideButtonAction.NextPalette:
+                    m_SimManager?.NextPalette();
+                    break;
+
+                case SideButtonAction.PreviousPalette:
+                    m_SimManager?.PreviousPalette();
                     break;
 
                 case SideButtonAction.ExportPNG:

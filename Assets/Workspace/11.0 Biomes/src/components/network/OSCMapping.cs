@@ -70,6 +70,28 @@ namespace Biomes
                 }
             );
 
+            // Agent palettes (SimulationManager.paletteCycle) — main thread: the fade ticks there.
+            On(
+                "/palette_next",
+                (string address, OscDataHandle data) => {
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.NextPalette());
+                }
+            );
+            On(
+                "/palette_prev",
+                (string address, OscDataHandle data) => {
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.PreviousPalette());
+                }
+            );
+            // /palette <index>: select directly (−1 = Preset, the authored colors).
+            On(
+                "/palette",
+                (string address, OscDataHandle data) => {
+                    int index = data.GetElementAsInt(0);   // read now: the handle is only valid in this callback
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.SelectPalette(index));
+                }
+            );
+
             // Register param callbacks per sim using ModulatableParams
             // Convention: /<simPrefix>_<paramName>_<index>
             for (int simIdx = 0; simIdx < m_Simulations.Count; simIdx++)
