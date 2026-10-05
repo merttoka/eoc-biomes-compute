@@ -24,6 +24,11 @@ persistent walls that partition the field into habitats — agent-authored ch7 +
 kernel + habitat-band confinement + `ResetTermites` melt + composite overlay;
 [[adr/0010-permeability-agent-built-topography|ADR-0010]]).
 
+**Agent colors (2026-10-04)** — per-type HSB with `brightness` (legacy defaults, bit-identical
+render), exact `hsb2rgb` inverse for the inspector, family-tagged `AgentColorPalette` presets
+(5 exhibited shows + 5 curated), live palette cycling with fades that survive resets
+([[sessions/2026-10-04-agent-color-palettes|session]]).
+
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
   [[adr/0010-permeability-agent-built-topography|ADR-0010]] /

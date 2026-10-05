@@ -1,7 +1,7 @@
 # Agent Colors: HSB + Palettes — Design
 
 **Date:** 2026-10-04
-**Status:** Approved (design); spec under review
+**Status:** Implemented (branch `feat/agent-color-palettes`)
 **Branch:** `feat/agent-color-palettes`
 **Files touched:** `11.0 Biomes/src/params/{Physarum,Boid,Termite}Params.cs`, `params/ColorPalette.cs`,
 new `params/AgentColorPalette.cs` + `params/IAgentColorParams.cs`, new `core_math/AgentColor.cs` +

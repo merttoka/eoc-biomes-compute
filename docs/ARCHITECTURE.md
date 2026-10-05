@@ -80,11 +80,12 @@ src/
     Sim/        BoidSim, PhysarumSim, TermiteSim (concrete SimulationBase subclasses)
     network/    MidiFighterTwister, MIDIMapping, OSCMapping, BiomeInjector,
                 NeuronFiringSource, ExternalTexture* (control surfaces + external inputs)
-    utils/      ParameterRecorder, ParameterInterpolator, ScreenLayout
+    utils/      ParameterRecorder, ParameterInterpolator, AgentPaletteCycler, ScreenLayout
     sequencer/  CompositeSequencer, BiomeCellRig, tracks/ (Timeline tracks — §3.9)
   sequencer_core/ Biomes.Sequencer.Core — engine-free patch-scheduling logic (§3.9)
-  params/     BoidParams, PhysarumParams, TermiteParams, ParamRange, ColorPalette, IParamSet
-  Editor/     custom inspectors (ParamsEditor, MFT/MIDI editors, ScreenLayoutPreview,
+  params/     BoidParams, PhysarumParams, TermiteParams, ParamRange, ColorPalette, IParamSet,
+              IAgentColorParams, AgentColorPalette
+  Editor/     custom inspectors (ParamsEditor + AgentColorsGUI, MFT/MIDI editors, ScreenLayoutPreview,
               sequencer/BiomePaletteWindow — §3.9)
 ```
 
@@ -120,7 +121,8 @@ and only the clear/respawn runs. This keeps `compositeOutTex`/sim `outTex` insta
 stable across a reset, so an active Syphon stream is not torn down (§3.8). A genuine
 resolution/structural change still reallocates (one Syphon re-init — a Play-stopped
 operation). `ResetSimsOnly()` resets sims (clear-in-place) while preserving the biome
-and composite.
+and composite. Every reset path (full, sims-only, per-family, `StartSim`, timeline starts) funnels
+through `ConfigureAndReset`, which also re-imposes the live agent palette (§3.6) on the fresh clone.
 
 ### 3.2 The per-step pipeline
 
@@ -310,7 +312,7 @@ habitat-band terms refresh.
 
 ### 3.6 Parameters — preset / clone / ranges
 
-Agent parameters live in ScriptableObjects (`BoidParams`, `PhysarumParams`),
+Agent parameters live in ScriptableObjects (`BoidParams`, `PhysarumParams`, `TermiteParams`),
 each a list of per-type structs plus a list of `ParamRange` (min/max for 0–1
 control mapping).
 
@@ -330,11 +332,39 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
 **normalized 0–1** values mapped through ranges (for MIDI/OSC); `IParamSet` works in
 **raw** values (for interpolation). Not redundant — different semantics.
 
+**Agent colors (HSB + palettes).** Each agent type carries `hue`, `saturation`, `brightness`
+(0–1). Render kernels draw `hsb2rgb(h, s, brightness · trail)` (Termite: `brightness · baseB`,
+firing still pushes toward white); `brightness` is the last float of each GPU type-params struct
+(Physarum 48 B, Boid 64 B, Termite 52 B) and defaults to the old hardcoded constant (0.8
+Physarum/Boid, 1.0 Termite), so assets without the field render bit-identically.
+`color.hlsl`'s `hsb2rgb` smoothsteps each hue channel, so Unity's HSV is not the rendered color;
+`AgentColor` (`Biomes.Core`) is its exact C# port plus inverse, and everything Editor-facing goes
+through it (a grey/black pick keeps the type's hue). `IAgentColorParams` adds the sim family to
+the three agent param sets. `AgentColorPalette` assets hold swatches (rendered colors), each
+optionally tagged Physarum/Boid/Termite; `PaletteAssign` gives type *i* the *i*-th swatch tagged
+for its family, else the untagged, else all (wrapping). Presets: `11.0 Biomes/assets/Palettes/`
+— `Shows/` reproduce exhibited scenes per sim (Metaesthetica VISAP, CURRENTS, SIGGRAPH, SIGGRAPH
+DAC, Brave New Work), `Curated/` are untagged. The params inspector's **Colors** section draws a
+color field + H/S/B sliders per type, applies/picks from a palette and stores colors back into one;
+Randomize Colors (`ColorPalette.GenerateHSB`) now sets brightness from the Lab lightness range.
+Live cycling: §3.7 `AgentPaletteCycler`. Spec:
+[[superpowers/specs/2026-10-04-agent-color-palettes-design]].
+
 ### 3.7 Control surfaces (`network/`, `utils/`)
 
 - **`MidiFighterTwister` / `MIDIMapping`** — MFT hardware → normalized
   `SetParameter`/`SetParameterDelta`. `SaveParams` action writes timestamped `.asset`
-  snapshots (the memory daemon's input).
+  snapshots (the memory daemon's input). Soft bank 2 rows per type: hue, saturation,
+  brightness, diffuseRate. Side actions `NextPalette` / `PreviousPalette` step the palette cycle.
+- **`AgentPaletteCycler`** (`SimulationManager.paletteCycle`) — live agent palettes. Cycle =
+  Preset (each sim's authored colors, read from `PresetParamSet`) → `palettes` → Preset; a change
+  fades every non-stopped agent sim's per-type hue (shortest arc) / saturation / brightness over
+  `fadeSeconds` of unscaled time (ticked in `LateUpdate`; outside Play it applies at once) and
+  writes the exact target when settled. `ConfigureAndReset` calls `Reimpose(sim)` so a respawn or
+  late start shows the palette at the fade's current point, never the preset. Triggers: inspector
+  buttons, MFT side actions, OSC `/palette_next` · `/palette_prev` · `/palette <i>` (−1 = Preset,
+  out of range clamps; main-thread queued). A `ParameterInterpolator` with color toggles on still
+  writes colors and overrides a palette.
 - **`OSCMapping`** — OSC control of the same parameter API (TD / external drivers), plus
   `/index <int>` → `NeuronFiringSource.SetFrame` (the firing playhead). Reset commands
   (`/sim_reset`, `/sim_resetSimsOnly`) are queued and drained on the main thread in `Update()`
