@@ -256,7 +256,10 @@ float2 Attract(const Agent b, float2 sum, const float count, const BoidTypeParam
 void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
 
-    Agent b = agentsIn[id.x];
+    // Cell-sorted order: neighbouring threads hold neighbouring boids, so their neighbour-cell
+    // loops stream the same agentsSortedRead ranges. The result lands in the boid's own slot.
+    uint self = sortedIndicesRead[id.x];
+    Agent b = agentsSortedRead[id.x];   // == agentsIn[self], copied by ReorderAgentsKernel
     BoidTypeParams p = typeParams[b.typeId];
 
     float2 acceleration = 0;
@@ -359,7 +362,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // perception.a = dispersal speed-boost magnitude (raises the speed cap so boids flee fast).
     float speedMult = perception.g;
     float disp = perception.a;
-    float fireMul = IsFiring(id.x, neuronCount) ? p.firingSpeedMul : 1.0;
+    float fireMul = IsFiring(self, neuronCount) ? p.firingSpeedMul : 1.0;
     float effectiveMaxSpeed = p.maxSpeed * speedMult * fireMul;
     ApplyDispersalSpeedResponse(effectiveMaxSpeed, disp);
     b.velocity = Limit(b.velocity, effectiveMaxSpeed);
@@ -372,7 +375,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (b.position.y < 0) b.position.y += fRY;
     if (b.position.y >= fRY) b.position.y -= fRY;
 
-    agentsOut[id.x] = b;
+    agentsOut[self] = b;
 }
 
 
