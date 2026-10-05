@@ -26,7 +26,7 @@ namespace Biomes
     }
 
     [CreateAssetMenu(fileName = "BoidParams", menuName = "Biomes/BoidParams")]
-    public class BoidParams : ScriptableObject, IParamSet
+    public class BoidParams : ScriptableObject, IAgentColorParams
     {
         [Range(1, 8)] public int typeCount = 1;
         public List<BoidAgentType> types = new() { new BoidAgentType() };
@@ -54,6 +54,7 @@ namespace Biomes
             => ParamRangeUtil.GetRange(ranges, paramName);
 
         public int TypeCount => types.Count;
+        public AgentFamily Family => AgentFamily.Boid;
 
         public float GetValue(string name, int typeIndex)
         {

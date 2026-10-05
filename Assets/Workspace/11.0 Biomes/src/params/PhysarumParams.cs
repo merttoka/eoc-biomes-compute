@@ -22,7 +22,7 @@ namespace Biomes
     }
 
     [CreateAssetMenu(fileName = "PhysarumParams", menuName = "Biomes/PhysarumParams")]
-    public class PhysarumParams : ScriptableObject, IParamSet
+    public class PhysarumParams : ScriptableObject, IAgentColorParams
     {
         [Range(1, 8)] public int typeCount = 2;
         public List<PhysarumAgentType> types = new()
@@ -52,6 +52,7 @@ namespace Biomes
             => ParamRangeUtil.GetRange(ranges, paramName);
 
         public int TypeCount => types.Count;
+        public AgentFamily Family => AgentFamily.Physarum;
 
         public float GetValue(string name, int typeIndex)
         {

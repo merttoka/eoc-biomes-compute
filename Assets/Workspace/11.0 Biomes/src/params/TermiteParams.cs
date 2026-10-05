@@ -23,7 +23,7 @@ namespace Biomes
     }
 
     [CreateAssetMenu(fileName = "TermiteParams", menuName = "Biomes/TermiteParams")]
-    public class TermiteParams : ScriptableObject, IParamSet
+    public class TermiteParams : ScriptableObject, IAgentColorParams
     {
         [Range(1, 8)] public int typeCount = 1;
         public List<TermiteAgentType> types = new() { new TermiteAgentType() };
@@ -50,6 +50,7 @@ namespace Biomes
             => ParamRangeUtil.GetRange(ranges, paramName);
 
         public int TypeCount => types.Count;
+        public AgentFamily Family => AgentFamily.Termite;
 
         public float GetValue(string name, int typeIndex)
         {
