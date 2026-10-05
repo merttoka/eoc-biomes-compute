@@ -338,8 +338,10 @@ firing still pushes toward white); `brightness` is the last float of each GPU ty
 (Physarum 48 B, Boid 64 B, Termite 52 B) and defaults to the old hardcoded constant (0.8
 Physarum/Boid, 1.0 Termite), so assets without the field render bit-identically.
 `color.hlsl`'s `hsb2rgb` smoothsteps each hue channel, so Unity's HSV is not the rendered color;
-`AgentColor` (`Biomes.Core`) is its exact C# port plus inverse, and everything Editor-facing goes
-through it (a grey/black pick keeps the type's hue). `IAgentColorParams` adds the sim family to
+`AgentColor` (`Biomes.Core`) is its exact C# port plus inverse (a grey/black pick keeps the type's
+hue). Kernels write linear light and the display gamma-encodes it, so everything a person sees or
+types (swatches, color field, eyedropper, hex, the Lab generator) goes through
+`AgentColor.ToDisplay`/`FromDisplay`; params, sliders, MFT and OSC stay in kernel values. `IAgentColorParams` adds the sim family to
 the three agent param sets. `AgentColorPalette` assets hold swatches (rendered colors), each
 optionally tagged Physarum/Boid/Termite; `PaletteAssign` gives type *i* the *i*-th swatch tagged
 for its family, else the untagged, else all (wrapping). Presets: `11.0 Biomes/assets/Palettes/`

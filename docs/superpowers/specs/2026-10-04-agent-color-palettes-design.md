@@ -8,8 +8,8 @@ new `params/AgentColorPalette.cs` + `params/IAgentColorParams.cs`, new `core_mat
 `core_math/PaletteAssign.cs`, `components/Sim/{Physarum,Boid,Termite}Sim.cs`,
 `computes/{Physarum,Boid,Termite}Sim.compute`, `computes/includes/{physarum,boid,termite}_type_params.hlsl`,
 `components/core/SimulationManager.cs`, new `components/utils/AgentPaletteCycler.cs`,
-`components/network/{MidiFighterTwister,OSCMapping}.cs`, `Editor/ParamsEditor.cs`,
-new `11.0 Biomes/assets/Palettes/**`, new `Assets/Tests/EditMode/{AgentColor,PaletteAssign,PalettePreset}Tests.cs`,
+`components/network/{MidiFighterTwister,OSCMapping}.cs`, `Editor/ParamsEditor.cs`, new `Editor/AgentColorsGUI.cs`,
+new `11.0 Biomes/assets/Palettes/**`, new `Assets/Tests/EditMode/{AgentColor,PaletteAssign,AgentRenderKernel,AgentColorAsset,PalettePreset,RandomizeColors,AgentPaletteCycler,AgentColorPalette}Tests.cs`,
 `MIDI_OSC.md`, docs.
 
 ## Problem
@@ -84,8 +84,16 @@ Pure static functions, unit-tested:
   B,R → `4 + p`; R,B → `6 − p`; `h = h6/6` wrapped to [0, 1). Grey (`max == min`) keeps
   `fallbackHue`; black (`max == 0`) keeps both fallbacks. So picking grey or black never throws
   away the type's hue.
-- Guarantee: `ToRgb(FromRgb(c)) == c` for any sRGB color, and `FromRgb(ToRgb(h,s,b)) == (h,s,b)`
+- Guarantee: `ToRgb(FromRgb(c)) == c` for any color, and `FromRgb(ToRgb(h,s,b)) == (h,s,b)`
   for s, b > 0 (tolerance 1e-4).
+- **Screen vs kernel.** The project is in Linear color space: kernels write *linear light* and the
+  display (Game view quad, recorder, PNG export) gamma-encodes it. So `ToRgb` is the kernel's value
+  and `ToDisplay(h, s, b) = ToRgb(h, s, b).gamma` is the color on screen; `FromDisplay(c) =
+  FromRgb(c.linear)`. Everything a person sees or types — palette swatches, the color field, the
+  eyedropper, hex codes, the Lab generator — goes through the display pair; the H/S/B params (and
+  sliders, MFT, OSC, assets) stay in kernel space. Streams (Syphon/Spout/NDI) carry the kernel's
+  linear values; a receiver that shows them without an sRGB encode sees them darker than Unity's
+  screen.
 
 ### 3. Palette asset — `AgentColorPalette`
 
@@ -100,8 +108,8 @@ public class AgentColorPalette : ScriptableObject
 }
 ```
 
-- A swatch color is the rendered color at full trail intensity (sRGB, no HDR), so it can be edited
-  with Unity's picker, eyedropper, or a pasted hex code.
+- A swatch color is the color a type shows on screen at full trail intensity (sRGB, no HDR), so it
+  can be edited with Unity's picker, eyedropper, or a pasted hex code and means what it shows.
 - **Assignment rule** (`Biomes.Core/PaletteAssign`, tested): candidates are the swatches tagged with
   the sim's family; if none, the untagged (`Any`) ones; if none, all swatches. Type `i` takes
   `candidates[i % n]`. A show palette tags each color with the sim it came from, so applying it to
@@ -110,12 +118,12 @@ public class AgentColorPalette : ScriptableObject
 - `IAgentColorParams : IParamSet { AgentFamily Family { get; } }` on the three agent param classes
   is how the editor and the cycler learn a param set's family. CA params are not agent params and
   are untouched.
-- Applying writes `FromRgb(swatch, currentHue, currentSat)` into hue/saturation/brightness.
+- Applying writes `FromDisplay(swatch, currentHue, currentSat)` into hue/saturation/brightness.
 
 ### 4. Presets — `11.0 Biomes/assets/Palettes/`
 
 - `Shows/`: `Metaesthetica VISAP`, `CURRENTS`, `SIGGRAPH`, `SIGGRAPH DAC`, `Brave New Work`. Swatches
-  are `ToRgb(h, s, legacyBrightness)` of each source type, tagged per sim, with `notes` naming the
+  are `ToDisplay(h, s, legacyBrightness)` of each source type, tagged per sim, with `notes` naming the
   source assets. Brave New Work's Boid/Termite swatches repeat CURRENTS (the scene reuses those
   assets).
 - `Curated/` (untagged, sRGB hex):
@@ -135,15 +143,15 @@ in Edit mode, or the runtime clone in Play):
 - **Palette row**: `AgentColorPalette` object field (selection kept in `EditorPrefs` by GUID, shared
   by all param inspectors) + swatch strip (swatches tagged for this family are marked) +
   **Apply to N types**.
-- **Per type**: `ColorField` (no alpha, no HDR, eyedropper) showing `ToRgb(h, s, b)`; edits write
-  back through `FromRgb`. Below it, H / S / B sliders (0–1) for exact numbers, and a **▾** button
+- **Per type**: `ColorField` (no alpha, no HDR, eyedropper) showing `ToDisplay(h, s, b)`; edits write
+  back through `FromDisplay`. Below it, H / S / B sliders (0–1) for exact numbers, and a **▾** button
   that opens a swatch popup (`PopupWindowContent`) to assign one palette color to that type.
 - **Save as new palette…**: creates an `AgentColorPalette` from the current type colors, tagged
   with this family. **Store in palette**: replaces the selected palette's swatches of this family
   (appends if it has none), which is how a whole show is captured sim by sim.
 - The old "Palette Preview" row (fixed 0.85) is removed; the per-type color fields replace it.
 - **Randomize Colors** writes hue, saturation, *and* brightness: `ColorPalette.GenerateHS` becomes
-  `GenerateHSB`, which converts each Lab color with `AgentColor.FromRgb`. The existing Lightness
+  `GenerateHSB`, which converts each Lab color with `AgentColor.FromDisplay`. The existing Lightness
   range now sets brightness, and the generated colors render as chosen. The CA params' randomize
   keeps setting hue + saturation only.
 - All edits go through `Undo.RecordObject` + `SetDirty`.
@@ -151,7 +159,7 @@ in Edit mode, or the runtime clone in Play):
 ### 6. Live palette cycling — `AgentPaletteCycler`
 
 A `[Serializable]` plain class in its own file, held by `SimulationManager` as
-`[Header("Palettes")] public AgentPaletteCycler palettes`. Living on the manager means no new scene
+`[Header("Agent Palettes")] public AgentPaletteCycler paletteCycle`. Living on the manager means no new scene
 wiring: MFT and OSC already reference it.
 
 - Fields: `List<AgentColorPalette> palettes`, `float fadeSeconds = 2f`. The cycle is
@@ -159,7 +167,8 @@ wiring: MFT and OSC already reference it.
   read from its `PresetParamSet`. Active index is runtime-only and starts at Preset.
 - `SimulationManager`: `[Button] NextPalette()`, `[Button] PreviousPalette()`,
   `SelectPalette(int index)` (−1 = Preset). Each logs the active palette name.
-- **Fade**: on select, capture each running agent sim's live (h, s, b) per type, then over
+- **Fade**: `Select(index, sims, instant)` (the manager passes `instant = !Application.isPlaying`)
+  captures each non-stopped agent sim's live (h, s, b) per type, then over
   `fadeSeconds` of unscaled time lerp to the target. Hue takes the shortest arc
   (`ParameterInterpolator.LerpHue01`); a grey target keeps the current hue. The tick runs from
   `LateUpdate`. `fadeSeconds == 0`, or Edit mode, applies instantly.
@@ -188,8 +197,8 @@ Biome cross-field column unchanged.
   color.
 - A palette fade overwrites MFT/OSC hue/sat/brightness edits on the faded types until it ends (2 s
   default).
-- Unity's color picker shows standard HSV numbers. Saturation and value match the params exactly;
-  the hue number differs slightly (smooth vs. linear hue curve), but the color is exact.
+- Unity's color picker shows the on-screen color's standard HSV; the inspector's H/S/B sliders show
+  the kernel's values (linear light, smooth hue curve), so the numbers differ while the color is exact.
 - Brightness above the legacy default makes a type brighter than any exhibited look; the range is
   0–1 like HSB.
 

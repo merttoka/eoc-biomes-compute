@@ -41,11 +41,19 @@ colors — fine-tuning had become hard. Spec + plan:
 - `97ee722` — fix from the live probe: a settled fade writes the exact target (the hue lerp's
   wrap left red at hue 1.0 — same color, wrong end for a knob's soft takeover).
 
+- Final review fix — palette/inspector colors are **on-screen** (sRGB) colors: the project is
+  Linear, kernels write linear light and the display gamma-encodes it, so the first cut showed a
+  picked `#8C8C8C` as ~`#C3C3C3`. `AgentColor.ToDisplay`/`FromDisplay` now sit at every UI/palette
+  boundary (swatches, color field, popup, Store/Apply, `GenerateHSB`); show palettes regenerated
+  as `ToDisplay(h, s, legacy b)`; curated hex values unchanged (they always meant screen colors).
+  Exhibited looks are unaffected (same params round-trip). Spec drift fixed (`paletteCycle`,
+  `Select(…, instant)`, file list).
+
 ## Verified
-- EditMode 78 → **139/139** in an APFS bench clone (headless; the author's Editor had the real
-  project open). New: `AgentColorTests` 16, `PaletteAssignTests` 8, `AgentRenderKernelTests` 6,
+- EditMode 78 → **143/143** after the final-review fix (139 before it) in an APFS bench clone (headless; the author's Editor had the real
+  project open). New: `AgentColorTests` 19, `PaletteAssignTests` 8, `AgentRenderKernelTests` 6,
   `AgentColorAssetTests` 3, `PalettePresetTests` 14, `RandomizeColorsTests` 2,
-  `AgentPaletteCyclerTests` 12.
+  `AgentPaletteCyclerTests` 12, `AgentColorPaletteTests` 1.
 - `AgentRenderKernelTests` dispatch the real `RenderKernel`s on Metal and match `AgentColor.ToRgb`
   within 1e-4 (incl. termite firing → white); the C# upload structs' `Marshal.OffsetOf` matches the
   same layout table. Old snapshots without a `brightness` line load 0.8/0.8/1.0.
