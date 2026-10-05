@@ -238,6 +238,42 @@ exact-result optimizations that are always on:
 8. **Boid `agentsCount` inspector cap raised 20 k → 250 k** (the 100 k target wasn't even
    settable).
 
+## 4c. Measured follow-ups (2026-10-04, `perf/measured-followups`)
+
+Applied only where a measurement showed a gain, and only output-identical changes.
+Setup: `_DAC_4k` (3840×2160 sims; 1 M physarum, 20 k boids, 131 termites; biome 1024×576),
+M4 Max, run in a headless batchmode copy of the project.
+- **Frame-level:** ms/frame at 1 sim step per frame (`Time.captureDeltaTime = 1/simRate`), each
+  frame closed by a 1-texel readback of the composite (serializes CPU + GPU, independent of
+  present pacing), 120 warm-up + 600 measured frames, interleaved A/B pairs, medians.
+  Run-to-run noise ≈ 0.2–0.3 ms on a ~10 ms frame.
+- **Kernel-level:** the op run 200–300× back-to-back from one GPU-state snapshot, one dependent
+  readback at the end.
+- **Output identity:** readbacks from the same snapshot, bit-compared. A/A first: diffuse,
+  `Biome.Step`, inject, boid Move and the termite step are deterministic; physarum trails and
+  the boid step are not (WriteTrails read-modify-write races, boid scatter order).
+
+| Change | Kernel-level | Frame (`_DAC_4k`) | Output |
+|---|---|---|---|
+| `%` → `WrapTorus` (sim diffuse + tensor taps, WriteTrails, biome taps) | termite diffuse −10 %; with `trailAnisotropy` 0.5: physarum −5 %, boid −7 %, termite −11 % | −0.14 ms (anisotropy is 0 here) | identical |
+| Inject cull on all 64 lanes + `InterlockedOr` | 32 stamps 0.068 → 0.023 ms, 135: 0.087 → 0.045, 512: 0.173 → 0.138 | below noise (few stamps without firing input) | identical |
+| Boid Move in cell-sorted order | hash + Move 0.48 → 0.22 ms (dispersed), 1.66 → 0.64 ms (post-spawn clusters) | −0.24 ms | identical |
+| Cache `GetKernelThreadGroupSizes` | 25 ns/call, 0 B → ~1 µs/frame over ~40 dispatches | — | **not applied** |
+| `ParameterRecorder` flat snapshots | 20 264 → 0 B/frame, ~42 → ~4 µs/frame | — | same events |
+| `PngExport` readback cache + `EncodeNativeArrayToPNG` | 4K save: 13.6 MB → 3.9 KB managed, 386 → 376 ms | — | same PNG bytes |
+
+The three GPU changes together (`f6e8904` → `20aa2af`): `_DAC_4k` frame median 10.43 → 10.17 ms
+(−0.25 ms, −2.4 %; three interleaved pairs, every pair faster; p10 10.18 → 9.92). The per-change
+frame deltas above overlap within noise and don't add up; the kernel numbers are the cleaner signal.
+
+PNG export time is now almost all encoding (~370 ms per 4K frame on the main thread; readback
+~20–45 ms). Moving the encode off the main thread (AsyncGPUReadback +
+`EncodeNativeArrayToPNG` on a worker) is the remaining lever for frame-export throughput.
+
+Bench gotcha: re-importing a `.compute` in Play resets its uniforms, and the agent sims set
+`rezX/rezY` only in `Reset()` / `FadeStep()` — after a live shader edit they run with `rez = 0`
+until the next reset (Editor-only; builds never re-import).
+
 ## 5. Recommended code changes (not yet applied — need a Unity build to verify)
 
 > Former items #1 (expose persistence) and #2 (decimate metabolism write-back) are now

@@ -174,7 +174,9 @@ react → diffuse + decay
 (flow/advect/interact) carry every channel they don't write through to the write buffer
 (`CopyChannelsExcept`, with a literal mask of the channels the pass writes itself) so they
 survive the swap; **any new partial pass must do the same.** Field samples use
-texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift. Flow transports
+texel-center UVs (`(id+0.5)/rez`) to avoid half-texel diffusion drift; integer neighbour
+taps (here and in the sims' trail diffuse/deposit) wrap through `includes/torus.hlsl`
+(`WrapTorus`: exact within one grid size, no integer divide). Flow transports
 the chemical fields only — agents are never pushed by it. FlowX/FlowY are **signed**
 (−1..1); every other channel is clamped to 0..1. Resolution is independent of
 sim resolution; sim↔field coordinates are mapped by ratio.
@@ -227,7 +229,9 @@ and **shared neuron firing**
 - **`BoidSim`** — flocking agents with a GPU spatial hash (separate/align/attract
   ranges, food-seeking). Cells are at least one max range wide and sized per axis to tile
   the torus exactly, so neighbours across the wrap are always in adjacent cells; separation
-  and cohesion use the minimum-image (wrapped) displacement to them.
+  and cohesion use the minimum-image (wrapped) displacement to them. Move runs in cell-sorted
+  order (thread j = sorted boid j, result written to the boid's own slot), so neighbouring
+  threads scan the same cells; each boid's neighbour order, hence its result, is unchanged.
 - **`CyclicCASim`** — cyclic (Griffeath) cellular automaton, an excitable medium of smooth
   spiral waves. A cell advances to the next state when `threshold` neighbours already hold
   it. Publishes to `Excitability`.
@@ -352,7 +356,8 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   positions** or **live agent positions** of a chosen sim (`FiringDispersalSource`, e.g. the
   termites — `i % neuronCount` selects the firing neuron; Running sims only). Runs after sim
   write-back, before `Biome.Step()`, so stamps ride the full field evolution.
-  `InjectStampKernel` culls stamps per 8×8 tile and applies each pixel's survivors in index
+  `InjectStampKernel` culls stamps per 8×8 tile (all 64 threads test stamps and OR hits into a
+  groupshared mask) and applies each pixel's survivors in index
   order on register copies of the touched channels, writing each texel once (re-reading a
   just-written texel is not coherent on Metal). Spec:
   [[superpowers/specs/2026-06-11-termite-biome-features-design]].
@@ -379,7 +384,8 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
   never touched. (The external OSC streamer is for realtime viewing only — it paces by wall
   clock and drifts under a capture clock.)
 - **`ParameterRecorder`** — records per-step parameter *changes* as a JSON event
-  track; replays them deterministically against `SimStepCount`.
+  track; replays them deterministically against `SimStepCount`. Recording allocates nothing
+  per frame: per-sim flat `float[]` snapshots (`[type × params + param]`), double-buffered.
 - **`ParameterInterpolator`** — eases live params from current state through an
   ordered queue of preset `.asset` waypoints, sim-step driven, per-param-name enable
   toggles, shortest-arc hue, global duration/hold/easing, stop-and-hold at end. For
@@ -452,7 +458,11 @@ packages compile on every platform; availability is gated at runtime
   point Unity Recorder → *Render Texture* source at it; (b) `recordingCamera`, made orthographic
   and fitted square-on to the composite quad on Reset (`FitRecordingCamera`), for Recorder's
   *Targeted Camera* source at `rezX×rezY`. `Set Game View To Composite Rez` adds/selects a matching
-  Game View size (reflection, best-effort). `FigureExporter` remains the PNG-sequence route.
+  Game View size (reflection, best-effort). `FigureExporter` remains the PNG-sequence route:
+  `PngExport.Save` reads back through a per-size `ReadbackCache` the exporter keeps while
+  recording (released on stop/disable) and encodes with `EncodeNativeArrayToPNG` (same bytes as
+  `EncodeToPNG`), so a 4K frame no longer puts a ~14 MB array on the managed heap. The encode
+  itself (~370 ms per 4K frame, main thread) dominates export time.
 - **Scene cameras (11.2 scenes)** — one HDRP camera renders: `Rendering Camera` (tag
   `Recording`). `Main Camera` only carries the AudioListener (its Camera is off; it was fully
   overdrawn). `Rendering Camera` uses custom frame settings with shadows, screen-space effects,

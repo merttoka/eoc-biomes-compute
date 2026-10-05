@@ -76,6 +76,9 @@ kernel + habitat-band confinement + `ResetTermites` melt + composite overlay;
   into `ReadFieldKernel` (out-of-band → avoidance + speed penalty, floored);
   [[adr/0010-permeability-agent-built-topography|ADR-0010]].
 - Mortality params — declared, unused.
+- ~~`BiomeFieldConfig.noiseScale` / `noiseThreshold` + the MFT "noiseScale" knob — fed no kernel since
+  ADR-0010~~ → **removed 2026-10-04** with the `Biome.compute` uniforms
+  ([[sessions/2026-10-04-measured-followups|session]]).
 - Boid `.b` waste-avoidance — sampled every frame but neutralized by its negative weight.
 
 ## Memory daemon (infra, non-show-blocking)
