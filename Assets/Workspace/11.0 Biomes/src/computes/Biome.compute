@@ -520,27 +520,24 @@ void InjectStampKernel(uint3 id : SV_DISPATCHTHREADID, uint3 gid : SV_GROUPID, u
     uint words = (injectStampCount + 31) >> 5;
 
     if (culled) {
-        // Thread gi builds mask word gi (stamps 32·gi .. 32·gi+31) — no shared atomics.
-        if (gi < words) {
-            // Pixel-centre uv bounds of this tile, clamped to the field.
-            uint2 p0 = gid.xy * 8;
-            uint2 p1 = min(p0 + 7, uint2(rezX - 1, rezY - 1));
-            float2 lo = (float2(p0) + 0.5) / float2(rezX, rezY);
-            float2 hi = (float2(p1) + 0.5) / float2(rezX, rezY);
-            uint bits = 0;
-            for (uint b = 0; b < 32; b++) {
-                uint si = (gi << 5) + b;
-                if (si >= injectStampCount) break;
-                InjectStamp st = injectStamps[si];
-                if (st.radius <= 0) continue;
-                float2 d = st.uv - clamp(st.uv, lo, hi);   // nearest tile point
-                d.x *= aspect;
-                // Margin keeps the test conservative against rounding; extra survivors are
-                // harmless, ApplyInjectStamp's per-pixel test still decides.
-                if (length(d) < st.radius * 1.001 + 1e-6)
-                    bits |= 1u << b;
-            }
-            g_stampMask[gi] = bits;
+        // Every thread of the 8x8 group tests every 64th stamp from gi and ORs its hits into
+        // the mask, so the cull takes ceil(N/64) iterations instead of up to 32 on a few threads.
+        if (gi < words) g_stampMask[gi] = 0;
+        GroupMemoryBarrierWithGroupSync();
+        // Pixel-centre uv bounds of this tile, clamped to the field.
+        uint2 p0 = gid.xy * 8;
+        uint2 p1 = min(p0 + 7, uint2(rezX - 1, rezY - 1));
+        float2 lo = (float2(p0) + 0.5) / float2(rezX, rezY);
+        float2 hi = (float2(p1) + 0.5) / float2(rezX, rezY);
+        for (uint si = gi; si < injectStampCount; si += 64) {
+            InjectStamp st = injectStamps[si];
+            if (st.radius <= 0) continue;
+            float2 d = st.uv - clamp(st.uv, lo, hi);   // nearest tile point
+            d.x *= aspect;
+            // Margin keeps the test conservative against rounding; extra survivors are
+            // harmless, ApplyInjectStamp's per-pixel test still decides.
+            if (length(d) < st.radius * 1.001 + 1e-6)
+                InterlockedOr(g_stampMask[si >> 5], 1u << (si & 31));
         }
         GroupMemoryBarrierWithGroupSync();
     }
