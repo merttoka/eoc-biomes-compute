@@ -13,10 +13,11 @@ namespace Biomes
         #region Public API
 
         /// <summary>
-        /// Generate a palette of n perceptually distinct colors.
-        /// Returns colors as (hue 0-1, saturation 0-1) pairs for use with sim params.
+        /// Generate a palette of n perceptually distinct colors as agent hue / saturation /
+        /// brightness. Converted with AgentColor.FromRgb, so each type renders as the generated
+        /// Lab color, lightness included.
         /// </summary>
-        public static List<(float hue, float saturation)> GenerateHS(int count,
+        public static List<(float h, float s, float b)> GenerateHSB(int count,
             float lightnessMin = 35f, float lightnessMax = 80f,
             float hueMinDeg = 0f, float hueMaxDeg = 360f,
             int candidateCount = 2000)
@@ -24,13 +25,9 @@ namespace Biomes
             var labPalette = GenerateLab(count, lightnessMin, lightnessMax,
                 hueMinDeg, hueMaxDeg, candidateCount);
 
-            var result = new List<(float, float)>();
+            var result = new List<(float h, float s, float b)>();
             foreach (var lab in labPalette)
-            {
-                var rgb = LabToRGB(lab);
-                Color.RGBToHSV(rgb, out float h, out float s, out float _);
-                result.Add((h, s));
-            }
+                result.Add(AgentColor.FromRgb(LabToRGB(lab)));
             return result;
         }
 

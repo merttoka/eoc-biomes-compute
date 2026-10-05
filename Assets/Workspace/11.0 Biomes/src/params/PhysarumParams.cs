@@ -140,12 +140,9 @@ namespace Biomes
 
         public void RandomizeColors()
         {
-            var palette = ColorPalette.GenerateHS(types.Count);
+            var palette = ColorPalette.GenerateHSB(types.Count);
             for (int i = 0; i < types.Count && i < palette.Count; i++)
-            {
-                types[i].hue = palette[i].hue;
-                types[i].saturation = palette[i].saturation;
-            }
+                this.SetHsb(i, palette[i]);
         }
     }
 }

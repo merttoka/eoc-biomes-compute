@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Biomes
 {
-    /// <summary>Shared palette generation settings for the param editors.</summary>
+    /// <summary>Shared Randomize Colors (Colorgorical) settings for the param editors.</summary>
     internal static class PaletteEditorState
     {
         public static float lightnessMin = 35f;
@@ -13,13 +13,13 @@ namespace Biomes
         public static bool showPaletteSettings = false;
     }
 
-    /// <summary>Shared inspector body for any IParamSet ScriptableObject (Physarum /
-    /// Boid / Termite). Draws typeCount (with type-list sync), the types/ranges arrays,
-    /// a palette preview, and the edit-mode tool buttons. Per-type access goes through
+    /// <summary>Shared inspector body for the agent param ScriptableObjects (Physarum /
+    /// Boid / Termite). Draws typeCount (with type-list sync), the Colors section, the
+    /// types/ranges arrays, and the edit-mode tool buttons. Per-type access goes through
     /// IParamSet so there is a single implementation for all param assets.</summary>
     internal static class ParamsEditorGUI
     {
-        public static void DrawInspector(Editor editor, IParamSet p)
+        public static void DrawInspector(Editor editor, IAgentColorParams p)
         {
             var so = editor.serializedObject;
             so.Update();
@@ -36,12 +36,12 @@ namespace Biomes
                 so.Update();
             }
 
+            AgentColorsGUI.Draw(editor, p);
+
             EditorGUILayout.PropertyField(so.FindProperty("types"), true);
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(so.FindProperty("ranges"), true);
             so.ApplyModifiedProperties();
-
-            DrawColorSwatches(p);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Edit-Mode Tools", EditorStyles.boldLabel);
@@ -58,7 +58,7 @@ namespace Biomes
             if (GUILayout.Button("Randomize Colors"))
             {
                 Undo.RecordObject(editor.target, "Randomize Colors");
-                ApplyPalette(p);
+                RandomizeColorsWithSettings(p);
                 EditorUtility.SetDirty(editor.target);
                 GUIUtility.ExitGUI();
             }
@@ -73,40 +73,19 @@ namespace Biomes
             }
         }
 
-        private static void ApplyPalette(IParamSet p)
+        private static void RandomizeColorsWithSettings(IParamSet p)
         {
-            var palette = ColorPalette.GenerateHS(p.TypeCount,
+            var colors = ColorPalette.GenerateHSB(p.TypeCount,
                 PaletteEditorState.lightnessMin, PaletteEditorState.lightnessMax,
                 PaletteEditorState.hueMin, PaletteEditorState.hueMax);
-            for (int i = 0; i < p.TypeCount && i < palette.Count; i++)
-            {
-                p.SetValue("hue", i, palette[i].hue);
-                p.SetValue("saturation", i, palette[i].saturation);
-            }
-        }
-
-        private static void DrawColorSwatches(IParamSet p)
-        {
-            int n = p.TypeCount;
-            if (n == 0) return;
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Palette Preview", EditorStyles.miniLabel);
-
-            EditorGUILayout.BeginHorizontal();
-            float w = (EditorGUIUtility.currentViewWidth - 40) / n;
-            for (int i = 0; i < n; i++)
-            {
-                var c = Color.HSVToRGB(p.GetValue("hue", i), p.GetValue("saturation", i), 0.85f);
-                var rect = GUILayoutUtility.GetRect(w, 20);
-                EditorGUI.DrawRect(rect, c);
-            }
-            EditorGUILayout.EndHorizontal();
+            for (int i = 0; i < p.TypeCount && i < colors.Count; i++)
+                p.SetHsb(i, colors[i]);
         }
 
         private static void DrawPaletteSettings()
         {
             PaletteEditorState.showPaletteSettings = EditorGUILayout.Foldout(
-                PaletteEditorState.showPaletteSettings, "Palette Generation Settings");
+                PaletteEditorState.showPaletteSettings, "Randomize Colors Settings");
             if (!PaletteEditorState.showPaletteSettings) return;
 
             EditorGUI.indentLevel++;
@@ -132,18 +111,18 @@ namespace Biomes
     [CustomEditor(typeof(PhysarumParams))]
     public class PhysarumParamsEditor : Editor
     {
-        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IParamSet)target);
+        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IAgentColorParams)target);
     }
 
     [CustomEditor(typeof(BoidParams))]
     public class BoidParamsEditor : Editor
     {
-        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IParamSet)target);
+        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IAgentColorParams)target);
     }
 
     [CustomEditor(typeof(TermiteParams))]
     public class TermiteParamsEditor : Editor
     {
-        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IParamSet)target);
+        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IAgentColorParams)target);
     }
 }
