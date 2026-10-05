@@ -51,6 +51,7 @@ float turnAngleSpread;  // per-neuron-group turn-angle variation (0 = global, 1 
 #include "includes/dispersal_speed_response.hlsl"
 #include "includes/keepout.hlsl"
 #include "includes/spawn.hlsl"
+#include "includes/torus.hlsl"
 
 // Neuron-group index an agent belongs to: agents sharing a group share their heading
 // and turn-angle character. Falls back to per-agent when no neuron CSV is wired.
@@ -218,7 +219,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     TermiteTypeParams p = typeParams[a.typeId];
     // Wrap, don't clip: round() of a position in [rez-0.5, rez) gives rez, an out-of-bounds
     // UAV write (dropped on D3D, undefined on Metal). The world is a torus, so it is pixel 0.
-    uint2 pos = uint2(round(a.position)) % uint2(rezX, rezY);
+    uint2 pos = WrapTorus(uint2(round(a.position)), uint2(rezX, rezY));
 
     bool isFiring = IsFiring(id.x, neuronCount);
     float rnd = Hash1u(id.x * 374761393u + time * 3266489917u);
@@ -247,7 +248,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
 // coherence ~0 → isotropic. The ridge AXIS is sign-free, matching the symmetric
 // angular weight: the tail forms by retention, not drift. trailAnisotropy 0 → every
 // weight 1 → the legacy box blur. Taps wrap toroidally: the trail textures are
-// Repeat-wrapped and point-filtered, so integer modulo Loads reproduce the
+// Repeat-wrapped and point-filtered, so wrapped integer Loads reproduce the
 // SampleLevel taps they replace — and match the agents' own wrapping.
 [numthreads(8, 8, 1)]
 void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
@@ -275,7 +276,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
         for (int oy = -2; oy <= 2; oy++)
             for (int ox = -2; ox <= 2; ox++)
                 tot[n++] = trailRead[uint3(
-                    uint2(int2(id.xy) + int2(ox, oy) * trailTensorStride + rez) % uint2(rez), typeCount)];
+                    uint2(WrapTorus(int2(id.xy) + int2(ox, oy) * trailTensorStride, rez)), typeCount)];
     }
     float jxx = 0, jxy = 0, jyy = 0;
     for (int wy = -1; wy <= 1; wy++) {
@@ -306,7 +307,7 @@ void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint k = 0;
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
-            taps[k] = int2(uint2(int2(id.xy) + int2(dx, dy) + rez) % uint2(rez));
+            taps[k] = WrapTorus(int2(id.xy) + int2(dx, dy), rez);
             float a = 1.0;   // center tap: never down-weighted (wsum >= 1)
             if (dx != 0 || dy != 0) {
                 float al = dot(normalize(float2(dx, dy)), ridge);
