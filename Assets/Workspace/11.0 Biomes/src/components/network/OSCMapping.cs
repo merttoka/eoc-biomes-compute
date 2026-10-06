@@ -70,6 +70,24 @@ namespace Biomes
                 }
             );
 
+            // Show blackout (organoid-analysis show mode): /sim_off [fadeSeconds] fades the
+            // whole composite to black, /sim_on [fadeSeconds] fades it back. No argument uses
+            // SimulationManager.outputFadeSeconds.
+            On(
+                "/sim_off",
+                (string address, OscDataHandle data) => {
+                    float fade = data.GetElementCount() > 0 ? data.GetElementAsFloat(0) : -1f;   // read now: the handle is only valid in this callback
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.SetOutputOn(false, fade));
+                }
+            );
+            On(
+                "/sim_on",
+                (string address, OscDataHandle data) => {
+                    float fade = data.GetElementCount() > 0 ? data.GetElementAsFloat(0) : -1f;
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.SetOutputOn(true, fade));
+                }
+            );
+
             // Agent palettes (SimulationManager.paletteCycle) — main thread: the fade ticks there.
             On(
                 "/palette_next",

@@ -97,6 +97,22 @@ namespace Biomes
         public Material compositeOutMat;
         public Transform compositeOutputQuad;
 
+        [Header("Output Level (show blackout)")]
+        [Tooltip("Fade used by Output Off/On and OSC /sim_off · /sim_on when no duration is given. 0 = cut.")]
+        [Min(0f)] public float outputFadeSeconds = 5f;
+        [Tooltip("Stop stepping the sims once the output is fully dark (after /sim_off finishes fading). " +
+                 "/sim_on resumes stepping at once. Saves the GPU during a blackout; stepsPerTick is untouched.")]
+        public bool pauseWhenDark = true;
+
+        private float _outputLevel = 1f;   // 0 = black, 1 = full; eases toward _outputTarget
+        private float _outputTarget = 1f;
+        private float _outputFadeSecs;
+
+        /// <summary>Output level 0..1 before the perceptual curve; 1 unless a blackout is under way.</summary>
+        public float OutputLevel => _outputLevel;
+        /// <summary>True once a blackout has fully faded and no fade-in has been asked for.</summary>
+        public bool OutputDark => _outputLevel <= 0f && _outputTarget <= 0f;
+
         [Header("Recording")]
         [Tooltip("Camera that captures the composite quad (e.g. the 'Recording'-tagged camera). On every " +
                  "Reset it is made orthographic and placed square-on to the quad so the quad fills its frame " +
@@ -206,6 +222,7 @@ namespace Biomes
         private static readonly int s_BlendPrevID = Shader.PropertyToID("blendPrev");
         private static readonly int s_BlendCurrID = Shader.PropertyToID("blendCurr");
         private static readonly int s_BlendAlphaID = Shader.PropertyToID("blendAlpha");
+        private static readonly int s_MasterLevelID = Shader.PropertyToID("masterLevel");
 
         void Awake()
         {
@@ -339,6 +356,7 @@ namespace Biomes
         // 0..N times per rendered frame to track wall-clock, bounded by maxAllowedTimestep.
         void FixedUpdate()
         {
+            if (pauseWhenDark && OutputDark) return;   // blackout: nothing on screen to step for
             for (int i = 0; i < stepsPerTick; i++)
                 Step();
         }
@@ -350,6 +368,9 @@ namespace Biomes
         void LateUpdate()
         {
             paletteCycle.Tick(Time.unscaledDeltaTime);
+            _outputLevel = _outputFadeSecs > 0f
+                ? Mathf.MoveTowards(_outputLevel, _outputTarget, Time.unscaledDeltaTime / _outputFadeSecs)
+                : _outputTarget;
             Render();
         }
 
@@ -661,6 +682,11 @@ namespace Biomes
             }
             compositeCS.SetFloat(s_MoundStrengthID, moundStrength);
 
+            // Show blackout master (1 unless /sim_off). The composite is linear light, so a
+            // linear ramp would hold bright and drop at the end: ease, then gamma for an even
+            // perceived fade. Bound every dispatch — the compute asset is shared with cell-rig
+            // managers, and an unset uniform reads 0 (black).
+            compositeCS.SetFloat(s_MasterLevelID, Mathf.Pow(Mathf.SmoothStep(0f, 1f, _outputLevel), 2.2f));
             DispatchComposite(compositeRenderKernel);
         }
 
@@ -889,6 +915,19 @@ namespace Biomes
             sim.runState = SimRunState.Fading;
             sim.fadeRemaining = sim.fadeOutSeconds;
         }
+
+        /// <summary>Fade the whole composite to black (on = false) or back up (on = true) over
+        /// fadeSeconds (&lt; 0 → outputFadeSeconds, 0 → cut). Sims keep stepping while fading;
+        /// with pauseWhenDark they stop once fully dark and resume as soon as this is called
+        /// with on = true. OSC: /sim_off · /sim_on [fadeSeconds].</summary>
+        public void SetOutputOn(bool on, float fadeSeconds = -1f)
+        {
+            _outputTarget = on ? 1f : 0f;
+            _outputFadeSecs = fadeSeconds < 0f ? outputFadeSeconds : fadeSeconds;
+        }
+
+        [Button("Output Off")] public void OutputOff() => SetOutputOn(false);
+        [Button("Output On")]  public void OutputOn()  => SetOutputOn(true);
 
         [Button("Start Physarum")] public void StartPhysarum() => StartSimsOfType<PhysarumSim>();
         [Button("Stop Physarum")]  public void StopPhysarum()  => StopSimsOfType<PhysarumSim>();

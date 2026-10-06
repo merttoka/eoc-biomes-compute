@@ -42,6 +42,9 @@ float permOpenBaselineOv;  // "open" value; wall-ness = (baseline - perm)/baseli
 float moundStrength;
 float4 moundColor;
 
+// Show blackout master, 0..1 (already eased + gamma'd by C#); multiplied in last.
+float masterLevel;
+
 float4 SampleSim(uint index, float2 uv) {
     // Initialize-first, no early returns: Metal's cross-compiled return slot trips a
     // "potentially uninitialized" warning on the early-return chain even with a
@@ -96,6 +99,7 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         wall *= keep;                        // mounds never paint into a screen cutout
         color.rgb = lerp(color.rgb, moundColor.rgb, wall * moundStrength);
     }
+    color.rgb *= masterLevel;
     compositeOut[id.xy] = color;
 }
 
