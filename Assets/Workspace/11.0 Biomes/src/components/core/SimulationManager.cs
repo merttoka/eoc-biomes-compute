@@ -75,6 +75,10 @@ namespace Biomes
         [Header("Simulations")]
         public List<SimulationBase> simulations = new();
 
+        [Header("Agent Palettes")]
+        [Tooltip("Live agent-color palettes: Next/Previous Palette (buttons, MFT side actions, OSC /palette_*) fade every running agent sim; the active palette survives resets.")]
+        public AgentPaletteCycler paletteCycle = new();
+
         [Header("Neuron Firing")]
         [SerializeField] private NeuronFiringSource neuronFiring;
 
@@ -343,7 +347,11 @@ namespace Biomes
         // stepped state (FixedUpdate always runs before LateUpdate within a frame), or with
         // frameBlend a blend of the last two. On fast HW render free-runs above simRate; on
         // slow HW it shows the most recent step.
-        void LateUpdate() => Render();
+        void LateUpdate()
+        {
+            paletteCycle.Tick(Time.unscaledDeltaTime);
+            Render();
+        }
 
         public void Step()
         {
@@ -904,6 +912,23 @@ namespace Biomes
                 if (sim is T) StopSim(sim);
         }
 
+        // ── Agent palettes ───────────────────────────────────────────────────────
+
+        [Button("Next Palette")]     public void NextPalette()     => StepPalette(+1);
+        [Button("Previous Palette")] public void PreviousPalette() => StepPalette(-1);
+
+        /// <summary>Fade every running agent sim to palette <paramref name="index"/> of
+        /// <see cref="paletteCycle"/> (−1 = Preset, the authored colors). Public for MIDI/OSC.
+        /// Outside Play it applies at once (nothing ticks the fade).</summary>
+        public void SelectPalette(int index)
+        {
+            paletteCycle.Select(index, simulations, instant: !Application.isPlaying);
+            Debug.Log($"[SimulationManager] Palette → {paletteCycle.ActiveName}");
+        }
+
+        private void StepPalette(int delta) =>
+            SelectPalette(PaletteAssign.StepCycle(paletteCycle.ActiveIndex, paletteCycle.palettes.Count, delta));
+
         // Per-type resets: respawn only one family of sim (each sim's own Reset()).
         // Unlike ResetSimsOnly(), these leave _simStepCount alone — it's a global
         // metabolism cadence shared by the sims still running, so zeroing it here
@@ -969,6 +994,8 @@ namespace Biomes
                 sim.InvalidateNeuronPositions();
             }
             sim.Reset();
+            // The fresh params clone carries the preset's colors; put the live palette back.
+            paletteCycle.Reimpose(sim);
         }
     }
 }

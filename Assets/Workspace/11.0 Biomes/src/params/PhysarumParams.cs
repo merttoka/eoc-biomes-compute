@@ -16,12 +16,13 @@ namespace Biomes
         public float diffuseRate = 0.985f;
         public float hue = 0f;
         public float saturation = 0.5f;
+        public float brightness = 0.8f;   // HSB value at full trail; 0.8 = the constant the kernel used to hardcode
         public float firingSpeedMul = 2f;
         public float firingDepositAmount = 1f;
     }
 
     [CreateAssetMenu(fileName = "PhysarumParams", menuName = "Biomes/PhysarumParams")]
-    public class PhysarumParams : ScriptableObject, IParamSet
+    public class PhysarumParams : ScriptableObject, IAgentColorParams
     {
         [Range(1, 8)] public int typeCount = 2;
         public List<PhysarumAgentType> types = new()
@@ -42,6 +43,7 @@ namespace Biomes
             new("diffuseRate",   0.9f,  1f),
             new("hue",           0f,    1f),
             new("saturation",    0f,    1f),
+            new("brightness",    0f,    1f),
             new("firingSpeedMul",      1f,  5f),
             new("firingDepositAmount", 0f,  1f),
         };
@@ -50,6 +52,7 @@ namespace Biomes
             => ParamRangeUtil.GetRange(ranges, paramName);
 
         public int TypeCount => types.Count;
+        public AgentFamily Family => AgentFamily.Physarum;
 
         public float GetValue(string name, int typeIndex)
         {
@@ -66,6 +69,7 @@ namespace Biomes
                 "diffuseRate"   => t.diffuseRate,
                 "hue"           => t.hue,
                 "saturation"    => t.saturation,
+                "brightness"    => t.brightness,
                 _ => 0f,
             };
         }
@@ -85,6 +89,7 @@ namespace Biomes
                 case "diffuseRate":   t.diffuseRate   = raw; break;
                 case "hue":           t.hue           = raw; break;
                 case "saturation":    t.saturation    = raw; break;
+                case "brightness":    t.brightness    = raw; break;
             }
         }
 
@@ -135,12 +140,9 @@ namespace Biomes
 
         public void RandomizeColors()
         {
-            var palette = ColorPalette.GenerateHS(types.Count);
+            var palette = ColorPalette.GenerateHSB(types.Count);
             for (int i = 0; i < types.Count && i < palette.Count; i++)
-            {
-                types[i].hue = palette[i].hue;
-                types[i].saturation = palette[i].saturation;
-            }
+                this.SetHsb(i, palette[i]);
         }
     }
 }

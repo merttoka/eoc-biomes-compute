@@ -28,7 +28,7 @@ namespace Biomes
     /// Software banks (independent of MFT hardware banks):
     ///   Bank 0: Core sim params (moveSpeed, senseAngle, turnAngle, senseDistance / maxSpeed, maxForce, ranges)
     ///   Bank 1: Secondary sim params (depositAmount, eatAmount, diffuseRate, foodSensor...)
-    ///   Bank 2: Visual + Biome (hue, saturation, biome cross-field interactions)
+    ///   Bank 2: Visual + Biome (hue, saturation, brightness, diffuseRate per type; biome cross-field interactions)
     ///   Bank 3: Umwelt + Global (metabolicHeat, oxygenConsumption, stepsPerTick, simRate)
     /// </summary>
     [ExecuteInEditMode]
@@ -182,6 +182,8 @@ namespace Biomes
             ToggleScreen,
             SaveSnapshot,
             SaveToCurrentParams,
+            NextPalette,
+            PreviousPalette,
         }
 
         // Fine-tune state per encoder
@@ -278,7 +280,7 @@ namespace Biomes
             }
         }
 
-        /// <summary>Bank 2: Visual (hue, saturation per type) + Biome cross-field interactions.</summary>
+        /// <summary>Bank 2: Visual (hue, saturation, brightness, diffuseRate per type) + Biome cross-field interactions.</summary>
         private void BuildBank2_VisualAndBiome()
         {
             _bankColors[2] = RGB_GREEN;
@@ -298,8 +300,8 @@ namespace Biomes
                 int e3 = ColRowToEncoderIdx(col, 3);
                 if (e0 < TOTAL_ENCODERS) bindings[e0] = MakeSimParamBinding(simIdx, "hue", typeIdx);
                 if (e1 < TOTAL_ENCODERS) bindings[e1] = MakeSimParamBinding(simIdx, "saturation", typeIdx);
-                if (e2 < TOTAL_ENCODERS) bindings[e2] = MakeSimParamBinding(simIdx, "diffuseRate", typeIdx);
-                if (e3 < TOTAL_ENCODERS) bindings[e3] = MakeSimParamBinding(simIdx, "depositAmount", typeIdx);
+                if (e2 < TOTAL_ENCODERS) bindings[e2] = MakeSimParamBinding(simIdx, "brightness", typeIdx);
+                if (e3 < TOTAL_ENCODERS) bindings[e3] = MakeSimParamBinding(simIdx, "diffuseRate", typeIdx);
             }
 
             // Last column of last HW bank: Biome cross-field interactions
@@ -820,6 +822,14 @@ namespace Biomes
                         sim?.LiveParamSet?.RandomizeParams();
                         sim?.LiveParamSet?.RandomizeColors();
                     }
+                    break;
+
+                case SideButtonAction.NextPalette:
+                    m_SimManager?.NextPalette();
+                    break;
+
+                case SideButtonAction.PreviousPalette:
+                    m_SimManager?.PreviousPalette();
                     break;
 
                 case SideButtonAction.ExportPNG:

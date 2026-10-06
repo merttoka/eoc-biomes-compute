@@ -10,6 +10,7 @@ struct PhysarumTypeParams {
     float saturation;
     float firingSpeedMul;
     float firingDepositAmount;
-};  // 44 bytes (11 floats)
+    float brightness;          // HSB value at full trail (appended last: no older field moves)
+};  // 48 bytes (12 floats)
 StructuredBuffer<PhysarumTypeParams> typeParams;
 uint typeCount;

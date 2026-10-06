@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 430c8e55daa545d584a1b573a932f5f2, type: 3}
+  m_Name: SIGGRAPH DAC
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.AgentColorPalette
+  notes: "SIGGRAPH DAC take (11.2 Scene_SIGGRAPH DAC). Physarum/Boid/Termite: DAC_params/*_20260908_181119_DAC."
+  swatches:
+  - color: {r: 0.906331753, g: 0.408053466, b: 0.408053466, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.906331753, b: 0.906331753, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.486295261, b: 0.486295261, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.829543021, b: 0.829543021, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.471933263, b: 0.471933263, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.667542488, b: 0.667542488, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.304705665, b: 0.304705665, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.554399282, b: 0.408053466, a: 1}
+    family: 1
+  - color: {r: 0.861549971, g: 0.906331753, b: 0.843562524, a: 1}
+    family: 2
+  - color: {r: 0.681466336, g: 0.873877213, b: 0.906331753, a: 1}
+    family: 2
+  - color: {r: 0.840086442, g: 0.906331753, b: 0.84311981, a: 1}
+    family: 2
+  - color: {r: 0.906331753, g: 0.811030906, b: 0.716905129, a: 1}
+    family: 2
+  - color: {r: 0.801456639, g: 0.86708055, b: 1, a: 1}
+    family: 3

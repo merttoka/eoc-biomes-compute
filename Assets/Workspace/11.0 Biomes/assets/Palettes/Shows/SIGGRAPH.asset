@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 430c8e55daa545d584a1b573a932f5f2, type: 3}
+  m_Name: SIGGRAPH
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.AgentColorPalette
+  notes: "SIGGRAPH show (11.2 Scene_SIGGRAPH). Physarum: Snapshots/Physarum_20260711_201424_SHOWVERSION 1. Boid: Snapshots/Boid_20260711_200244. Termite: Snapshots/Termite_20260711_200244."
+  swatches:
+  - color: {r: 0.906331753, g: 0.426409386, b: 0.426409386, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.5827539, b: 0.5827539, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.448435774, b: 0.448435774, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.777829522, b: 0.777829522, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.527606083, b: 0.527606083, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.709743368, b: 0.709743368, a: 1}
+    family: 1
+  - color: {r: 0.906331753, g: 0.194761687, b: 0.194761687, a: 1}
+    family: 1
+  - color: {r: 0.896803811, g: 0.897567394, b: 0.906331753, a: 1}
+    family: 1
+  - color: {r: 0.861549971, g: 0.906331753, b: 0.843562524, a: 1}
+    family: 2
+  - color: {r: 0.681466336, g: 0.69331847, b: 0.906331753, a: 1}
+    family: 2
+  - color: {r: 0.85910735, g: 0.906331753, b: 0.840086442, a: 1}
+    family: 2
+  - color: {r: 0.875122273, g: 0.906331753, b: 0.716905129, a: 1}
+    family: 2
+  - color: {r: 0.801456639, g: 0.935992437, b: 1, a: 1}
+    family: 3

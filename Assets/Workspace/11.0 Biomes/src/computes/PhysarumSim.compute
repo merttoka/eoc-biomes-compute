@@ -337,7 +337,7 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
     for (uint t = 0; t < typeCount; t++) {
         float val = trailRead[uint3(id.xy, t)];
         PhysarumTypeParams p = typeParams[t];
-        color += hsb2rgb(float3(p.hue, p.saturation, 0.8 * val), val) / typeCount;
+        color += hsb2rgb(float3(p.hue, p.saturation, p.brightness * val), val) / typeCount;
     }
     float4 current = outTex[id.xy];
     current += color;

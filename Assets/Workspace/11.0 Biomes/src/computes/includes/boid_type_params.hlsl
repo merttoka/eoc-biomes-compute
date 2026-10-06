@@ -14,6 +14,7 @@ struct BoidTypeParams {
     float saturation;
     float firingSpeedMul;
     float firingDepositAmount;
-};  // 60 bytes (15 floats)
+    float brightness;          // HSB value at full trail (appended last: no older field moves)
+};  // 64 bytes (16 floats)
 StructuredBuffer<BoidTypeParams> typeParams;
 uint typeCount;

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 430c8e55daa545d584a1b573a932f5f2, type: 3}
+  m_Name: Metaesthetica VISAP
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.AgentColorPalette
+  notes: "Metaesthetica at VISAP (10.0 Scene_10.0). Physarum: 10.0 Metaesthetica/assets/ParamsPhysarum_VISAP. Boids were grey (s 0) and are not carried over."
+  swatches:
+  - color: {r: 0.906331753, g: 0.866893134, b: 0.665185085, a: 1}
+    family: 1
+  - color: {r: 0.713229118, g: 0.906331753, b: 0.665185085, a: 1}
+    family: 1
+  - color: {r: 0.665185085, g: 0.906331753, b: 0.861625589, a: 1}
+    family: 1
+  - color: {r: 0.665185085, g: 0.861625589, b: 0.906331753, a: 1}
+    family: 1

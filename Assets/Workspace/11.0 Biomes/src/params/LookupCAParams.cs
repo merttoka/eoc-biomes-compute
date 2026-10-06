@@ -117,11 +117,11 @@ namespace Biomes
 
         public void RandomizeColors()
         {
-            var palette = ColorPalette.GenerateHS(1);
+            var palette = ColorPalette.GenerateHSB(1);
             if (palette.Count > 0)
             {
-                hue = palette[0].hue;
-                saturation = palette[0].saturation;
+                hue = palette[0].h;
+                saturation = palette[0].s;
             }
         }
 
