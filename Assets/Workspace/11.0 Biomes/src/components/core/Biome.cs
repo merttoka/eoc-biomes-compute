@@ -100,7 +100,17 @@ namespace Biomes
         private int readFieldKernel;
         private int buildPermeabilityKernel;
         private int seedChannelKernel = -1;
+        private int relaxPermDetailKernel = -1, syncPermDetailKernel = -1;
         private ComputeBuffer _buildDummyFiring;   // 1-elem dummy bound when no firing source
+
+        // Mound detail (Biome.compute): permeability mirrored at sim resolution for the
+        // composite's mound overlay, where a biome cell spans several output pixels. Exists only
+        // while switched on (SimulationManager.moundDetail); BuildPermeability allocates it at the
+        // termite sim's resolution. Render-only: termites keep sensing the coarse field.
+        private RenderTexture _permDetail;
+        private RenderTexture _permDetailDummy;   // 1×1, bound to the build kernel while off
+        private bool _permDetailOn;
+        private float _permDetailSigma = 1.5f, _permDetailGain = 1f;
 
         // GPU data: per-channel settings uploaded as structured buffer
         private ComputeBuffer channelSettingsBuffer;
@@ -145,6 +155,13 @@ namespace Biomes
         private static readonly int s_BuildNeuronCountID = Shader.PropertyToID("buildNeuronCount");
         private static readonly int s_BuildTimeSeedID = Shader.PropertyToID("buildTimeSeed");
         private static readonly int s_BuildFiringID = Shader.PropertyToID("buildFiring");
+        private static readonly int s_PermDetailID = Shader.PropertyToID("permDetail");
+        private static readonly int s_PermDetailOnID = Shader.PropertyToID("permDetailOn");
+        private static readonly int s_PermDetailRezXID = Shader.PropertyToID("permDetailRezX");
+        private static readonly int s_PermDetailRezYID = Shader.PropertyToID("permDetailRezY");
+        private static readonly int s_PermDetailSigmaID = Shader.PropertyToID("permDetailSigma");
+        private static readonly int s_PermDetailGainID = Shader.PropertyToID("permDetailGain");
+        private static readonly int s_PermBeforeID = Shader.PropertyToID("permBefore");
         private static readonly int s_WriteEntryCountID = Shader.PropertyToID("writeEntryCount");
         private static readonly int s_WriteEntriesID = Shader.PropertyToID("writeEntries");
         private static readonly int s_InjectStampCountID = Shader.PropertyToID("injectStampCount");
@@ -276,6 +293,11 @@ namespace Biomes
             // and take the whole biome down rather than just disabling the seed path.
             seedChannelKernel = cs.HasKernel("SeedChannelKernel")
                 ? cs.FindKernel("SeedChannelKernel") : -1;
+            // Same guard: without these kernels the mound detail just stays off.
+            relaxPermDetailKernel = cs.HasKernel("RelaxPermDetailKernel")
+                ? cs.FindKernel("RelaxPermDetailKernel") : -1;
+            syncPermDetailKernel = cs.HasKernel("SyncPermDetailKernel")
+                ? cs.FindKernel("SyncPermDetailKernel") : -1;
         }
 
         // Allocate the per-channel settings buffers once (sizes are fixed by BiomeChannel.Count).
@@ -347,6 +369,7 @@ namespace Biomes
             Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
             cs.SetTexture(initPermeabilityKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
+            SyncPermDetail();
         }
 
         public void Step()
@@ -389,6 +412,17 @@ namespace Biomes
             cs.SetBuffer(interactFieldsKernel, s_ChannelSettingsID, channelSettingsBuffer);
             cs.SetBuffer(interactFieldsKernel, s_ChannelRelaxID, channelRelaxBuffer);
             DispatchFieldPass(interactFieldsKernel);
+
+            // The mound detail heals with the permeability it mirrors. The interact pass just
+            // swapped: fieldRead holds its output, fieldWrite its input.
+            if (_permDetail != null)
+            {
+                BindPermDetailRez();
+                cs.SetTexture(relaxPermDetailKernel, s_FieldReadID, fieldReadArray);
+                cs.SetTexture(relaxPermDetailKernel, s_PermBeforeID, fieldWriteArray);
+                cs.SetTexture(relaxPermDetailKernel, s_PermDetailID, _permDetail);
+                Dispatch(relaxPermDetailKernel, _permDetail.width, _permDetail.height, 1);
+            }
 
             // 4. Diffuse, decay, and homeostatic relaxation toward baseline. The kernel
             //    buffer shapes the neighbourhood average (box/gaussian, flow anisotropy,
@@ -681,6 +715,18 @@ namespace Biomes
             cs.SetBuffer(buildPermeabilityKernel, s_BuildFiringID, firing);
             cs.SetBuffer(buildPermeabilityKernel, s_AgentPositionsID, agentPositions);
             cs.SetTexture(buildPermeabilityKernel, s_FieldWriteID, fieldReadArray);
+
+            // The same events drawn into the mound detail. A kernel's textures must all be bound,
+            // so a 1×1 dummy stands in while it is off.
+            bool detail = _permDetailOn && EnsurePermDetail(simRezX, simRezY);
+            cs.SetInt(s_PermDetailOnID, detail ? 1 : 0);
+            if (detail)
+            {
+                BindPermDetailRez();
+                cs.SetFloat(s_PermDetailSigmaID, _permDetailSigma);
+                cs.SetFloat(s_PermDetailGainID, _permDetailGain);
+            }
+            cs.SetTexture(buildPermeabilityKernel, s_PermDetailID, detail ? _permDetail : PermDetailDummy());
             Dispatch(buildPermeabilityKernel, agentCount, 1, 1);
         }
 
@@ -694,6 +740,69 @@ namespace Biomes
             Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
             cs.SetTexture(initPermeabilityKernel, s_FieldWriteID, fieldReadArray);
             Dispatch(initPermeabilityKernel, biomeRezX, biomeRezY, 1);
+            SyncPermDetail();
+        }
+
+        /// <summary>The mound detail layer (RFloat, sim resolution, permeability units), or null
+        /// while it is off and before its first build.</summary>
+        public RenderTexture PermeabilityDetail => _permDetail;
+
+        /// <summary>Switch the mound detail on or off and set its brush: <paramref name="sigma"/>
+        /// in sim px, <paramref name="gain"/> 1 = a path reads as strong as the coarse cells it
+        /// crosses. Off releases the layer; on, the next BuildPermeability allocates it.</summary>
+        public void SetPermeabilityDetail(bool on, float sigma, float gain)
+        {
+            _permDetailOn = on;
+            _permDetailSigma = sigma;
+            _permDetailGain = gain;
+            if (!on) ReleasePermDetail();
+        }
+
+        // Allocate the detail at the sim resolution (reallocating if it changed) and seed it from
+        // the coarse field, so walls built before it existed carry over. False when this
+        // Biome.compute predates the detail kernels.
+        private bool EnsurePermDetail(int width, int height)
+        {
+            if (_permDetail != null && _permDetail.width == width && _permDetail.height == height) return true;
+            if (relaxPermDetailKernel < 0 || syncPermDetailKernel < 0) return false;
+            ReleasePermDetail();
+            // RFloat, not the field's RHalf: a half store rounds a brush tail's small deposit to a
+            // whole ulp (up, on GPUs that truncate), and repeated passes pile the tails into halos.
+            _permDetail = gpu.CreateTexture2D(width, height, FilterMode.Bilinear,
+                RenderTextureFormat.RFloat, name: "biome_permDetail");
+            SyncPermDetail();
+            return true;
+        }
+
+        private void ReleasePermDetail()
+        {
+            if (_permDetail == null) return;
+            gpu?.Release(_permDetail);
+            _permDetail = null;
+        }
+
+        // Detail = the coarse field, bilinear: on allocation and after every permeability reset.
+        private void SyncPermDetail()
+        {
+            if (_permDetail == null) return;
+            BindPermDetailRez();
+            cs.SetTexture(syncPermDetailKernel, s_FieldReadID, fieldReadArray);
+            cs.SetTexture(syncPermDetailKernel, s_PermDetailID, _permDetail);
+            Dispatch(syncPermDetailKernel, _permDetail.width, _permDetail.height, 1);
+        }
+
+        private void BindPermDetailRez()
+        {
+            cs.SetInt(s_PermDetailRezXID, _permDetail.width);
+            cs.SetInt(s_PermDetailRezYID, _permDetail.height);
+        }
+
+        private RenderTexture PermDetailDummy()
+        {
+            if (_permDetailDummy == null)
+                _permDetailDummy = gpu.CreateTexture2D(1, 1, FilterMode.Point,
+                    RenderTextureFormat.RFloat, name: "biome_permDetailDummy");
+            return _permDetailDummy;
         }
 
         // ── Fused write-back (optional, via fusedWriteCS / BiomeWriteFused.compute) ──
@@ -910,6 +1019,8 @@ namespace Biomes
             _writeEntryBuffer = null;
             _buildDummyFiring?.Release();
             _buildDummyFiring = null;
+            _permDetail = null;        // both gpu-tracked, freed above
+            _permDetailDummy = null;
             _allocRezX = _allocRezY = -1;   // force reallocation on next Reset()
         }
 

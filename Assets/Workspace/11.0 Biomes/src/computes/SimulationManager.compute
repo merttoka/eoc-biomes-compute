@@ -41,6 +41,10 @@ int   permChannel;         // BiomeChannel.Permeability
 float permOpenBaselineOv;  // "open" value; wall-ness = (baseline - perm)/baseline
 float moundStrength;
 float4 moundColor;
+// The biome's mound detail: the same permeability at sim resolution (Biome.compute, mound
+// detail). moundDetailOn 0 = paint from permField (C# binds a 1×1 dummy here then).
+Texture2D<float> permDetail;
+uint  moundDetailOn;
 
 float4 SampleSim(uint index, float2 uv) {
     // Initialize-first, no early returns: Metal's cross-compiled return slot trips a
@@ -90,7 +94,9 @@ void CompositeRenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         color.rgb = f16tof32(f32tof16(color.rgb));
         // Bilinear+clamp so the low-res permeability field upsamples smoothly to the
         // composite instead of point-sampling into blocky/aliased walls.
-        float perm = permField.SampleLevel(sampler_linear_clamp, float3(uv, permChannel), 0);
+        float perm = moundDetailOn != 0u
+            ? permDetail.SampleLevel(sampler_linear_clamp, uv, 0)
+            : permField.SampleLevel(sampler_linear_clamp, float3(uv, permChannel), 0);
         float wall = saturate((permOpenBaselineOv - perm) / max(1e-4, permOpenBaselineOv));  // 0 open, 1 solid
         wall = smoothstep(0.0, 1.0, wall);   // soften the wall edge
         wall *= keep;                        // mounds never paint into a screen cutout
