@@ -13,6 +13,8 @@
 #pragma kernel ReadFieldKernel
 #pragma kernel BuildPermeabilityKernel
 #pragma kernel SeedChannelKernel
+#pragma kernel RelaxPermDetailKernel
+#pragma kernel SyncPermDetailKernel
 
 #include "includes/color.hlsl"
 #include "includes/keepout.hlsl"
@@ -445,6 +447,16 @@ float buildFiringThreshold;            // firing intensity above which the firin
 float buildAmount;                     // permeability lowered per build event (positive)
 uint  buildTimeSeed;                   // per-step seed for the per-agent RNG
 
+// Mound detail: CH_PERMEABILITY mirrored at sim resolution, for the composite's mound overlay
+// only (a coarse biome cell spans ~9 px of a 4800×1080 output). Nothing reads it for behaviour.
+// Same units as the channel: open ground = permOpenBaseline, walls lower toward 0.
+RWTexture2D<float> permDetail;
+uint  permDetailOn;                    // 0 = no detail layer (a 1×1 dummy is bound)
+uint  permDetailRezX;                  // = sim resolution: agent positions are in its pixels
+uint  permDetailRezY;
+float permDetailSigma;                 // brush σ, detail px
+float permDetailGain;                  // 1 = a path's line reads as strong as the cells it crosses
+
 float BuildHash(uint a, uint b) {
     uint h = a * 747796405u + b * 2891336453u;
     h = (h ^ (h >> 16)) * 2246822519u;
@@ -467,7 +479,60 @@ void BuildPermeabilityKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (BuildHash(id.x, buildTimeSeed) < prob) {
         float current = fieldWrite[uint3(fieldPos, CH_PERMEABILITY)];
         fieldWrite[uint3(fieldPos, CH_PERMEABILITY)] = clamp(current - buildAmount, 0, 1);
+        if (permDetailOn == 0u) return;
+
+        // The same event in the detail layer: a Gaussian brush at the exact position. The cell
+        // write lowers a whole cell by buildAmount; along a path that lowering is spread over the
+        // cell's length, so the per-event peak is buildAmount · cell / (σ√2π). Like the cell
+        // write, a plain read-modify-write: two brushes overlapping in one dispatch can drop one.
+        float cell = rsqrt(simToFieldX * simToFieldY);   // cell size in sim px (geometric mean)
+        float peak = buildAmount * permDetailGain * cell / (permDetailSigma * 2.5066283);
+        float inv2s2 = 0.5 / (permDetailSigma * permDetailSigma);
+        int r = (int)ceil(3.0 * permDetailSigma);
+        int2 center = int2(floor(simPos));
+        int2 rez = int2(permDetailRezX, permDetailRezY);
+        [loop] for (int dy = -r; dy <= r; dy++) {
+            [loop] for (int dx = -r; dx <= r; dx++) {
+                int2 p = center + int2(dx, dy);
+                float2 d = float2(p) + 0.5 - simPos;
+                p = WrapTorus(p, rez);   // agents wrap, so the brush does too
+                float v = permDetail[p];
+                permDetail[p] = clamp(v - peak * exp(-dot(d, d) * inv2s2), 0, 1);
+            }
+        }
     }
+}
+
+// Detail-side reads of the coarse field are bilinear (no cell edges in the detail) and wrap
+// (the field is a torus, like the agents).
+SamplerState sampler_linear_repeat;
+Texture2DArray<float> permBefore;   // the interact pass's input: Biome.cs binds the pre-swap array
+
+float2 DetailUV(uint2 px) {
+    return (float2(px) + 0.5) / float2(permDetailRezX, permDetailRezY);
+}
+
+// Heal the detail by what the coarse field healed in the interact pass just run: each wall
+// (open − perm) scales by the coarse after/before wall ratio around it. This copies the healing
+// as the GPU actually stored it — RHalf rounding stalls the coarse relax short of open ground —
+// so detail walls stay exactly where the coarse walls, which the termites feel, stay.
+[numthreads(8, 8, 1)]
+void RelaxPermDetailKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= permDetailRezX || id.y >= permDetailRezY) return;
+    float3 uvw = float3(DetailUV(id.xy), CH_PERMEABILITY);
+    float before = permOpenBaseline - permBefore.SampleLevel(sampler_linear_repeat, uvw, 0);
+    if (before <= 1e-3) return;   // no coarse wall around (≈2 half ulps of rounding): nothing healed
+    float after = permOpenBaseline - fieldRead.SampleLevel(sampler_linear_repeat, uvw, 0);
+    float ratio = saturate(after / before);
+    permDetail[id.xy] = permOpenBaseline - (permOpenBaseline - permDetail[id.xy]) * ratio;
+}
+
+// Detail = the coarse field, upsampled. On allocation (so walls built so far carry over) and after
+// every permeability reset (Biome.GPUReset, ClearPermeability).
+[numthreads(8, 8, 1)]
+void SyncPermDetailKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= permDetailRezX || id.y >= permDetailRezY) return;
+    permDetail[id.xy] = fieldRead.SampleLevel(sampler_linear_repeat, float3(DetailUV(id.xy), CH_PERMEABILITY), 0);
 }
 
 

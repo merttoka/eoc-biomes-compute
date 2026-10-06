@@ -30,6 +30,7 @@ tags: [meta, index]
 - [[superpowers/specs/2026-06-07-parameter-interpolator-design]] — slow preset crossfade interpolator
 
 ## Sessions (newest first)
+- [[sessions/2026-10-06-mound-detail-layer]] — blocky termite walls on the 11.3 projection were ch7's 551×124 grid (~8.7 px/cell), not the termite trail texture; `moundDetail` paints them from a render-only RFloat mirror at sim res (same build events as a Gaussian brush, heals by its cell's ratio, re-synced on resets); default off; 24 new tests, headless A/B in the show scene; found half-store truncation on Metal and a stalled ch7 relax
 - [[sessions/2026-10-05-sim-off-blackout]] — show blackout for organoid-analysis show mode: OSC `/sim_off` · `/sim_on [fadeSeconds]` ease a master output level (multiplied last in the composite kernel, perceptual curve, bound every dispatch); `pauseWhenDark` stops stepping once black; 50 min pass + 2 min blackout cycle driven from organoid-analysis
 - [[sessions/2026-10-04-agent-color-palettes]] — agent colors become HSB (per-type `brightness`, legacy defaults bit-identical) with an exact `hsb2rgb` inverse behind inspector color fields; family-tagged `AgentColorPalette` presets (5 exhibited shows + 5 curated); live palette cycling with fades from `SimulationManager` / MFT / OSC that survives resets; MFT bank 2 → H/S/B/diffuse; palette/picker colors are on-screen sRGB (kernels write linear light); 143/143, real render kernels matched on Metal, live Play probe
 - [[sessions/2026-10-04-measured-followups]] — deslop open items, measured: dead noise terrain + MFT knob removed, timeline restarts a `playOnStart` interpolator group each take, allocation-free `ParameterRecorder`, PNG export with cached readbacks + native encode (13.6 MB → 4 KB/4K frame), boid Move in cell order (−54 %), divide-free torus wraps, 64-lane inject cull — all bit-identical; `_DAC_4k` −2.4 %/frame; thread-group-size cache measured and skipped
@@ -57,6 +58,7 @@ tags: [meta, index]
 - [[sessions/2026-04-26-split-and-daemon-v0]] — repo split via rsync, memory daemon v0
 
 ## ADRs (newest first)
+- [[adr/0016-mound-detail-render-mirror]] — mound walls render from a sim-resolution RFloat mirror of ch7 (brush per build event, healing copied from the coarse cell's ratio because RHalf stalls the relax); physics stays on the coarse field
 - [[adr/0015-remove-firing-ring-overlay]] — `NeuronRingKernel` + its eight inspector fields deleted; firing legibility is the ecology's job (dispersal pulses, deposits, mounds); supersedes the ring clause of ADR-0006
 - [[adr/0014-neuron-layout-single-owner]] — `NeuronFiringSource` owns the neuron layout (positions CSV + scale + blob); manager pushes, sims consume; validated contract at the single parse site; enables clean dataset swaps
 - [[adr/0013-coherence-enhancing-trail-diffusion]] — sim trail anisotropy from the trail's own structure tensor (Weickert-style), not a heading-memory field (two built, measured useless); comet tails via retention, one `trailAnisotropy` knob per sim

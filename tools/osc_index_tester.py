@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["python-osc>=1.8"]
+# ///
 """OSC /index tester for eoc-biomes-compute neuron firing.
 
 Sends the OSC frame index that NeuronFiringSource scrubs (OSCMapping listens on

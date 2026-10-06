@@ -157,6 +157,15 @@ namespace Biomes
         [Range(0f, 1f)] public float moundOverlayStrength = 0.5f;
         [Tooltip("Colour of the painted mounds/walls.")]
         public Color moundColor = new(0.25f, 0.18f, 0.12f, 1f);
+        [Tooltip("Paint the walls from the biome's sim-resolution detail layer instead of its coarse " +
+                 "permeability grid, where one cell spans several output pixels and the walls read as " +
+                 "blocks. Render-only: termites keep sensing the coarse field. Off = the coarse overlay.")]
+        public bool moundDetail;
+        [Tooltip("Detail wall line width: the Gaussian σ, in sim px, each wall-building event is drawn with.")]
+        [Range(0.5f, 3f)] public float moundDetailWidth = 1.5f;
+        [Tooltip("Detail wall strength. 1 = a termite's path reads as strong as the coarse cells it " +
+                 "crosses; raise it if thin lines read too faint.")]
+        [Range(0f, 4f)] public float moundDetailGain = 1f;
 
         private RenderTexture compositeOutTex;
         private int compositeRenderKernel;
@@ -218,6 +227,8 @@ namespace Biomes
         private static readonly int s_PermOpenBaselineOvID = Shader.PropertyToID("permOpenBaselineOv");
         private static readonly int s_MoundStrengthID = Shader.PropertyToID("moundStrength");
         private static readonly int s_MoundColorID = Shader.PropertyToID("moundColor");
+        private static readonly int s_PermDetailID = Shader.PropertyToID("permDetail");
+        private static readonly int s_MoundDetailOnID = Shader.PropertyToID("moundDetailOn");
         private static readonly int s_UnlitColorMapID = Shader.PropertyToID("_UnlitColorMap");
         private static readonly int s_BlendPrevID = Shader.PropertyToID("blendPrev");
         private static readonly int s_BlendCurrID = Shader.PropertyToID("blendCurr");
@@ -420,6 +431,9 @@ namespace Biomes
             //     Every step so live inspector edits apply immediately; a few copies.
             if (biome != null)
                 biome.SetKeepOut(_keepOutScratch, PackKeepOut(), keepOutFeather, keepOutAvoidGain);
+            //     Same for the mound detail switch and brush (it must be set before the builds).
+            if (biome != null)
+                biome.SetPermeabilityDetail(moundDetail, moundDetailWidth, moundDetailGain);
 
             // 1. Build perception textures from biome for each sim. The build runs at
             //    the perception texture's own resolution (perceptionResScale × sim res);
@@ -668,6 +682,9 @@ namespace Biomes
             // itself is untouched, so the habitat gates still hold and the mounds reappear
             // when termites restart.
             float moundStrength = moundOverlayStrength * TermitePresence();
+            // The biome's detail layer when it has one (moundDetail on and a termite has built
+            // since); every kernel texture must be bound, so dummies stand in otherwise.
+            var detail = biome != null ? biome.PermeabilityDetail : null;
             if (moundStrength > 0f && biome != null && biome.FieldReadArray != null)
             {
                 compositeCS.SetTexture(compositeRenderKernel, s_PermFieldID, biome.FieldReadArray);
@@ -679,7 +696,10 @@ namespace Biomes
             {
                 compositeCS.SetTexture(compositeRenderKernel, s_PermFieldID, _dummyBlackArray);
                 moundStrength = 0f;
+                detail = null;
             }
+            compositeCS.SetTexture(compositeRenderKernel, s_PermDetailID, detail != null ? detail : _dummyBlackTex);
+            compositeCS.SetInt(s_MoundDetailOnID, detail != null ? 1 : 0);
             compositeCS.SetFloat(s_MoundStrengthID, moundStrength);
 
             // Show blackout master (1 unless /sim_off). The composite is linear light, so a

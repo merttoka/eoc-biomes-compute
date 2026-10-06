@@ -253,7 +253,12 @@ and **shared neuron firing**
   `BuildPermeabilityKernel` (agent-authored ch7 topography, not the umwelt write path); each
   species is then confined to its `preferredPermeabilityMin/Max` band by the perception habitat
   gate (out-of-band → avoidance + floored speed penalty). `ResetTermites` melts the mounds.
-  See [[adr/0010-permeability-agent-built-topography|ADR-0010]]. Runs at **131 agents
+  See [[adr/0010-permeability-agent-built-topography|ADR-0010]]. The composite paints the walls
+  from ch7 (bilinear — one cell spans several output px), or with `SimulationManager.moundDetail`
+  from `Biome.PermeabilityDetail`: a render-only RFloat mirror at the termite sim's resolution,
+  drawn by the same build events as a Gaussian brush, healed by its coarse cell's after/before
+  ratio each PDE step, re-synced on every permeability reset; termites still sense ch7
+  ([[adr/0016-mound-detail-render-mirror|ADR-0016]]). Runs at **131 agents
   (1:1 with neurons)** by default —
   each termite is its own neuron group, seeded with a coherent heading and a **per-group
   fixed turn-angle magnitude** (`turnAngleSpread`, via the `NeuronGroup()` helper) so each

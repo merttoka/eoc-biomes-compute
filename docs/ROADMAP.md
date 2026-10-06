@@ -29,6 +29,11 @@ render), exact `hsb2rgb` inverse for the inspector, family-tagged `AgentColorPal
 (5 exhibited shows + 5 curated), live palette cycling with fades that survive resets
 ([[sessions/2026-10-04-agent-color-palettes|session]]).
 
+**Mound detail (2026-10-06)** — `SimulationManager.moundDetail` paints the termite walls from a
+render-only sim-resolution mirror of ch7 instead of the coarse biome grid (11.3: ~8.7 px/cell
+blocks → thin paths); default off
+([[adr/0016-mound-detail-render-mirror|ADR-0016]], [[sessions/2026-10-06-mound-detail-layer|session]]).
+
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
   [[adr/0010-permeability-agent-built-topography|ADR-0010]] /
@@ -44,6 +49,12 @@ render), exact `hsb2rgb` inverse for the inspector, family-tagged `AgentColorPal
   `avoid +1.2` + scavenges Waste). **Boid's** waste-avoid `−1` is neutralized (`avoidance =
   max(0,·)` floors negatives → 0); **Termite** has no avoid read. To finish: give Boid a
   positive-weight avoid on a real threat channel; optionally a Termite avoid.
+- **Wall healing stalls** 🟡 — ch7's relax (0.0005/step toward 0.9) is below RHalf resolution
+  near open ground: walls stop healing at ~0.44 wall-ness (float16 simulation, round to nearest;
+  higher on GPUs that truncate half stores, as this Mac's does) and weaker walls never heal, so
+  mounds persist until `ResetTermites`. Decide whether that is the look; if not, relax in wall
+  space or store ch7 at higher precision. The mound detail heals with the field either way
+  ([[adr/0016-mound-detail-render-mirror|ADR-0016]]).
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing
