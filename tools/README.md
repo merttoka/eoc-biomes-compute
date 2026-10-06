@@ -11,6 +11,10 @@ tools/.venv/bin/pip install -r tools/requirements.txt
 
 `tools/.venv/` is gitignored. `requirements.txt` covers both scripts (`python-osc`, `numpy`).
 
+`osc_index_tester.py` declares its dependency inline, so with [uv](https://docs.astral.sh/uv/)
+it needs no venv: `uv run tools/osc_index_tester.py` (or for an older copy without that header,
+`uv run --with python-osc osc_index_tester.py`). To run it on another machine, copy that one file.
+
 ---
 
 ## `osc_index_tester.py` — drive neuron firing over OSC
