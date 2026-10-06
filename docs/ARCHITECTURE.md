@@ -375,6 +375,10 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
   callbacks stay inline (CPU-only). Every callback is registered through `On()`, which catches and
   logs on the main thread — OscJack ends its receive thread on the first exception. Param
   messages are dropped until the target sim has started (`LiveParamSet` non-null).
+  `/sim_off` · `/sim_on [fadeSeconds]` (also queued) drive `SimulationManager.SetOutputOn`: a
+  master output level eased in `LateUpdate` and multiplied last in `CompositeRenderKernel`
+  (`masterLevel`, bound every dispatch), with `pauseWhenDark` stopping steps once black — the
+  show blackout organoid-analysis sends between passes.
 - **`NeuronFiringSource`** — the **firing playhead** ([[adr/0006-osc-neuron-firing]]).
   Owns the firing blob + neuron positions; an external patch sends `/index <int>` to scrub
   which frame is shown (file = values, OSC = playhead — no auto-advance). Holds the last
