@@ -100,6 +100,7 @@ public class MoundCompositeTests
         _cs.SetVector("moundColor", Wall);
         _cs.SetTexture(_kernel, "permDetail", _detail);
         _cs.SetInt("moundDetailOn", detailOn ? 1 : 0);
+        _cs.SetFloat("masterLevel", 1f);   // show blackout master: full output
         _cs.Dispatch(_kernel, 1, 1, 1);   // numthreads(8,8,1) covers 8×4
 
         var request = AsyncGPUReadback.Request(_out);
