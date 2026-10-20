@@ -21,9 +21,9 @@ MonoBehaviour:
     depositAmount: 0.03
     eatAmount: 0.005
     diffuseRate: 0.93
-    hue: 0.02
-    saturation: 0.75
-    brightness: 0.9
+    hue: 0
+    saturation: 0.8098313
+    brightness: 0.80000013
     firingSpeedMul: 2
     firingDepositAmount: 0.5
   - senseAngle: 30
@@ -33,9 +33,9 @@ MonoBehaviour:
     depositAmount: 0.02
     eatAmount: 0.005
     diffuseRate: 0.93
-    hue: 0.82
-    saturation: 0.7
-    brightness: 0.75
+    hue: 0
+    saturation: 0.96062994
+    brightness: 0.65
     firingSpeedMul: 2
     firingDepositAmount: 0.5
   ranges:

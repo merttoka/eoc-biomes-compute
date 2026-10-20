@@ -25,7 +25,7 @@ MonoBehaviour:
   writes:
   - channel: 0
     amount: 0.02
-  preferredPermeabilityMin: 0
+  preferredPermeabilityMin: 0.6
   preferredPermeabilityMax: 1
   metabolicHeat: 0
   oxygenConsumption: 0

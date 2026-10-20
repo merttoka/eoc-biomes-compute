@@ -41,11 +41,14 @@ namespace Biomes
             EnsureFolder(AssetsDir);
             EnsureFolder(MaterialsDir);
 
-            var physParams = CreateOnce<PhysarumParams>(AssetsDir + "/PhysarumParams.asset", HuntingPhysarum);
+            // One colour scheme for the four sims, applied to each preset when it is made.
+            var palette = CreateOnce<AgentColorPalette>(AssetsDir + "/Palette_PPS.asset", SiggraphScheme);
+            var physParams = CreateOnce<PhysarumParams>(AssetsDir + "/PhysarumParams.asset",
+                p => { HuntingPhysarum(p); palette.ApplyTo(p); });
             var physUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltPhysarum_Alt.asset", AssetsDir + "/UmweltPhysarum_PPS.asset", QuietScent);
-            var boidParams = CopyOnce<BoidParams>(SourceDir + "/assets/BoidParams.asset", AssetsDir + "/BoidParams.asset");
+            var boidParams = CopyOnce<BoidParams>(SourceDir + "/assets/BoidParams.asset", AssetsDir + "/BoidParams.asset", palette.ApplyTo);
             var boidUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltBoid_Alt.asset", AssetsDir + "/UmweltBoid_PPS.asset");
-            var termiteParams = CopyOnce<TermiteParams>(SourceDir + "/assets/TermiteParams.asset", AssetsDir + "/TermiteParams.asset");
+            var termiteParams = CopyOnce<TermiteParams>(SourceDir + "/assets/TermiteParams.asset", AssetsDir + "/TermiteParams.asset", palette.ApplyTo);
             var termiteUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltTermite_Alt.asset", AssetsDir + "/UmweltTermite_PPS.asset");
             var fieldConfig = CopyOnce<BiomeFieldConfig>(SourceDir + "/assets/BiomeFieldConfig_Homeostatic.asset", AssetsDir + "/BiomeFieldConfig_PPS.asset");
             var physMat = CopyOnce<Material>(SourceDir + "/materials/m_physarum.mat", MaterialsDir + "/m_physarum.mat");
@@ -53,8 +56,15 @@ namespace Biomes
             var termiteMat = CopyOnce<Material>(SourceDir + "/materials/m_termite.mat", MaterialsDir + "/m_termite.mat");
             var ppsMat = CopyOnce<Material>(SourceDir + "/materials/m_physarum.mat", MaterialsDir + "/m_primordial.mat");
             var compositeMat = CopyOnce<Material>(SourceDir + "/materials/m_composite.mat", MaterialsDir + "/m_composite.mat");
-            var ppsParams = CreateOnce<PrimordialParams>(AssetsDir + "/PrimordialParams.asset",
-                p => p.types[0].fieldDrift = 1.5f);   // dispersal pulses push cells outward (a transient field)
+            var ppsParams = CreateOnce<PrimordialParams>(AssetsDir + "/PrimordialParams.asset", p =>
+            {
+                palette.ApplyTo(p);   // indigo soup specks...
+                var t = p.types[0];
+                t.densityHueShift = 0.27f;   // ...through violet to rose membranes,
+                t.densityGlow = 1f;          // pale glowing cores (SIGGRAPH's pink-white glints)
+                t.sparseDim = 0.8f;
+                t.fieldDrift = 1.5f;         // dispersal pulses push cells outward (a transient field)
+            });
             var ppsUmwelt = CreateOnce<UmweltMapping>(AssetsDir + "/UmweltPrimordial.asset", DefaultPrimordialUmwelt);
             var ppsCompute = AssetDatabase.LoadAssetAtPath<ComputeShader>(ComputePath);
 
@@ -152,6 +162,7 @@ namespace Biomes
             manager.compositeOutMat = compositeMat;
             manager.rezX = 1920;
             manager.rezY = 1080;
+            manager.moundColor = new Color(0.5294118f, 0.8078432f, 0.9215687f, 1f);   // SIGGRAPH's walls: silver-blue
             if (manager.biome != null)
             {
                 manager.biome.fieldConfig = fieldConfig;
@@ -219,7 +230,9 @@ namespace Biomes
         // feels Physarum's scent (Pheromone0) as agitation (SpeedBoost → turn noise), so where veins
         // thicken they dissolve the cells they reach. Dispersal pulses agitate and (drift) push. No
         // SpeedPenalty read: constant speed is load-bearing for the life cycle. No chemotaxis on the
-        // standing scent: drift up a field with maxima collapses the soup onto them.
+        // standing scent: drift up a field with maxima collapses the soup onto them. Habitat is open
+        // ground (the boids' band): inside a termite wall the habitat gate slows particles (speed is
+        // what holds a cell together, so it dissolves) and its avoidance drifts them back out.
         private static void DefaultPrimordialUmwelt(UmweltMapping u)
         {
             u.reads = new List<UmweltReadEntry>
@@ -232,30 +245,51 @@ namespace Biomes
             {
                 new() { channel = BiomeChannel.Nutrient, amount = 0.02f },
             };
-            u.preferredPermeabilityMin = 0f;
+            u.preferredPermeabilityMin = 0.6f;
             u.preferredPermeabilityMax = 1f;
             u.metabolicHeat = 0f;
             u.oxygenConsumption = 0f;
         }
 
-        // Two hunters for the creatures, authored at the 2160 reference: a coral vein builder
-        // (rotation ≈ 2× sensor angle → a reticulated network, Jones 2010) and a finer magenta mesh.
-        // Low mutual eating, so they interleave instead of banding into parallel lanes.
+        // Two hunters for the creatures, authored at the 2160 reference: a vein builder (rotation ≈
+        // 2× sensor angle → a reticulated network, Jones 2010) and a finer mesh. Low mutual eating,
+        // so they interleave instead of banding into parallel lanes. Colours come from the palette.
         private static void HuntingPhysarum(PhysarumParams p)
         {
             p.typeCount = 2;
             p.SyncTypesList();
-            Set(p.types[0], hue: 0.02f, sat: 0.75f, bri: 0.9f, speed: 1.2f, senseAngle: 22.5f, turnAngle: 45f, senseDistance: 18f, deposit: 0.03f);
-            Set(p.types[1], hue: 0.82f, sat: 0.7f, bri: 0.75f, speed: 1.0f, senseAngle: 30f, turnAngle: 65f, senseDistance: 26f, deposit: 0.02f);
+            Set(p.types[0], speed: 1.2f, senseAngle: 22.5f, turnAngle: 45f, senseDistance: 18f, deposit: 0.03f);
+            Set(p.types[1], speed: 1.0f, senseAngle: 30f, turnAngle: 65f, senseDistance: 26f, deposit: 0.02f);
 
-            static void Set(PhysarumAgentType t, float hue, float sat, float bri, float speed, float senseAngle,
-                            float turnAngle, float senseDistance, float deposit)
+            static void Set(PhysarumAgentType t, float speed, float senseAngle, float turnAngle, float senseDistance,
+                            float deposit)
             {
-                t.hue = hue; t.saturation = sat; t.brightness = bri;
                 t.moveSpeed = speed; t.senseAngle = senseAngle; t.turnAngle = turnAngle; t.senseDistance = senseDistance;
                 t.depositAmount = deposit; t.eatAmount = 0.005f; t.diffuseRate = 0.93f;
                 t.firingSpeedMul = 2f; t.firingDepositAmount = 0.5f;
             }
+        }
+
+        // The SIGGRAPH show's scheme (11.0 assets/Palettes/Shows/SIGGRAPH.asset) carried over, so the
+        // shows read as one body of work: coral-rose veins with a dimmed crimson mesh, the pale
+        // silver-greens and periwinkle of its boids, icy termites — and the creatures in between,
+        // indigo specks of soup ramping to rose cells (the ramp itself is on PrimordialParams).
+        private static void SiggraphScheme(AgentColorPalette pal)
+        {
+            pal.notes = "11.4 PPS: the SIGGRAPH show palette (physarum coral + crimson, boids, termite) " +
+                        "plus the primordial creatures' base colour (indigo soup).";
+            var crimson = AgentColor.FromDisplay(new Color(0.906331753f, 0.194761687f, 0.194761687f));
+            pal.swatches = new List<PaletteSwatch>
+            {
+                new(new Color(0.906331753f, 0.426409386f, 0.426409386f), AgentFamily.Physarum),
+                new(AgentColor.ToDisplay(crimson.h, crimson.s, 0.65f), AgentFamily.Physarum),
+                new(new Color(0.861549971f, 0.906331753f, 0.843562524f), AgentFamily.Boid),
+                new(new Color(0.681466336f, 0.69331847f, 0.906331753f), AgentFamily.Boid),
+                new(new Color(0.85910735f, 0.906331753f, 0.840086442f), AgentFamily.Boid),
+                new(new Color(0.875122273f, 0.906331753f, 0.716905129f), AgentFamily.Boid),
+                new(new Color(0.801456639f, 0.935992437f, 1f), AgentFamily.Termite),
+                new(AgentColor.ToDisplay(0.72f, 0.5f, 0.9f), AgentFamily.Primordial),
+            };
         }
 
         // 11.3's write rate saturates Pheromone0 (mean 0.38 measured with 250 k agents), so the

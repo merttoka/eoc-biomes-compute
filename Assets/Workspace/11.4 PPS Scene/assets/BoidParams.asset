@@ -25,8 +25,9 @@ MonoBehaviour:
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.93307084
-    hue: 0.48818898
-    saturation: 0.79527557
+    hue: 0.2755906
+    saturation: 0.14960621
+    brightness: 0.80000013
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
   - separationRange: 36.787403
@@ -40,8 +41,9 @@ MonoBehaviour:
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.9519685
-    hue: 0.4
-    saturation: 0.5
+    hue: 0.6456693
+    saturation: 0.47244102
+    brightness: 0.80000013
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
   - separationRange: 26.204725
@@ -55,8 +57,9 @@ MonoBehaviour:
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.9535433
-    hue: 0.50783783
-    saturation: 0.54
+    hue: 0.27559057
+    saturation: 0.15748028
+    brightness: 0.80000013
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
   - separationRange: 39.307087
@@ -70,8 +73,9 @@ MonoBehaviour:
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.97244096
-    hue: 0.05511811
-    saturation: 0.42
+    hue: 0.21259846
+    saturation: 0.4094489
+    brightness: 0.80000013
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
   ranges:

@@ -236,6 +236,23 @@ All three hunters read Nutrient (Physarum +1.4, Boids +1.2, Termites +1) and eat
 creatures are the base of a food web, not just Physarum's prey. At 1 M Physarum the 11.4 scent
 write is 0.001, the same flux as 0.004 at 250 k (Pheromone0 mean ≈ 0.04).
 
+**Habitat:** the creatures' umwelt band is open ground (0.6–1, the boids' band). Inside a
+termite wall the habitat gate slows particles. Speed is what holds a cell together, so the cell
+dissolves, and the gate's avoidance drifts the particles back out (B rises toward the wall, so
+the drift points away from it, clamped as above). Creatures live in the open chambers between
+walls.
+
+**Colours:** one scheme for the four sims, `assets/Palette_PPS.asset`, carried over from the
+SIGGRAPH show palette so the shows read as one body of work:
+- Physarum: coral-rose veins plus a crimson mesh at 0.65 brightness.
+- Boids: SIGGRAPH's pale silver-greens and periwinkle.
+- Termites: icy. The mound overlay uses SIGGRAPH's silver-blue walls (0.53, 0.81, 0.92).
+- Creatures: base indigo (0.72, 0.5, 0.9), so the dimmed soup reads as SIGGRAPH's indigo
+  specks. `densityHueShift` 0.27 and `densityGlow` 1 ramp them through violet to rose membranes
+  with pale pink-white cores.
+
+The setup applies the palette to each preset when it creates it.
+
 **Resolution check** (same scene, 90 s each). At 1920×1080 and 3840×2160 the world is 480×270 su
 with 10,368 particles. At 11.3's 4800×1080 it is 1200×270 su with 25,920: the count grows with
 width, not height. The particle classes held at 27–36 % free / 60–66 % cell bodies / 1–4 %

@@ -27,12 +27,12 @@ MonoBehaviour:
     diffuseRate: 0.8
     densityFloor: 10
     densityFull: 35
-    densityHueShift: 0.12
+    densityHueShift: 0.27
     densityGlow: 1
-    sparseDim: 0.85
-    hue: 0.5
-    saturation: 0.9
-    brightness: 0.9
+    sparseDim: 0.8
+    hue: 0.72
+    saturation: 0.49999997
+    brightness: 0.8999998
     firingSpeedMul: 1.5
     firingDepositAmount: 1
   ranges:

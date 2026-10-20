@@ -53,6 +53,15 @@ the live Editor through the Unity CLI pipeline package, with Play-mode `ExportPN
   only with width, and the population mix holds (spec "Resolution check"). `com.unity.pipeline`
   is committed (kept on request).
 
+- Follow-up 2 (user review):
+  - **Habitat:** termite walls are hostile. The creatures' band is open ground (0.6–1); inside a
+    wall the gate slows them until cells dissolve, and its avoidance drifts them out. Creatures now
+    live in the chambers between walls, and the population holds (28 / 68 / 2 %).
+  - **Colours:** 11.4 adopts the SIGGRAPH scheme. Recorded SIGGRAPH takes showed dusty rose,
+    crimson tissue, silver-blue walls (its mound colour) and indigo/olive specks. `Palette_PPS` =
+    SIGGRAPH swatches + a dimmed crimson + an indigo Primordial base; the creatures ramp through
+    violet to pale rose. A first pass read hot magenta; lowering saturation and adding glow fixed it.
+
 ## Decided
 - [[../adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]: paper units, derived
   population, paper turn convention, coupling through turn noise rather than speed, Nutrient as
