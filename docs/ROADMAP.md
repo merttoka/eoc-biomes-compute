@@ -37,7 +37,7 @@ blocks → thin paths); default off
 **Primordial particle system (2026-10-20)** — 4th agent sim: Schmickl's PPS motion law on the GPU in
 paper space units (density-derived population), creatures with membranes/nuclei from a
 density-weighted trail bank, coupled through turn noise (perception A) and a clamped drift (R − B);
-**11.4 PPS Scene** pairs it with a hunting Physarum (Nutrient ↔ Pheromone0 predation loop, local
+**11.4 PPS Scene** adds it to 11.3's three sims (Nutrient food web: all three hunters graze it; Pheromone0 predation loop, local
 firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
 [[sessions/2026-10-20-primordial-sim|session]]).
 

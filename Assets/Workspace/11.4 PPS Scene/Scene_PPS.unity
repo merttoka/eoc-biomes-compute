@@ -317,8 +317,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
   cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
-  outputMat: {fileID: 2100000, guid: 5be3347a5a65143309d8fbaedb003cbd, type: 2}
-  compositeWeight: 0.7
+  outputMat: {fileID: 2100000, guid: 51a91e8c8b35f4e3bafec9d7e7993d2e, type: 2}
+  compositeWeight: 0.85
   renderPersistence: 0.8
   startOnPlay: 1
   fadeOutSeconds: 10
@@ -332,10 +332,10 @@ MonoBehaviour:
   referenceHeight: 2160
   scaleSpatialToResolution: 1
   scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 863633e0714824276bca7880be4ef472, type: 2}
+  umwelt: {fileID: 11400000, guid: 3b67403ed187c4815baa56d0c17fa83e, type: 2}
   trailAnisotropy: 0
   firingThreshold: 0.1
-  agentsCount: 250000
+  agentsCount: 1000000
   paramsSO: {fileID: 11400000, guid: 0b54e33c424ab4eb28aa72bf6bcaca4b, type: 2}
   agentParams: {fileID: 0}
 --- !u!1 &417804407
@@ -387,7 +387,9 @@ MonoBehaviour:
   m_SimManager: {fileID: 2000144461}
   m_Simulations:
   - {fileID: 276895388}
-  - {fileID: 1415454279}
+  - {fileID: 1825205988}
+  - {fileID: 1010527583}
+  - {fileID: 2039138337}
   m_ScreenLayout: {fileID: 0}
   layoutMode: 0
   pushMode: 0
@@ -717,6 +719,119 @@ MonoBehaviour:
   m_ObsoleteUseShadowQualitySettings: 0
   m_ObsoleteCustomShadowResolution: 512
   m_ObsoleteContactShadows: 0
+--- !u!1 &670242431
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 670242432}
+  - component: {fileID: 670242435}
+  - component: {fileID: 670242434}
+  - component: {fileID: 670242433}
+  m_Layer: 0
+  m_Name: termite
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &670242432
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 670242431}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.7, y: -0.125, z: 0}
+  m_LocalScale: {x: 0.24, y: 0.24, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 944659780}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!64 &670242433
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 670242431}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &670242434
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 670242431}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: ffe7d8871cb6c41a68b7fc803acbb877, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &670242435
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 670242431}
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1 &907546074
 GameObject:
   m_ObjectHideFlags: 0
@@ -1006,7 +1121,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b22358bef2ab14083b018f64248e5edd, type: 2}
+  - {fileID: 2100000, guid: 49254b87aa6bd4e4d97c685f7205e13d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1053,7 +1168,142 @@ Transform:
   m_Children:
   - {fileID: 1076481739}
   - {fileID: 1470234284}
+  - {fileID: 670242432}
+  - {fileID: 1541154919}
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1010527582
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1010527585}
+  - component: {fileID: 1010527583}
+  - component: {fileID: 1010527584}
+  m_Layer: 0
+  m_Name: TermiteSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1010527583
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1010527582}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a989f9dacbef242b79081d4a2c6afcd6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.TermiteSim
+  cs: {fileID: 7200000, guid: aee9cc9c980b84aa28f3549d3a9ce942, type: 3}
+  outputMat: {fileID: 2100000, guid: ffe7d8871cb6c41a68b7fc803acbb877, type: 2}
+  compositeWeight: 1.5
+  renderPersistence: 0.9
+  startOnPlay: 1
+  fadeOutSeconds: 10
+  spawnMode: 0
+  spawnBandFraction: 0.08
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 11400000, guid: 68f9b8509ab774950a2bc23f579ab2c2, type: 2}
+  trailAnisotropy: 0
+  firingThreshold: 0.1
+  agentsCount: 131
+  turnAngleSpread: 0.8
+  paramsSO: {fileID: 11400000, guid: 57a4e1aaeba9c4fb7859c75dbc7c6001, type: 2}
+  agentParams: {fileID: 0}
+  wallBuildAmount: 0.003
+  wallBuildFiringThreshold: 0.1
+--- !u!114 &1010527584
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1010527582}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 2000144461}
+  simIndex: 2
+  waypoints: []
+  umweltWaypoints: []
+  durationSteps: 20000
+  holdSteps: 5000
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  keepRunningOnSimReset: 1
+  paramToggles:
+  - name: moveSpeed
+    enabled: 1
+  - name: senseAngle
+    enabled: 1
+  - name: turnAngle
+    enabled: 1
+  - name: senseDistance
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: diffuseRate
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
+--- !u!4 &1010527585
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1010527582}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2000144459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1076481738
 GameObject:
@@ -1083,8 +1333,8 @@ Transform:
   m_GameObject: {fileID: 1076481738}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.7, y: 0.345, z: 0}
-  m_LocalScale: {x: 0.3030303, y: 0.3030303, z: 1}
+  m_LocalPosition: {x: 0.7, y: 0.375, z: 0}
+  m_LocalScale: {x: 0.24, y: 0.24, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 944659780}
@@ -1136,7 +1386,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 5be3347a5a65143309d8fbaedb003cbd, type: 2}
+  - {fileID: 2100000, guid: 51a91e8c8b35f4e3bafec9d7e7993d2e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1168,124 +1418,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1076481738}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1415454278
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1415454281}
-  - component: {fileID: 1415454279}
-  - component: {fileID: 1415454280}
-  m_Layer: 0
-  m_Name: PrimordialSim
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1415454279
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1415454278}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5142635220524071931e412c1c4dc1c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.PrimordialSim
-  cs: {fileID: 7200000, guid: 1af7900c40c6c4f559ac5a0c6608ada0, type: 3}
-  outputMat: {fileID: 2100000, guid: df61aa772f3a949ea82c84f02e15cb6c, type: 2}
-  compositeWeight: 1
-  renderPersistence: 0.75
-  startOnPlay: 1
-  fadeOutSeconds: 10
-  spawnMode: 0
-  spawnBandFraction: 0.08
-  dispersalSpeedMode: 0
-  dispersalSpeedMult: 0.5
-  dispersalConstantSpeed: 6
-  rezX: 1024
-  rezY: 1024
-  referenceHeight: 2160
-  scaleSpatialToResolution: 1
-  scaleDensityToResolution: 1
-  umwelt: {fileID: 11400000, guid: 0efb1aef2925e423d8c2ffb0eaaaa854, type: 2}
-  trailAnisotropy: 0
-  firingThreshold: 0.1
-  spaceUnitPx: 8
-  density: 0.08
-  substeps: 3
-  neuronSeedFraction: 0.12
-  seedRadius: 2.5
-  paramsSO: {fileID: 11400000, guid: 264dd26ab2e6e4f6bafc6e8625112654, type: 2}
-  agentParams: {fileID: 0}
---- !u!114 &1415454280
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1415454278}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
-  simManager: {fileID: 2000144461}
-  simIndex: 1
-  waypoints: []
-  umweltWaypoints: []
-  durationSteps: 600
-  holdSteps: 0
-  easing:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  keepRunningOnSimReset: 1
-  paramToggles: []
-  phase: 0
-  currentWaypoint: 0
-  progress: 0
---- !u!4 &1415454281
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1415454278}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2000144459}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1470234283
 GameObject:
   m_ObjectHideFlags: 0
@@ -1299,7 +1431,7 @@ GameObject:
   - component: {fileID: 1470234286}
   - component: {fileID: 1470234285}
   m_Layer: 0
-  m_Name: primordial
+  m_Name: boids
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1314,8 +1446,8 @@ Transform:
   m_GameObject: {fileID: 1470234283}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.7, y: 0, z: 0}
-  m_LocalScale: {x: 0.3030303, y: 0.3030303, z: 1}
+  m_LocalPosition: {x: 0.7, y: 0.125, z: 0}
+  m_LocalScale: {x: 0.24, y: 0.24, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 944659780}
@@ -1367,7 +1499,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: df61aa772f3a949ea82c84f02e15cb6c, type: 2}
+  - {fileID: 2100000, guid: 0c4557f3e743740bcb6880b43e1e09a3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1399,6 +1531,255 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1470234283}
   m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1541154918
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1541154919}
+  - component: {fileID: 1541154922}
+  - component: {fileID: 1541154921}
+  - component: {fileID: 1541154920}
+  m_Layer: 0
+  m_Name: primordial
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1541154919
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541154918}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.7, y: -0.375, z: 0}
+  m_LocalScale: {x: 0.24, y: 0.24, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 944659780}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!64 &1541154920
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541154918}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &1541154921
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541154918}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 13fe07f32a380430db940aa114077812, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1541154922
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1541154918}
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1825205985
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1825205986}
+  - component: {fileID: 1825205988}
+  - component: {fileID: 1825205987}
+  m_Layer: 0
+  m_Name: BoidSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1825205986
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825205985}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2000144459}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1825205987
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825205985}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 2000144461}
+  simIndex: 1
+  waypoints: []
+  umweltWaypoints: []
+  durationSteps: 20000
+  holdSteps: 5000
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  keepRunningOnSimReset: 1
+  paramToggles:
+  - name: maxSpeed
+    enabled: 1
+  - name: maxForce
+    enabled: 1
+  - name: separateRange
+    enabled: 1
+  - name: alignRange
+    enabled: 1
+  - name: attractRange
+    enabled: 1
+  - name: depositAmount
+    enabled: 1
+  - name: eatAmount
+    enabled: 1
+  - name: foodSeek
+    enabled: 1
+  - name: hue
+    enabled: 0
+  - name: saturation
+    enabled: 0
+  - name: diffuseRate
+    enabled: 1
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
+--- !u!114 &1825205988
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825205985}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c26c19193c8bb4298a6d0331d5741d44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidSim
+  cs: {fileID: 7200000, guid: 389d82ac9790342749216aaa0602d941, type: 3}
+  outputMat: {fileID: 2100000, guid: 0c4557f3e743740bcb6880b43e1e09a3, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.9
+  startOnPlay: 1
+  fadeOutSeconds: 10
+  spawnMode: 0
+  spawnBandFraction: 0.08
+  dispersalSpeedMode: 1
+  dispersalSpeedMult: 4
+  dispersalConstantSpeed: 30
+  rezX: 2048
+  rezY: 2048
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 11400000, guid: 55700b5aed4f64f219b574e0341b632e, type: 2}
+  trailAnisotropy: 0
+  firingThreshold: 0.1
+  agentsCount: 20000
+  paramsSO: {fileID: 11400000, guid: 43094f2df87ce4d7fb9da4065733849a, type: 2}
+  agentParams: {fileID: 0}
 --- !u!1 &1915234168
 GameObject:
   m_ObjectHideFlags: 0
@@ -1764,8 +2145,8 @@ MonoBehaviour:
   dispersalFireThreshold: 0.1
   centreKeepOut: 0
   centreKeepOutDepth: 0.8
-  firingDispersalSource: 0
-  firingAgentSim: {fileID: 0}
+  firingDispersalSource: 1
+  firingAgentSim: {fileID: 1010527583}
   firingAgentStampCap: 262
   useAsyncReadback: 1
   drawGizmos: 0
@@ -1785,7 +2166,7 @@ MonoBehaviour:
   biomeRezX: 480
   biomeRezY: 270
   stepEvery: 1
-  fieldConfig: {fileID: 11400000, guid: 9ac5ce2c146d84c3e8896c9866a64b9e, type: 2}
+  fieldConfig: {fileID: 11400000, guid: ccc63dc4fbb104a89b21a7af76a8be78, type: 2}
   cs: {fileID: 7200000, guid: 5a5f373ece9324a53a8c65501cd57dab, type: 3}
   habitatAvoidGain: 2
   habitatSlowGain: 3
@@ -1837,7 +2218,9 @@ MonoBehaviour:
   m_SimulationManager: {fileID: 2000144461}
   m_Simulations:
   - {fileID: 276895388}
-  - {fileID: 1415454279}
+  - {fileID: 1825205988}
+  - {fileID: 1010527583}
+  - {fileID: 2039138337}
   m_BiomeInjector: {fileID: 1919109756}
   m_NeuronFiringSource: {fileID: 2000144462}
 --- !u!4 &1938610678
@@ -1889,7 +2272,9 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 276895386}
-  - {fileID: 1415454281}
+  - {fileID: 1825205986}
+  - {fileID: 1010527585}
+  - {fileID: 2039138339}
   m_Father: {fileID: 527395917}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2000144460
@@ -1906,7 +2291,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolatorGroup
   interpolators:
   - {fileID: 276895387}
-  - {fileID: 1415454280}
+  - {fileID: 1825205987}
+  - {fileID: 1010527584}
+  - {fileID: 2039138338}
   playOnStart: 0
   keepRunningOnSimReset: 1
   mft: {fileID: 417804410}
@@ -1946,7 +2333,9 @@ MonoBehaviour:
   metabolismEvery: 1
   simulations:
   - {fileID: 276895388}
-  - {fileID: 1415454279}
+  - {fileID: 1825205988}
+  - {fileID: 1010527583}
+  - {fileID: 2039138337}
   paletteCycle:
     palettes: []
     fadeSeconds: 2
@@ -1955,7 +2344,7 @@ MonoBehaviour:
   m_DebugOverlayVideoOnOutput: 0
   m_DebugOverlayStrength: 0.5
   compositeCS: {fileID: 7200000, guid: 7ffa9d436e8ce40e2b2b7a81d31f9cd7, type: 3}
-  compositeOutMat: {fileID: 2100000, guid: b22358bef2ab14083b018f64248e5edd, type: 2}
+  compositeOutMat: {fileID: 2100000, guid: 49254b87aa6bd4e4d97c685f7205e13d, type: 2}
   compositeOutputQuad: {fileID: 944659780}
   outputFadeSeconds: 5
   pauseWhenDark: 1
@@ -2008,6 +2397,124 @@ MonoBehaviour:
   playing: 0
   unscaledTime: 1
   debugLog: 0
+--- !u!1 &2039138336
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2039138339}
+  - component: {fileID: 2039138337}
+  - component: {fileID: 2039138338}
+  m_Layer: 0
+  m_Name: PrimordialSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2039138337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039138336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5142635220524071931e412c1c4dc1c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.PrimordialSim
+  cs: {fileID: 7200000, guid: 1af7900c40c6c4f559ac5a0c6608ada0, type: 3}
+  outputMat: {fileID: 2100000, guid: 13fe07f32a380430db940aa114077812, type: 2}
+  compositeWeight: 1
+  renderPersistence: 0.75
+  startOnPlay: 1
+  fadeOutSeconds: 10
+  spawnMode: 0
+  spawnBandFraction: 0.08
+  dispersalSpeedMode: 0
+  dispersalSpeedMult: 0.5
+  dispersalConstantSpeed: 6
+  rezX: 1024
+  rezY: 1024
+  referenceHeight: 2160
+  scaleSpatialToResolution: 1
+  scaleDensityToResolution: 1
+  umwelt: {fileID: 11400000, guid: 0efb1aef2925e423d8c2ffb0eaaaa854, type: 2}
+  trailAnisotropy: 0
+  firingThreshold: 0.1
+  spaceUnitPx: 8
+  density: 0.08
+  substeps: 3
+  neuronSeedFraction: 0.12
+  seedRadius: 2.5
+  paramsSO: {fileID: 11400000, guid: 264dd26ab2e6e4f6bafc6e8625112654, type: 2}
+  agentParams: {fileID: 0}
+--- !u!114 &2039138338
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039138336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f995fc69bc0940f0a9636734a43d87c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.ParameterInterpolator
+  simManager: {fileID: 2000144461}
+  simIndex: 3
+  waypoints: []
+  umweltWaypoints: []
+  durationSteps: 600
+  holdSteps: 0
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  keepRunningOnSimReset: 1
+  paramToggles: []
+  phase: 0
+  currentWaypoint: 0
+  progress: 0
+--- !u!4 &2039138339
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039138336}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2000144459}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

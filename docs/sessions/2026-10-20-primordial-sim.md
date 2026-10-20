@@ -45,6 +45,14 @@ the live Editor through the Unity CLI pipeline package, with Play-mode `ExportPN
   to 16 px and the hash uses |radius|; `ScaleDensity` is a no-op (the splat already keeps the
   per-pixel deposit resolution-independent). Live edits verified in Play. Suite 180/180.
 
+- Follow-up (user review): 11.4 keeps 11.3's Boids (20 k) and Termites (131) and its Physarum count
+  (1 M), with Primordial appended in sim order and a fourth preview quad. The injector goes back to
+  11.3's termite-position pulses, and the Physarum scent write drops to 0.001 for 4× the agents.
+  Boids and Termites also graze Nutrient, so the creatures feed the whole web. Resolution check at
+  1080p / 4K / 4800×1080: same world (480×270 su; 1200×270 on the wide canvas), the count scales
+  only with width, and the population mix holds (spec "Resolution check"). `com.unity.pipeline`
+  is committed (kept on request).
+
 ## Decided
 - [[../adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]: paper units, derived
   population, paper turn convention, coupling through turn noise rather than speed, Nutrient as
@@ -77,5 +85,4 @@ the live Editor through the Unity CLI pipeline package, with Play-mode `ExportPN
    render knobs) are OSC-only on the MFT layout.
 3. A symbiosis variant (creatures riding the veins) needs a lever that doesn't converge, e.g. a
    drift along the vein tangent or a capped attraction. Backlog in [[../ROADMAP]].
-4. `com.unity.pipeline` was installed in `Packages/` to drive the Editor and is **not
-   committed**. Keep it or revert `Packages/manifest.json` + `packages-lock.json`.
+4. Not merged; on `feat/primordial-sim` for user testing.

@@ -227,8 +227,20 @@ Per-sim (component, take effect on reset): `spaceUnitPx` (8), `density` (0.08), 
 
 `Scene_PPS.unity` is built by `Editor/PrimordialSceneSetup.cs` (menu `Biomes/Setup 11.4 PPS
 Scene`, the `TemporalComposerSceneSetup` idiom), not hand-written YAML. It is a copy of the 11.3
-rig with Boids and Termites removed, plus Physarum and Primordial, and its own `assets/`
-(params, umwelts, field config) and `materials/`.
+rig with its three sims and their agent counts (Physarum 1 M, Boids 20 k, Termites 131, the
+injector's termite-position pulses), with Primordial as a fourth, and its own `assets/` (params,
+umwelts, field config) and `materials/`. The sim order is 11.3's with Primordial appended, so MFT
+columns, OSC indices and piano keys stay where they were. Runs at 1920×1080 (biome 480×270).
+
+All three hunters read Nutrient (Physarum +1.4, Boids +1.2, Termites +1) and eat it, so the
+creatures are the base of a food web, not just Physarum's prey. At 1 M Physarum the 11.4 scent
+write is 0.001, the same flux as 0.004 at 250 k (Pheromone0 mean ≈ 0.04).
+
+**Resolution check** (same scene, 90 s each). At 1920×1080 and 3840×2160 the world is 480×270 su
+with 10,368 particles. At 11.3's 4800×1080 it is 1200×270 su with 25,920: the count grows with
+width, not height. The particle classes held at 27–36 % free / 60–66 % cell bodies / 1–4 %
+nuclei in all three. Creatures keep their on-screen proportion and are crisper at 4K, where the
+1 px/step trail blur is relatively finer. Cost: 0.66 → 1.99 ms/step from 1080p to 4K.
 
 ## Testing
 

@@ -52,7 +52,7 @@ Assets/Workspace/
   11.1 CURRENTS Scene/  CURRENTS show — Scene_CURRENTS.unity + curated assets/materials/snapshots
   11.2 SIGGRAPH Scene/  SIGGRAPH show — Scene_SIGGRAPH.unity + leaner curated assets/materials
   11.3 Brave New Work Scene/  Brave New Work show — Scene_BraveNewWork.unity (4800×1080 projection)
-  11.4 PPS Scene/       primordial-particle ecology — Scene_PPS.unity (Physarum + Primordial), built by
+  11.4 PPS Scene/       primordial-particle ecology — Scene_PPS.unity (11.3's three sims + Primordial), built by
                         Editor/PrimordialSceneSetup.cs
   Includes/             shared compute helpers / shaders (copied verbatim — ADR-0005)
 Assets/Settings/        Unity 6 Build Profiles (macOS standalone)
@@ -284,7 +284,7 @@ and **shared neuron firing**
   but shipped umwelts leave it out, because v/r is load-bearing. The render keeps a second,
   density-weighted trail bank (`TrailLayerCount = 2T + 1`), so membranes and nuclei shift hue
   and glow while the sparse soup dims, and each particle is splatted as a disc of `size` su.
-  `OscPrefix` = `pps`. In the 11.4 scene it writes Nutrient, which Physarum hunts, and is agitated
+  `OscPrefix` = `pps`. In the 11.4 scene it writes Nutrient, which Physarum, Boids and Termites hunt, and is agitated
   by Physarum's Pheromone0: predation emerges with no lifecycle code
   ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
   [[superpowers/specs/2026-10-20-primordial-sim-design|spec]]).

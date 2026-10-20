@@ -10,12 +10,13 @@ namespace Biomes
 {
     /// <summary>
     /// Builds the 11.4 PPS show workspace (ADR-0009): <c>Scene_PPS.unity</c>, copied from the 11.3
-    /// rig, keeps Physarum, replaces Boids + Termites with a PrimordialSim, and points every reference
-    /// (manager, MFT, OSC, injector, interpolator group, output quads) at the new pair. Assets are
-    /// scene-local copies so the show tunes its own. Find-or-create throughout: re-running never
-    /// overwrites an asset that already exists, so params/umwelt tuning survives — but it re-asserts
-    /// the scene objects' wiring AND their settings below (resolutions, Physarum count/weight,
-    /// neuron layout), so tune those in the scene after the last run.
+    /// rig with its sims and agent counts (Physarum 1 M, Boids 20 k, Termites 131), adds a
+    /// PrimordialSim as the fourth, and points every reference (manager, MFT, OSC, interpolator
+    /// group, output quads) at the four. Assets are scene-local copies so the show tunes its own.
+    /// Find-or-create throughout: re-running never overwrites an asset that already exists, so
+    /// params/umwelt tuning survives — but it re-asserts the scene objects' wiring AND the settings
+    /// below (resolutions, neuron layout), so tune those in the scene after the last run. Delete
+    /// Scene_PPS.unity to re-copy the 11.3 rig.
     /// </summary>
     public static class PrimordialSceneSetup
     {
@@ -42,8 +43,14 @@ namespace Biomes
 
             var physParams = CreateOnce<PhysarumParams>(AssetsDir + "/PhysarumParams.asset", HuntingPhysarum);
             var physUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltPhysarum_Alt.asset", AssetsDir + "/UmweltPhysarum_PPS.asset", QuietScent);
+            var boidParams = CopyOnce<BoidParams>(SourceDir + "/assets/BoidParams.asset", AssetsDir + "/BoidParams.asset");
+            var boidUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltBoid_Alt.asset", AssetsDir + "/UmweltBoid_PPS.asset");
+            var termiteParams = CopyOnce<TermiteParams>(SourceDir + "/assets/TermiteParams.asset", AssetsDir + "/TermiteParams.asset");
+            var termiteUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltTermite_Alt.asset", AssetsDir + "/UmweltTermite_PPS.asset");
             var fieldConfig = CopyOnce<BiomeFieldConfig>(SourceDir + "/assets/BiomeFieldConfig_Homeostatic.asset", AssetsDir + "/BiomeFieldConfig_PPS.asset");
             var physMat = CopyOnce<Material>(SourceDir + "/materials/m_physarum.mat", MaterialsDir + "/m_physarum.mat");
+            var boidMat = CopyOnce<Material>(SourceDir + "/materials/m_boid.mat", MaterialsDir + "/m_boid.mat");
+            var termiteMat = CopyOnce<Material>(SourceDir + "/materials/m_termite.mat", MaterialsDir + "/m_termite.mat");
             var ppsMat = CopyOnce<Material>(SourceDir + "/materials/m_physarum.mat", MaterialsDir + "/m_primordial.mat");
             var compositeMat = CopyOnce<Material>(SourceDir + "/materials/m_composite.mat", MaterialsDir + "/m_composite.mat");
             var ppsParams = CreateOnce<PrimordialParams>(AssetsDir + "/PrimordialParams.asset",
@@ -68,11 +75,10 @@ namespace Biomes
                 return;
             }
 
-            // Sims: keep Physarum, drop the others, find-or-create Primordial.
+            // Sims: the 11.3 three keep their objects and counts; Primordial is found or created.
             var physarum = manager.GetComponentInChildren<PhysarumSim>(true);
-            foreach (var sim in manager.GetComponentsInChildren<SimulationBase>(true))
-                if (sim is BoidSim || sim is TermiteSim)
-                    UnityEngine.Object.DestroyImmediate(sim.gameObject);
+            var boids = manager.GetComponentInChildren<BoidSim>(true);
+            var termites = manager.GetComponentInChildren<TermiteSim>(true);
 
             var pps = manager.GetComponentInChildren<PrimordialSim>(true);
             if (pps == null)
@@ -100,10 +106,21 @@ namespace Biomes
                 physarum.paramsSO = physParams;
                 physarum.umwelt = physUmwelt;
                 physarum.outputMat = physMat;
-                physarum.agentsCount = 250000;   // a network between creatures, not a flood over them
-                physarum.compositeWeight = 0.7f;
-                physarum.renderPersistence = 0.8f;
                 EditorUtility.SetDirty(physarum);
+            }
+            if (boids != null)
+            {
+                boids.paramsSO = boidParams;
+                boids.umwelt = boidUmwelt;
+                boids.outputMat = boidMat;
+                EditorUtility.SetDirty(boids);
+            }
+            if (termites != null)
+            {
+                termites.paramsSO = termiteParams;
+                termites.umwelt = termiteUmwelt;
+                termites.outputMat = termiteMat;
+                EditorUtility.SetDirty(termites);
             }
             EditorUtility.SetDirty(pps);
 
@@ -127,9 +144,10 @@ namespace Biomes
                 EditorUtility.SetDirty(playback);
             }
 
+            // 11.3's order first, so MFT columns, OSC indices and piano keys stay where they were.
             var sims = new List<SimulationBase>();
-            if (physarum != null) sims.Add(physarum);
-            sims.Add(pps);
+            foreach (var sim in new SimulationBase[] { physarum, boids, termites, pps })
+                if (sim != null) sims.Add(sim);
             manager.simulations = sims;
             manager.compositeOutMat = compositeMat;
             manager.rezX = 1920;
@@ -167,35 +185,26 @@ namespace Biomes
             foreach (var osc in UnityEngine.Object.FindObjectsByType<OSCMapping>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 SetObjectList(osc, "m_Simulations", sims);
 
-            // Firing pulses erupt at the fixed neuron positions — where the creatures are born —
-            // instead of at the (removed) termites.
-            var injector = manager.injector;
-            if (injector != null)
-            {
-                injector.firingDispersalSource = BiomeInjector.FiringDispersalSource.NeuronPositions;
-                injector.firingAgentSim = null;
-                EditorUtility.SetDirty(injector);
-            }
-
-            // Output quads under the composite: physarum keeps its own, boids → primordial, termite goes.
+            // Per-sim preview quads beside the composite: 11.3's column of three, plus primordial
+            // (a copy of the termite quad), re-spaced to fit four.
             if (manager.compositeOutputQuad != null)
             {
                 var quadRoot = manager.compositeOutputQuad;
                 var compositeRenderer = quadRoot.GetComponent<MeshRenderer>();
                 if (compositeRenderer != null) compositeRenderer.sharedMaterial = compositeMat;
-                foreach (Transform child in ChildrenSnapshot(quadRoot))
+                var termiteQuad = quadRoot.Find("termite");
+                if (quadRoot.Find("primordial") == null && termiteQuad != null)
+                    UnityEngine.Object.Instantiate(termiteQuad.gameObject, quadRoot).name = "primordial";
+                var previews = new (string name, Material mat)[]
+                    { ("physarum", physMat), ("boids", boidMat), ("termite", termiteMat), ("primordial", ppsMat) };
+                for (int i = 0; i < previews.Length; i++)
                 {
-                    var r = child.GetComponent<MeshRenderer>();
-                    switch (child.name)
-                    {
-                        case "physarum": if (r != null) r.sharedMaterial = physMat; break;
-                        case "boids":
-                        case "primordial":
-                            child.name = "primordial";
-                            if (r != null) r.sharedMaterial = ppsMat;
-                            break;
-                        case "termite": UnityEngine.Object.DestroyImmediate(child.gameObject); break;
-                    }
+                    var quad = quadRoot.Find(previews[i].name);
+                    if (quad == null) continue;
+                    var r = quad.GetComponent<MeshRenderer>();
+                    if (r != null) r.sharedMaterial = previews[i].mat;
+                    quad.localPosition = new Vector3(0.7f, 0.375f - 0.25f * i, quad.localPosition.z);
+                    quad.localScale = new Vector3(0.24f, 0.24f, 1f);
                 }
             }
 
@@ -249,12 +258,13 @@ namespace Biomes
             }
         }
 
-        // 250k physarum at the 11.3 write rate saturate Pheromone0 (mean 0.38 measured), so the
-        // creatures would be agitated everywhere instead of where the veins are.
+        // 11.3's write rate saturates Pheromone0 (mean 0.38 measured with 250 k agents), so the
+        // creatures would be agitated everywhere instead of where the veins are. 0.004 at 250 k held
+        // a mean ≈ 0.08; at 11.3's 1 M agents the same flux is 0.001.
         private static void QuietScent(UmweltMapping u)
         {
             foreach (var w in u.writes)
-                if (w.channel == BiomeChannel.Pheromone0) w.amount = 0.004f;
+                if (w.channel == BiomeChannel.Pheromone0) w.amount = 0.001f;
         }
 
         private static void SetObjectList(UnityEngine.Object target, string field, List<SimulationBase> sims)
@@ -266,14 +276,6 @@ namespace Biomes
             for (int i = 0; i < sims.Count; i++)
                 list.GetArrayElementAtIndex(i).objectReferenceValue = sims[i];
             so.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        // A snapshot, because the quad loop destroys children while iterating.
-        private static List<Transform> ChildrenSnapshot(Transform t)
-        {
-            var children = new List<Transform>();
-            foreach (Transform c in t) children.Add(c);
-            return children;
         }
 
         // onCopy runs only when the copy is made, so later runs never clobber tuning.
