@@ -6,7 +6,7 @@ namespace Biomes
 {
     /// <summary>Which agent sim a palette swatch is for. <see cref="Any"/> = untagged, serves every sim.
     /// Serialized as int — append only.</summary>
-    public enum AgentFamily { Any, Physarum, Boid, Termite }
+    public enum AgentFamily { Any, Physarum, Boid, Termite, Primordial }
 
     /// <summary>One palette color: what a type shows on screen at full trail intensity (sRGB),
     /// optionally tagged with the sim family it belongs to.</summary>

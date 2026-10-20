@@ -1,0 +1,438 @@
+// Primordial particle system (Schmickl, Stefanec & Crailsheim, Sci. Rep. 6:37969, 2016) with biome
+// perception + spatial hash. Δφ = α + β·N·sign(R − L); conventions in core_math/PrimordialMotion.cs,
+// the CPU reference MoveAgentsKernel is tested against.
+
+#pragma kernel ResetTextureKernel
+#pragma kernel ResetAgentsKernel
+#pragma kernel ClearCellCountsKernel
+#pragma kernel HashAndCountKernel
+#pragma kernel PrefixSumKernel
+#pragma kernel ScatterKernel
+#pragma kernel ReorderAgentsKernel
+#pragma kernel MoveAgentsKernel
+#pragma kernel WriteTrailsKernel
+#pragma kernel DiffuseTextureKernel
+#pragma kernel RenderKernel
+
+// Trail texture array (PrimordialSim.TrailLayerCount = 2·typeCount + 1):
+//   [0, T)       per-type trail
+//   T            total (for the trail tensor)
+//   [T+1, 2T]    per-type density-weighted trail: deposit · saturate(N / densityFull)
+// Both banks diffuse identically, so weighted / trail at a pixel is the deposit-weighted mean
+// neighbourhood density of the light there — it survives blur and fade unchanged.
+Texture2DArray<float> trailRead;
+RWTexture2DArray<float> trailWrite;
+RWTexture2D<float4> outTex;
+
+// Coherence-enhancing trail diffusion (see DiffuseTextureKernel).
+float trailAnisotropy;       // 0 = legacy isotropic box blur
+int trailTensorStride;       // texel spacing of the tensor window (rez-scaled, >= 1)
+
+// Biome perception: R=chemotaxis, G=speed multiplier, B=avoidance, A=speed boost (Dispersal)
+Texture2D<float4> perceptionTex;
+SamplerState sampler_perceptionTex;
+
+struct Agent {
+    float2 position;
+    float2 direction;    // unit heading
+    uint typeId;
+};
+uint agentsCount;
+StructuredBuffer<Agent> agentsIn;
+RWStructuredBuffer<Agent> agentsOut;
+
+// Each agent's last weighted neighbour count N, Move → WriteTrails (render only).
+RWStructuredBuffer<float> agentDensity;
+StructuredBuffer<float> agentDensityRead;
+
+// Spatial hash — BoidSim's count → prefix → scatter → reorder, cells >= one radius wide.
+uint gridW;
+uint gridH;
+float2 cellSize;      // per axis: rez / cell count, so the grid tiles the torus exactly
+RWStructuredBuffer<uint> cellCounts;
+RWStructuredBuffer<uint> cellOffsets;
+RWStructuredBuffer<uint> sortedIndices;
+StructuredBuffer<uint> cellOffsetsRead;
+StructuredBuffer<uint> sortedIndicesRead;
+RWStructuredBuffer<Agent> agentsSorted;
+StructuredBuffer<Agent> agentsSortedRead;
+
+// Binning (HashAndCount, Scatter) and neighbour lookup (Move) must agree exactly.
+uint2 CellOf(float2 p) {
+    return uint2(min((uint)(p.x / cellSize.x), gridW - 1), min((uint)(p.y / cellSize.y), gridH - 1));
+}
+
+uint rezX;
+uint rezY;
+uint time;
+float persistence;   // per-frame retention of outTex (set from SimulationBase.renderPersistence)
+uint substep;        // PPS iteration within this sim step (RNG salt)
+float substepScale;  // 1 / substeps: each iteration deposits its share of a step's trail
+
+// Neuron-position seeding (bound by SimulationBase.BuildNeuronPositions)
+StructuredBuffer<float2> neuronPositions;
+uint neuronCount;
+float2 neuronScale;
+float neuronSeedFraction;   // share of particles born around a neuron (the rest scatter)
+float seedRadiusPx;         // Gaussian σ of that birth cloud
+
+#include "includes/random.hlsl"
+#include "includes/primordial_type_params.hlsl"
+#include "includes/neuron_layout.hlsl"
+#include "includes/neuron_firing.hlsl"
+#include "includes/dispersal_speed_response.hlsl"
+#include "includes/keepout.hlsl"
+#include "includes/spawn.hlsl"
+#include "includes/torus.hlsl"
+
+#define TWO_PI 6.2831853
+
+// Minimum-image displacement on the torus: a neighbour across the seam is a short hop.
+float2 ToroidalDiff(float2 sub, float2 rez) {
+    return sub - rez * round(sub / rez);
+}
+
+// Standard normal sample from two [0,1) values (Box-Muller).
+float Gaussian(float2 u) {
+    return sqrt(-2.0 * log(max(u.x, 1e-7))) * cos(TWO_PI * u.y);
+}
+
+
+// ════════════════════════════════════════════════
+// RESET
+// ════════════════════════════════════════════════
+[numthreads(8, 8, 1)]
+void ResetTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+    for (uint t = 0; t <= 2 * typeCount; t++) {
+        trailWrite[uint3(id.xy, t)] = 0;
+    }
+}
+
+[numthreads(256, 1, 1)]   // keep-out eviction's arrays exceed the register budget at 1024
+void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    float2 rez = float2((float)rezX, (float)rezY);
+    Agent a;
+    // Modes 1-3 from spawn.hlsl; mode 0's background is the paper's uniform soup, which
+    // AltSpawnPosition's scatter branch gives (resampled clear of keep-out rects).
+    a.position = AltSpawnPosition(id.x, time);
+
+    // Mode 0: a hashed share is born in a Gaussian cloud around neuron i % neuronCount —
+    // ~40 particles per neuron at the defaults, one triangle cell's worth — so each neuron
+    // births a creature and its firing (index-mapped, neuron_firing.hlsl) excites exactly it.
+    if (spawnMode == 0 && neuronCount > 0
+        && Hash1u(id.x * 2654435761u + 0x68E31DA4u) < neuronSeedFraction) {
+        float2 n = NeuronPxToFieldPx(neuronPositions[id.x % neuronCount], neuronScale, rez);
+        float2 g = SpawnHash2(id.x, time, 9);
+        float2 h = SpawnHash2(id.x, time, 10);
+        float2 p = n + seedRadiusPx * float2(Gaussian(g), Gaussian(h));
+        p -= rez * floor(p / rez);   // torus
+        // Neuron layouts ignore keep-outs: evict to the nearest open edge (as the other sims do).
+        if (keepOutCount > 0)
+            p = EvictFromKeepOut(p / rez) * rez;
+        a.position = min(p, rez - 0.001);
+    }
+
+    a.direction = SpawnHeading(id.x, time);
+    a.typeId = (id.x * typeCount) / agentsCount;
+    agentsOut[id.x] = a;
+    agentDensity[id.x] = 0;
+}
+
+
+// ════════════════════════════════════════════════
+// SPATIAL HASH
+// ════════════════════════════════════════════════
+[numthreads(1024, 1, 1)]
+void ClearCellCountsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= gridW * gridH) return;
+    cellCounts[id.x] = 0;
+}
+
+[numthreads(1024, 1, 1)]
+void HashAndCountKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    uint2 cell = CellOf(agentsIn[id.x].position);
+    InterlockedAdd(cellCounts[cell.y * gridW + cell.x], 1);
+}
+
+// Exclusive prefix sum over cellCounts -> cellOffsets in ONE threadgroup (BoidSim's scan:
+// Hillis-Steele per 256-cell chunk, serial carry across chunks), zeroing cellCounts for
+// ScatterKernel's running counters. Bounds are uniform, so every thread reaches every barrier.
+#define SCAN_THREADS 256
+groupshared uint g_scan[SCAN_THREADS];
+
+[numthreads(SCAN_THREADS, 1, 1)]
+void PrefixSumKernel(uint3 gtid : SV_GROUPTHREADID) {
+    uint tid = gtid.x;
+    uint totalCells = gridW * gridH;
+    uint running = 0u;
+
+    for (uint base = 0u; base < totalCells; base += SCAN_THREADS) {
+        uint i = base + tid;
+        uint v = (i < totalCells) ? cellCounts[i] : 0u;
+        g_scan[tid] = v;
+        GroupMemoryBarrierWithGroupSync();
+
+        for (uint offset = 1u; offset < SCAN_THREADS; offset <<= 1) {
+            uint add = (tid >= offset) ? g_scan[tid - offset] : 0u;
+            GroupMemoryBarrierWithGroupSync();
+            g_scan[tid] += add;
+            GroupMemoryBarrierWithGroupSync();
+        }
+
+        uint inclusive = g_scan[tid];
+        if (i < totalCells) {
+            cellOffsets[i] = running + inclusive - v;   // exclusive prefix
+            cellCounts[i]  = 0u;                          // reset for ScatterKernel reuse
+        }
+        running += g_scan[SCAN_THREADS - 1];
+        GroupMemoryBarrierWithGroupSync();
+    }
+}
+
+[numthreads(1024, 1, 1)]
+void ScatterKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    uint2 cell = CellOf(agentsIn[id.x].position);
+    uint cellKey = cell.y * gridW + cell.x;
+    uint localIdx;
+    InterlockedAdd(cellCounts[cellKey], 1, localIdx);
+    sortedIndices[cellOffsets[cellKey] + localIdx] = id.x;
+}
+
+// Copy agents into cell order so the neighbour loop streams contiguous records.
+[numthreads(1024, 1, 1)]
+void ReorderAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+    agentsSorted[id.x] = agentsIn[sortedIndicesRead[id.x]];
+}
+
+
+// ════════════════════════════════════════════════
+// MOVE: sense → turn → move (paper Fig. 1), + biome terms
+// ════════════════════════════════════════════════
+
+// Scalar the drift climbs: chemotaxis (R, 0.5 = neutral) minus avoidance (B).
+float FieldSignal(float2 uv) {
+    float4 s = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0);
+    return (s.r - 0.5) * 2.0 - s.b;
+}
+
+[numthreads(256, 1, 1)]
+void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    // Cell-sorted order: neighbouring threads scan the same cells; the result lands in the
+    // agent's own slot. Every agent senses the positions this iteration started from.
+    uint self = sortedIndicesRead[id.x];
+    Agent a = agentsSortedRead[id.x];   // == agentsIn[self], copied by ReorderAgentsKernel
+    PrimordialTypeParams p = typeParams[a.typeId];
+    float2 rez = float2((float)rezX, (float)rezY);
+    float2 h = a.direction;
+
+    // L / R: neighbours in the left / right half-disc, 0 < |d| < r (self and exact
+    // coincidences excluded). Right = clockwise of the heading in the y-up frame.
+    float left = 0, right = 0;
+    uint2 myCell = CellOf(a.position);
+    uint totalCells = gridW * gridH;
+    // With fewer than 3 cells on an axis, -1 and +1 wrap onto the same cell: visit each once.
+    int dxLo = gridW >= 3 ? -1 : 0, dxHi = gridW >= 2 ? 1 : 0;
+    int dyLo = gridH >= 3 ? -1 : 0, dyHi = gridH >= 2 ? 1 : 0;
+    for (int dx = dxLo; dx <= dxHi; dx++) {
+        for (int dy = dyLo; dy <= dyHi; dy++) {
+            uint ncx = (myCell.x + dx + gridW) % gridW;
+            uint ncy = (myCell.y + dy + gridH) % gridH;
+            uint neighborCell = ncy * gridW + ncx;
+            uint cellStart = cellOffsetsRead[neighborCell];
+            uint cellEnd = (neighborCell < totalCells - 1) ? cellOffsetsRead[neighborCell + 1] : agentsCount;
+
+            for (uint j = cellStart; j < cellEnd; j++) {
+                Agent o = agentsSortedRead[j];
+                float2 d = ToroidalDiff(o.position - a.position, rez);
+                float d2 = dot(d, d);
+                if (d2 > 0 && d2 < p.radiusSq) {
+                    float w = (o.typeId == a.typeId) ? 1.0 : p.otherTypeWeight;
+                    if (h.x * d.y - h.y * d.x < 0) right += w; else left += w;
+                }
+            }
+        }
+    }
+    float n = left + right;
+
+    // Perception at the particle: G scales speed, A agitates (noise) and boosts speed.
+    float2 uv = a.position / rez;
+    float4 perc = perceptionTex.SampleLevel(sampler_perceptionTex, uv, 0);
+
+    float turn = p.alpha + p.beta * n * sign(right - left);
+    float sigma = p.noise + p.agitationNoise * perc.a;
+    if (sigma > 0) {
+        float2 u = Hash2u(self * 747796405u + time * 2891336453u + substep * 1013904223u + 0x5F356495u);
+        turn += sigma * Gaussian(u);
+    }
+    float s, c;
+    sincos(turn, s, c);
+    h = normalize(float2(h.x * c - h.y * s, h.x * s + h.y * c));
+
+    float fireMul = IsFiring(self, neuronCount) ? p.firingSpeedMul : 1.0;
+    float speed = p.speed * perc.g * fireMul;
+    ApplyDispersalSpeedResponse(speed, perc.a);
+    float2 step = h * speed;   // along the NEW heading
+
+    // Drift up (fieldDrift > 0) or down the perceived field: central differences at ±radius.
+    // The field varies on the biome grid's scale, far wider than a cell, so the whole cell
+    // translates together and its neighbour relations — hence its structure — are unchanged.
+    if (p.fieldDrift != 0) {
+        float2 o = sqrt(p.radiusSq) / rez;
+        float2 grad = 0.5 * float2(FieldSignal(uv + float2(o.x, 0)) - FieldSignal(uv - float2(o.x, 0)),
+                                   FieldSignal(uv + float2(0, o.y)) - FieldSignal(uv - float2(0, o.y)));
+        float2 drift = p.fieldDrift * grad;
+        float maxDrift = 2.0 * p.speed;
+        float len = length(drift);
+        if (len > maxDrift) drift *= maxDrift / len;
+        step += drift;
+    }
+
+    a.position += step;
+    if (a.position.x < 0) a.position.x += rez.x;
+    if (a.position.x >= rez.x) a.position.x -= rez.x;
+    if (a.position.y < 0) a.position.y += rez.y;
+    if (a.position.y >= rez.y) a.position.y -= rez.y;
+    a.direction = h;
+
+    agentsOut[self] = a;
+    agentDensity[self] = n;
+}
+
+
+// ════════════════════════════════════════════════
+// TRAILS
+// ════════════════════════════════════════════════
+[numthreads(1024, 1, 1)]
+void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= agentsCount) return;
+
+    Agent a = agentsOut[id.x];
+    PrimordialTypeParams p = typeParams[a.typeId];
+    // Wrap, don't clip: round() of a position in [rez-0.5, rez) gives rez (the torus's pixel 0).
+    uint2 pos = WrapTorus(uint2(round(a.position)), uint2(rezX, rezY));
+
+    float dep = (IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount) * substepScale;
+    float dens = saturate(agentDensityRead[id.x] / max(p.densityFull, 1e-3));
+
+    uint3 tl = uint3(pos, a.typeId);
+    uint3 wl = uint3(pos, typeCount + 1 + a.typeId);
+    float t = trailWrite[tl] + dep;
+    float w = trailWrite[wl] + dep * dens;
+    // Saturate the pair together: clamping the trail alone would let the weighted layer
+    // creep up to it under repeated deposits, reading every saturated pixel as fully dense.
+    float k = t > 1.0 ? 1.0 / t : 1.0;
+    trailWrite[tl] = t * k;
+    trailWrite[wl] = w * k;
+}
+
+// Coherence-enhancing anisotropic trail diffusion (structure tensor, à la Weickert) — the
+// PhysarumSim kernel, applied to both banks with identical weights so the density ratio holds.
+// trailAnisotropy 0 → every weight 1 → the legacy box blur. Taps wrap toroidally.
+[numthreads(8, 8, 1)]
+void DiffuseTextureKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    int2 rez = int2(rezX, rezY);
+
+    // Uniform early-out: at trailAnisotropy 0 skip the 25-tap tensor entirely.
+    float2 ridge = float2(0, 0);
+    float elong = 0.0;
+    if (trailAnisotropy > 0.0) {
+    float tot[25];
+    {
+        uint n = 0;
+        for (int oy = -2; oy <= 2; oy++)
+            for (int ox = -2; ox <= 2; ox++)
+                tot[n++] = trailRead[uint3(
+                    uint2(WrapTorus(int2(id.xy) + int2(ox, oy) * trailTensorStride, rez)), typeCount)];
+    }
+    float jxx = 0, jxy = 0, jyy = 0;
+    for (int wy = -1; wy <= 1; wy++) {
+        for (int wx = -1; wx <= 1; wx++) {
+            float gx = (tot[(wy + 2) * 5 + (wx + 3)] - tot[(wy + 2) * 5 + (wx + 1)]) * 0.5;
+            float gy = (tot[(wy + 3) * 5 + (wx + 2)] - tot[(wy + 1) * 5 + (wx + 2)]) * 0.5;
+            jxx += gx * gx; jxy += gx * gy; jyy += gy * gy;
+        }
+    }
+    float halfTr = (jxx + jyy) * 0.5;
+    float det = sqrt(max(0.0, 0.25 * (jxx - jyy) * (jxx - jyy) + jxy * jxy));
+    float l1 = halfTr + det, l2 = halfTr - det;
+    float cohBase = (l1 + l2) > 1e-12 ? (l1 - l2) / (l1 + l2) : 0.0;
+    float2 major = float2(jxy, l1 - jxx);
+    if (abs(major.x) + abs(major.y) < 1e-12) major = float2(l1 - jyy, jxy);
+    float mlen = length(major);
+    ridge = mlen > 1e-12 ? float2(-major.y, major.x) / mlen : float2(0, 0);
+    elong = (det > 1e-12 && mlen > 1e-12)
+        ? trailAnisotropy * cohBase : 0.0;
+    }
+
+    int2  taps[9];
+    float wts[9];
+    float wsum = 0;
+    uint k = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            taps[k] = WrapTorus(int2(id.xy) + int2(dx, dy), rez);
+            float a = 1.0;   // center tap: never down-weighted (wsum >= 1)
+            if (dx != 0 || dy != 0) {
+                float al = dot(normalize(float2(dx, dy)), ridge);
+                float al2 = al * al;
+                a = al2 * al2;   // ^4 lobe: halves the diagonal side-leak vs ^2
+            }
+            wts[k] = lerp(1.0, a, elong);
+            wsum += wts[k];
+            k++;
+        }
+    }
+
+    float total = 0;
+    for (uint t = 0; t < typeCount; t++) {
+        float acc = 0, accW = 0;
+        [unroll]
+        for (uint i = 0; i < 9; i++) {
+            acc  += wts[i] * trailRead[uint3(taps[i], t)];
+            accW += wts[i] * trailRead[uint3(taps[i], typeCount + 1 + t)];
+        }
+        float g = typeParams[t].diffuseRate / wsum;
+        float diffused = clamp(acc * g, 0, 1);
+        trailWrite[uint3(id.xy, t)] = diffused;
+        trailWrite[uint3(id.xy, typeCount + 1 + t)] = clamp(accW * g, 0, 1);
+        total += diffused;
+    }
+    trailWrite[uint3(id.xy, typeCount)] = total;
+}
+
+
+// ════════════════════════════════════════════════
+// RENDER: membrane vs nucleus by density
+// ════════════════════════════════════════════════
+#include "includes/color.hlsl"
+
+[numthreads(8, 8, 1)]
+void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
+    if (id.x >= rezX || id.y >= rezY) return;
+
+    float4 color = 0;
+    for (uint t = 0; t < typeCount; t++) {
+        float val = trailRead[uint3(id.xy, t)];
+        float dens = val > 1e-5 ? saturate(trailRead[uint3(id.xy, typeCount + 1 + t)] / val) : 0.0;
+        PrimordialTypeParams p = typeParams[t];
+        // densityHueShift = densityGlow = 0 → hsb2rgb(hue, sat, brightness·val): the shared formula.
+        float hue = frac(p.hue + p.densityHueShift * dens);
+        float sat = p.saturation * (1.0 - 0.6 * saturate(p.densityGlow) * dens);
+        float bri = p.brightness * val * (1.0 + p.densityGlow * dens);
+        color += hsb2rgb(float3(hue, sat, bri), val) / typeCount;
+    }
+    float4 current = outTex[id.xy];
+    current += color;
+    current *= persistence;
+    outTex[id.xy] = saturate(current);
+}

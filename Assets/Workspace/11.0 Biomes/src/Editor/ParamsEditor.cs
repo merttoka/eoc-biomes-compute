@@ -125,4 +125,10 @@ namespace Biomes
     {
         public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IAgentColorParams)target);
     }
+
+    [CustomEditor(typeof(PrimordialParams))]
+    public class PrimordialParamsEditor : Editor
+    {
+        public override void OnInspectorGUI() => ParamsEditorGUI.DrawInspector(this, (IAgentColorParams)target);
+    }
 }

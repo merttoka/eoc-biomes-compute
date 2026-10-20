@@ -117,7 +117,7 @@ namespace Biomes
                 var sim = m_Simulations[simIdx];
                 if (sim == null) continue;
 
-                string prefix = sim.SimName.Substring(0, 1).ToLower();
+                string prefix = sim.OscPrefix;
                 int capturedIdx = simIdx;
 
                 foreach (string paramName in sim.ModulatableParams)
