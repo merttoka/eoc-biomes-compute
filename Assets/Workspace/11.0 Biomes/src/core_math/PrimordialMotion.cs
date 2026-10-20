@@ -7,11 +7,13 @@ namespace Biomes
     /// 2016) as a CPU reference for <c>PrimordialSim.compute</c>'s MoveAgentsKernel:
     /// <c>Δφ = α + β · N · sign(R − L)</c>, with L / R the neighbours in the left / right half-disc
     /// of radius r and N = L + R.
-    /// Conventions, pinned by PrimordialMotionTests because mirroring them maps ⟨α, β⟩ to ⟨−α, β⟩:
-    /// y-up frame; a neighbour is on the right when cross(heading, offset) &lt; 0; a positive Δφ turns
-    /// counter-clockwise. Each step senses with the current heading, turns, then moves along the NEW
-    /// heading (the paper's Fig. 1 order). The update is synchronous: every particle senses the
-    /// positions the step started from.
+    /// Conventions, pinned by PrimordialMotionTests: y-up frame; a neighbour is on the right when
+    /// cross(heading, offset) &lt; 0; a positive Δφ is a turn to the RIGHT (clockwise), as the paper
+    /// states. The side test and the turn direction must agree: flipping one alone runs ⟨α, −β⟩, a
+    /// different PPS (at the default ⟨180°, 17°⟩ the soup congeals into blobs instead of cells);
+    /// flipping both is a mirror image, i.e. ⟨−α, β⟩. Each step senses with the current heading,
+    /// turns, then moves along the NEW heading (the paper's Fig. 1 order). The update is
+    /// synchronous: every particle senses the positions the step started from.
     /// </summary>
     public static class PrimordialMotion
     {
@@ -42,10 +44,11 @@ namespace Biomes
             return d;
         }
 
-        public static Vector2 Rotate(Vector2 v, float angle)
+        /// <summary>Turn a heading by Δφ; positive = clockwise (a right turn) in the y-up frame.</summary>
+        public static Vector2 Turn(Vector2 v, float deltaPhi)
         {
-            float c = Mathf.Cos(angle), s = Mathf.Sin(angle);
-            return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
+            float c = Mathf.Cos(deltaPhi), s = Mathf.Sin(deltaPhi);
+            return new Vector2(v.x * c + v.y * s, -v.x * s + v.y * c);
         }
 
         /// <summary>
@@ -70,7 +73,7 @@ namespace Biomes
                     if (IsRight(head[i], d)) right += w; else left += w;
                 }
 
-                Vector2 h = Rotate(head[i], TurnDelta(sp.alpha, sp.beta, left, right)).normalized;
+                Vector2 h = Turn(head[i], TurnDelta(sp.alpha, sp.beta, left, right)).normalized;
                 Vector2 p = pos[i] + h * sp.speed;
                 if (p.x < 0f) p.x += world.x; else if (p.x >= world.x) p.x -= world.x;
                 if (p.y < 0f) p.y += world.y; else if (p.y >= world.y) p.y -= world.y;

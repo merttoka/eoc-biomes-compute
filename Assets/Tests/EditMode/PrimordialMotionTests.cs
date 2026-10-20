@@ -51,11 +51,14 @@ public class PrimordialMotionTests
     }
 
     [Test]
-    public void PositiveTurn_IsCounterClockwise()
+    public void PositiveTurn_IsARightTurn_TowardTheRightSide()
     {
-        var h = PrimordialMotion.Rotate(Vector2.right, 90f * Deg);
+        // Paper: "a positive change of φ is a turn to the right". It must turn toward the side
+        // IsRight calls right — the two conventions agreeing is what makes this ⟨α, β⟩, not ⟨α, −β⟩.
+        var h = PrimordialMotion.Turn(Vector2.right, 90f * Deg);
         Assert.That(h.x, Is.EqualTo(0f).Within(1e-6f));
-        Assert.That(h.y, Is.EqualTo(1f).Within(1e-6f));
+        Assert.That(h.y, Is.EqualTo(-1f).Within(1e-6f));
+        Assert.That(PrimordialMotion.IsRight(Vector2.right, h), Is.True);
     }
 
     [Test]
@@ -64,8 +67,8 @@ public class PrimordialMotionTests
         var sp = new[] { new PrimordialMotion.Species { alpha = 90f * Deg, beta = 0f, radius = 5f, speed = 1f, otherTypeWeight = 1f } };
         var (p, h, _) = Run(new[] { new Vector2(50f, 30f) }, new[] { Vector2.right }, new[] { 0 }, sp);
         Assert.That(p[0].x, Is.EqualTo(50f).Within(1e-5f), "moved along the new heading, not the old");
-        Assert.That(p[0].y, Is.EqualTo(31f).Within(1e-5f));
-        Assert.That(h[0].y, Is.EqualTo(1f).Within(1e-5f));
+        Assert.That(p[0].y, Is.EqualTo(29f).Within(1e-5f));
+        Assert.That(h[0].y, Is.EqualTo(-1f).Within(1e-5f));
     }
 
     [Test]
@@ -87,9 +90,10 @@ public class PrimordialMotionTests
         var (_, h, n) = Run(pos, head, new[] { 0, 0 }, sp);
         Assert.That(n[0], Is.EqualTo(1f));
         Assert.That(n[1], Is.EqualTo(1f));
-        // A: L = 1 → Δφ = −β (clockwise). B: R = 1 → Δφ = +β (counter-clockwise).
-        Assert.That(h[0].x, Is.GreaterThan(0f), "A turns clockwise, toward +x");
-        Assert.That(h[1].x, Is.LessThan(0f), "B turns counter-clockwise, toward −x");
+        // A: L = 1 → Δφ = −β, a left turn toward −x (B's side). B: R = 1 → Δφ = +β, a right
+        // turn toward +x (A's side): both turn toward the seam, the minimum-image neighbour.
+        Assert.That(h[0].x, Is.LessThan(0f), "A turns left, toward −x");
+        Assert.That(h[1].x, Is.GreaterThan(0f), "B turns right, toward +x");
     }
 
     [Test]

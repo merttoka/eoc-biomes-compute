@@ -38,9 +38,10 @@ works in raw pixels. This design follows the paper instead.
 - **Order per step** (paper Fig. 1): sense with the current heading → `φ += Δφ` → move
   `p += v · (cos φ, sin φ)` along the **new** heading. Torus world.
 - **Handedness:** y-up math frame. A neighbour at offset `d` is on the right iff
-  `cross(h, d) = h.x·d.y − h.y·d.x < 0`; positive `Δφ` rotates counter-clockwise (a left turn).
-  Mirroring the convention maps ⟨α, β⟩ → ⟨−α, β⟩, harmless at α = 180° but not elsewhere in
-  the paper's phase diagram, so it is pinned by a test.
+  `cross(h, d) = h.x·d.y − h.y·d.x < 0`, and positive `Δφ` is a **turn to the right** (clockwise),
+  as the paper states. The two must agree. Flipping only one of them runs ⟨α, −β⟩, a different
+  PPS: the first gate-1 run did exactly that, and the soup congealed into blobs instead of
+  growing cells. Flipping both is a mirror image, ⟨−α, β⟩. Both are pinned by tests.
 - **Neighbourhood:** `0 < |d| < r` (self and exactly coincident particles excluded), minimum-image
   distance across the seam.
 - **Update:** synchronous (every particle senses positions from the start of the step,

@@ -272,9 +272,10 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
         float2 u = Hash2u(self * 747796405u + time * 2891336453u + substep * 1013904223u + 0x5F356495u);
         turn += sigma * Gaussian(u);
     }
+    // Positive Δφ = a right (clockwise) turn, toward the side counted as R above.
     float s, c;
     sincos(turn, s, c);
-    h = normalize(float2(h.x * c - h.y * s, h.x * s + h.y * c));
+    h = normalize(float2(h.x * c + h.y * s, -h.x * s + h.y * c));
 
     float fireMul = IsFiring(self, neuronCount) ? p.firingSpeedMul : 1.0;
     float speed = p.speed * perc.g * fireMul;

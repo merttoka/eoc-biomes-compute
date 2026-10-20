@@ -137,6 +137,9 @@ namespace Biomes
 
         public override void Reset()
         {
+            // Before the clone: Unity's add-component Reset() runs before cs is assigned, and the
+            // clone would serialize into the scene as an orphaned ScriptableObject (see CyclicCASim).
+            if (cs == null) return;
             agentParams = CloneParams(paramsSO);
             _agentCount = DerivedAgentCount();
             base.Reset();

@@ -14,7 +14,7 @@ namespace Biomes
     {
         [Tooltip("Fixed turn per step (deg). 180 = isolated particles hold position (they flip back and forth).")]
         public float alpha = 180f;
-        [Tooltip("Turn per neighbour (deg), signed toward the side with fewer neighbours: Δφ = α + β·N·sign(R − L).")]
+        [Tooltip("Turn per neighbour (deg): Δφ = α + β·N·sign(R − L), positive = a right turn, so β > 0 turns toward the more crowded side.")]
         public float beta = 17f;
         [Tooltip("Neighbourhood radius (su).")]
         public float radius = 5f;
