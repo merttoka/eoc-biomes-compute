@@ -955,6 +955,8 @@ namespace Biomes
         [Button("Stop Boids")]     public void StopBoids()     => StopSimsOfType<BoidSim>();
         [Button("Start Termites")] public void StartTermites() => StartSimsOfType<TermiteSim>();
         [Button("Stop Termites")]  public void StopTermites()  => StopSimsOfType<TermiteSim>();
+        [Button("Start Primordial")] public void StartPrimordial() => StartSimsOfType<PrimordialSim>();
+        [Button("Stop Primordial")]  public void StopPrimordial()  => StopSimsOfType<PrimordialSim>();
         // Field sims (both CA rules) as one family, same reasoning as ResetCellular.
         [Button("Start Cellular")] public void StartCellular() => StartSimsOfType<FieldSimulationBase>();
         [Button("Stop Cellular")]  public void StopCellular()  => StopSimsOfType<FieldSimulationBase>();
@@ -995,6 +997,7 @@ namespace Biomes
         // sneak-start a sim (use the Start buttons for that).
         [Button("Reset Physarum Only")] public void ResetPhysarum() => ResetSimsOfType<PhysarumSim>();
         [Button("Reset Boids Only")]    public void ResetBoids()    => ResetSimsOfType<BoidSim>();
+        [Button("Reset Primordial Only")] public void ResetPrimordial() => ResetSimsOfType<PrimordialSim>();
         [Button("Reset Termites Only")] public void ResetTermites()
         {
             // Clear the built mounds only when a termite sim actually reset — clearing on a

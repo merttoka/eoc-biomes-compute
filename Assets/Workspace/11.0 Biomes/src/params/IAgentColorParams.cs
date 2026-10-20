@@ -1,8 +1,8 @@
 namespace Biomes
 {
     /// <summary>
-    /// An agent sim's param set (Physarum / Boid / Termite): per-type hue, saturation and
-    /// brightness, plus the family that palette swatches are tagged with.
+    /// An agent sim's param set (Physarum / Boid / Termite / Primordial): per-type hue,
+    /// saturation and brightness, plus the family that palette swatches are tagged with.
     /// </summary>
     public interface IAgentColorParams : IParamSet
     {

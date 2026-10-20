@@ -34,6 +34,13 @@ render-only sim-resolution mirror of ch7 instead of the coarse biome grid (11.3:
 blocks → thin paths); default off
 ([[adr/0016-mound-detail-render-mirror|ADR-0016]], [[sessions/2026-10-06-mound-detail-layer|session]]).
 
+**Primordial particle system (2026-10-20)** — 4th agent sim: Schmickl's PPS motion law on the GPU in
+paper space units (density-derived population), creatures with membranes/nuclei from a
+density-weighted trail bank, coupled through turn noise (perception A) and a clamped drift (R − B);
+**11.4 PPS Scene** pairs it with a hunting Physarum (Nutrient ↔ Pheromone0 predation loop, local
+firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
+[[sessions/2026-10-20-primordial-sim|session]]).
+
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
   [[adr/0010-permeability-agent-built-topography|ADR-0010]] /
@@ -74,6 +81,13 @@ blocks → thin paths); default off
   the (already low-frequency) tensor at half rez with double-angle axis encoding; designed, not
   built — measure 11.3's knob-on GPU ms first
   ([[superpowers/specs/2026-08-15-half-rez-trail-tensor-design|spec]]).
+
+- **Primordial follow-ups** — a dedicated PPS biome channel (v1 writes Nutrient, so a scene that also
+  needs Nutrient for decomposition can't tell them apart); per-type population fractions (types
+  split the count evenly today); the paper's asynchronous update order as an option; a
+  symbiosis umwelt that keeps creatures on the veins without the drift collapse (drift up a
+  standing scent converges the soup onto its maxima —
+  [[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]).
 
 ### Low-stakes polish
 - Injector EMA dt-independence (06-10 #4) — constant `Lerp`, no `deltaTime`.

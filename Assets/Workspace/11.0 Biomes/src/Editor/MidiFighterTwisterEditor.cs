@@ -10,6 +10,7 @@ namespace Biomes
         private static readonly Color COL_SIM_PHYSARUM = new(0.3f, 0.6f, 1f, 0.35f);
         private static readonly Color COL_SIM_BOID     = new(1f, 0.5f, 0.2f, 0.35f);
         private static readonly Color COL_SIM_TERMITE  = new(0.9f, 0.85f, 0.2f, 0.35f);
+        private static readonly Color COL_SIM_PRIMORDIAL = new(1f, 0.35f, 0.7f, 0.35f);
         private static readonly Color COL_BIOME        = new(0.3f, 0.8f, 0.3f, 0.35f);
         private static readonly Color COL_UMWELT       = new(0.3f, 0.8f, 0.8f, 0.35f);
         private static readonly Color COL_GLOBAL       = new(0.7f, 0.4f, 0.9f, 0.35f);
@@ -112,9 +113,12 @@ namespace Biomes
                             string sn = sim.SimName;
                             string shortParam = b.paramName ?? "?";
                             if (shortParam.Length > 12) shortParam = shortParam.Substring(0, 12);
-                            label = $"{sn[0]}{b.typeIndex}\n{shortParam}";
+                            // 'P' is Physarum's; Primordial gets two letters.
+                            string tag = sim is PrimordialSim ? "Pr" : sn[0].ToString();
+                            label = $"{tag}{b.typeIndex}\n{shortParam}";
                             bgColor = sim is PhysarumSim ? COL_SIM_PHYSARUM
                                     : sim is TermiteSim ? COL_SIM_TERMITE
+                                    : sim is PrimordialSim ? COL_SIM_PRIMORDIAL
                                     : COL_SIM_BOID;
                             break;
                         }
@@ -206,6 +210,7 @@ namespace Biomes
             DrawLegendSwatch(COL_SIM_PHYSARUM, "Physarum");
             DrawLegendSwatch(COL_SIM_BOID, "Boid");
             DrawLegendSwatch(COL_SIM_TERMITE, "Termite");
+            DrawLegendSwatch(COL_SIM_PRIMORDIAL, "Primordial");
             DrawLegendSwatch(COL_BIOME, "Biome");
             DrawLegendSwatch(COL_UMWELT, "Umwelt");
             DrawLegendSwatch(COL_GLOBAL, "Global");
@@ -257,7 +262,7 @@ namespace Biomes
                 "Shift layer (hold MFT shift): fine-tune (10x precision)\n" +
                 "Side L-mid / R-mid: cycle software banks\n" +
                 "LED feedback sends ring positions + RGB colors (needs MIDI output plugin)\n" +
-                "Sim LED colors: Physarum = blue, Boid = orange, Termite = yellow\n\n" +
+                "Sim LED colors: Physarum = blue, Boid = orange, Termite = yellow, Primordial = magenta\n\n" +
                 "All sims support 1-8 agent types (set on the params ScriptableObject).\n" +
                 "Banks 0-1 map params by layout mode. Bank 2 maps visual + biome. Bank 3 maps umwelt + globals.",
                 MessageType.Info);

@@ -69,6 +69,12 @@ namespace Biomes
                     m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetTermites());
                 }
             );
+            On(
+                "/sim_resetPrimordial",
+                (string address, OscDataHandle data) => {
+                    m_MainThreadActions.Enqueue(() => m_SimulationManager.ResetPrimordial());
+                }
+            );
 
             // Show blackout (organoid-analysis show mode): /sim_off [fadeSeconds] fades the
             // whole composite to black, /sim_on [fadeSeconds] fades it back. No argument uses

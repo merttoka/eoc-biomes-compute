@@ -51,6 +51,9 @@ Assets/Workspace/
   11.0 Biomes/          shared biome engine — src/, docs/, TestScene.unity (this doc's focus)
   11.1 CURRENTS Scene/  CURRENTS show — Scene_CURRENTS.unity + curated assets/materials/snapshots
   11.2 SIGGRAPH Scene/  SIGGRAPH show — Scene_SIGGRAPH.unity + leaner curated assets/materials
+  11.3 Brave New Work Scene/  Brave New Work show — Scene_BraveNewWork.unity (4800×1080 projection)
+  11.4 PPS Scene/       primordial-particle ecology — Scene_PPS.unity (Physarum + Primordial), built by
+                        Editor/PrimordialSceneSetup.cs
   Includes/             shared compute helpers / shaders (copied verbatim — ADR-0005)
 Assets/Settings/        Unity 6 Build Profiles (macOS standalone)
 Assets/StreamingAssets/ runtime-loaded blobs (e.g. biomes11/organoid_firing.f16, LFS)
@@ -77,13 +80,14 @@ src/
   components/
     core/       SimulationManager, SimulationBase, Biome, BiomeFieldConfig,
                 UmweltMapping, ExternalInputProvider, GPUResourceManager
-    Sim/        BoidSim, PhysarumSim, TermiteSim (concrete SimulationBase subclasses)
+    Sim/        BoidSim, PhysarumSim, TermiteSim, PrimordialSim, CyclicCASim, LookupCASim
+                (concrete SimulationBase subclasses)
     network/    MidiFighterTwister, MIDIMapping, OSCMapping, BiomeInjector,
                 NeuronFiringSource, ExternalTexture* (control surfaces + external inputs)
     utils/      ParameterRecorder, ParameterInterpolator, AgentPaletteCycler, ScreenLayout
     sequencer/  CompositeSequencer, BiomeCellRig, tracks/ (Timeline tracks — §3.9)
   sequencer_core/ Biomes.Sequencer.Core — engine-free patch-scheduling logic (§3.9)
-  params/     BoidParams, PhysarumParams, TermiteParams, ParamRange, ColorPalette, IParamSet,
+  params/     BoidParams, PhysarumParams, TermiteParams, PrimordialParams, ParamRange, ColorPalette, IParamSet,
               IAgentColorParams, AgentColorPalette
   Editor/     custom inspectors (ParamsEditor + AgentColorsGUI, MFT/MIDI editors, ScreenLayoutPreview,
               sequencer/BiomePaletteWindow — §3.9)
@@ -185,7 +189,7 @@ sim resolution; sim↔field coordinates are mapped by ratio.
 
 ### 3.4 Simulations — agent sims and field sims
 
-Two families share one base. **Agent sims** (`PhysarumSim` / `BoidSim` / `TermiteSim`) carry
+Two families share one base. **Agent sims** (`PhysarumSim` / `BoidSim` / `TermiteSim` / `PrimordialSim`) carry
 populations of GPU agents. **Field sims** (`FieldSimulationBase` → `CyclicCASim` /
 `LookupCASim`) have no agents at all — their entire state is one integer per cell.
 
@@ -266,13 +270,32 @@ and **shared neuron firing**
   [[superpowers/specs/2026-06-07-termite-sim-design]],
   [[superpowers/specs/2026-06-11-termite-biome-features-design]].
 
-All three sims also carry a **dispersal speed response** (`SimulationBase`:
+- **`PrimordialSim`** — Schmickl et al.'s primordial particle system: constant speed, turn
+  `Δφ = α + β·N·sign(R − L)` from the neighbours in the left/right half-disc (spatial hash à la Boid,
+  synchronous double-buffered update, `substeps` PPS iterations per sim step). At the paper's
+  ⟨r = 5, α = 180°, β = 17°, v = 0.67⟩ and 0.08 particles/su² the soup grows spores and cells that
+  eat free "nutrient" particles, divide and decay. All distances are in the paper's **space units**:
+  `spaceUnitPx` maps them to pixels (rez-scaled), and the agent count is **derived** from `density`
+  × the world's area in su, cached on Reset. Positive Δφ turns right, matching the paper; the
+  CPU reference `PrimordialMotion` (Biomes.Core) pins the conventions and the GPU kernel is tested
+  against it. Biome coupling goes through the paper's robustness axis: perception A adds
+  Gaussian turn noise (`agitationNoise`) that shatters cells, and R − B drives a positional drift
+  (clamped to half the speed) that moves cells intact. G scales speed per the engine contract,
+  but shipped umwelts leave it out, because v/r is load-bearing. The render keeps a second,
+  density-weighted trail bank (`TrailLayerCount = 2T + 1`), so membranes and nuclei shift hue
+  and glow while the sparse soup dims, and each particle is splatted as a disc of `size` su.
+  `OscPrefix` = `pps`. In the 11.4 scene it writes Nutrient, which Physarum hunts, and is agitated
+  by Physarum's Pheromone0: predation emerges with no lifecycle code
+  ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
+  [[superpowers/specs/2026-10-20-primordial-sim-design|spec]]).
+
+All agent sims also carry a **dispersal speed response** (`SimulationBase`:
 `dispersalSpeedMode` constant/multiplier, shared via
 `computes/includes/dispersal_speed_response.hlsl`) that accelerates agents out of a
 Dispersal pulse — constant mode snaps to a fixed flee speed so even slow agents react fast.
 
 **Neuron firing is shared, not termite-private** (see [[adr/0006-osc-neuron-firing]]). All
-three sims seed `agent i → neuron i % 131` at the same CSV positions, and read one shared
+agent sims seed `agent i → neuron i % 131` at the same CSV positions, and read one shared
 firing vector each step: `agent → neuron → firing[neuron] ≥ firingThreshold` →
 `firingSpeedMul` (faster) + `firingDepositAmount` (brighter trail), via
 `computes/includes/neuron_firing.hlsl`. The firing *values* come from a `float16` blob
@@ -293,7 +316,7 @@ how it perceives and affects the field:
 - **reads** — `(channel, weight, effect)` entries; the biome builds a per-sim
   perception texture (`ReadFieldKernel`) as a weighted sample. Effects map to the
   perception channels: `Chemotaxis→R`, `SpeedPenalty→G`, `Avoidance→B`, and
-  `SpeedBoost→A` (the last added for Dispersal — all three sims read a negative-weight
+  `SpeedBoost→A` (the last added for Dispersal — the agent sims read a negative-weight
   Chemotaxis entry on `Dispersal` to flee a pulse, plus a positive `SpeedBoost` entry to
   accelerate out of it).
 - **writes** — `(channel, amount)` deposits/consumptions at agent positions.
@@ -340,15 +363,15 @@ Two parameter surfaces coexist deliberately: the sims' `Get/SetParameter` take
 **Agent colors (HSB + palettes).** Each agent type carries `hue`, `saturation`, `brightness`
 (0–1). Render kernels draw `hsb2rgb(h, s, brightness · trail)` (Termite: `brightness · baseB`,
 firing still pushes toward white); `brightness` is the last float of each GPU type-params struct
-(Physarum 48 B, Boid 64 B, Termite 52 B) and defaults to the old hardcoded constant (0.8
+(Physarum 48 B, Boid 64 B, Termite 52 B, Primordial 84 B) and defaults to the old hardcoded constant (0.8
 Physarum/Boid, 1.0 Termite), so assets without the field render bit-identically.
 `color.hlsl`'s `hsb2rgb` smoothsteps each hue channel, so Unity's HSV is not the rendered color;
 `AgentColor` (`Biomes.Core`) is its exact C# port plus inverse (a grey/black pick keeps the type's
 hue). Kernels write linear light and the display gamma-encodes it, so everything a person sees or
 types (swatches, color field, eyedropper, hex, the Lab generator) goes through
 `AgentColor.ToDisplay`/`FromDisplay`; params, sliders, MFT and OSC stay in kernel values. `IAgentColorParams` adds the sim family to
-the three agent param sets. `AgentColorPalette` assets hold swatches (rendered colors), each
-optionally tagged Physarum/Boid/Termite; `PaletteAssign` gives type *i* the *i*-th swatch tagged
+the agent param sets. `AgentColorPalette` assets hold swatches (rendered colors), each
+optionally tagged Physarum/Boid/Termite/Primordial; `PaletteAssign` gives type *i* the *i*-th swatch tagged
 for its family, else the untagged, else all (wrapping). Presets: `11.0 Biomes/assets/Palettes/`
 — `Shows/` reproduce exhibited scenes per sim (Metaesthetica VISAP, CURRENTS, SIGGRAPH, SIGGRAPH
 DAC, Brave New Work), `Curated/` are untagged. The params inspector's **Colors** section draws a
@@ -627,6 +650,8 @@ Summarized here; authoritative detail in [[migration]] §2.
   `outTex` → no Syphon teardown).
 - [[adr/0009-per-show-scene-workspaces]] — one workspace folder per show; shared engine
   stays in `11.0 Biomes/`.
+- [[adr/0017-primordial-sim-paper-units-noise-coupling]] — the PPS sim works in paper space units
+  with a density-derived population, and couples to the biome through turn noise, not speed.
 
 ---
 
