@@ -14,11 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.UmweltMapping
   reads:
   - channel: 1
-    weight: 0.6
+    weight: 2
     effect: 3
-  - channel: 1
-    weight: -0.5
-    effect: 0
   - channel: 10
     weight: -2
     effect: 0

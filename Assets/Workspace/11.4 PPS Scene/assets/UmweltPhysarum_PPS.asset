@@ -45,7 +45,7 @@ MonoBehaviour:
     effect: 2
   writes:
   - channel: 1
-    amount: 0.012
+    amount: 0.004
   - channel: 6
     amount: -0.004
   - channel: 0

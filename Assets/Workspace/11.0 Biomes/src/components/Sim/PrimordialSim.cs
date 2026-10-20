@@ -20,29 +20,29 @@ namespace Biomes
         public override string OscPrefix => "pps";   // "p" is Physarum's
 
         private static readonly IReadOnlyList<string> s_ModulatableParams = new[]
-            { "alpha", "beta", "radius", "speed", "noise", "otherTypeWeight",
+            { "alpha", "beta", "radius", "speed", "size", "noise", "otherTypeWeight",
               "fieldDrift", "agitationNoise", "depositAmount", "diffuseRate",
-              "densityHueShift", "densityGlow", "hue", "saturation", "brightness" };
+              "densityHueShift", "densityGlow", "sparseDim", "hue", "saturation", "brightness" };
         public override IReadOnlyList<string> ModulatableParams => s_ModulatableParams;
 
         [Header("World (takes effect on Reset)")]
         [Tooltip("Pixels per space unit at the reference height (scaled by rezY/referenceHeight like every " +
-                 "spatial param). The world is referenceHeight/spaceUnitPx su tall at any resolution: 6 → " +
-                 "640×360 su at 16:9, cells ≈ 15–30 su. Smaller = more, smaller creatures (and more particles).")]
-        [Range(2f, 32f)] public float spaceUnitPx = 6f;
+                 "spatial param). The world is referenceHeight/spaceUnitPx su tall at any resolution: 8 → " +
+                 "480×270 su at 16:9 (~10k particles), cells ≈ 10–30 su. Smaller = more, smaller creatures.")]
+        [Range(2f, 32f)] public float spaceUnitPx = 8f;
         [Tooltip("Particles per su². The paper's soup is 0.08; cells need roughly 0.06–0.12 to emerge, " +
                  "denser runs crowd into tissue. Sets the agent count: density × world area in su.")]
         [Range(0.01f, 0.3f)] public float density = 0.08f;
         [Tooltip("PPS iterations per sim step. A paper cell divides in ~10³ iterations (~17 s at 60 Hz with 1); " +
                  "2–4 make the life cycle legible without speeding up the other sims. Each costs one hash + move.")]
-        [Range(1, 8)] public int substeps = 2;
+        [Range(1, 8)] public int substeps = 3;
 
         [Header("Neuron seeding (Spawn Mode = NeuronPositions)")]
         [Tooltip("Share of particles born in a cloud around neuron i % neuronCount — one creature per neuron " +
-                 "(~40 particles at the defaults). The rest scatter as the nutrient soup.")]
-        [Range(0f, 1f)] public float neuronSeedFraction = 0.3f;
+                 "(~10 particles, a spore's worth, at the defaults). The rest scatter as the nutrient soup.")]
+        [Range(0f, 1f)] public float neuronSeedFraction = 0.12f;
         [Tooltip("Gaussian σ of each neuron's birth cloud (su).")]
-        [Range(0.5f, 20f)] public float seedRadius = 3f;
+        [Range(0.5f, 20f)] public float seedRadius = 2.5f;
 
         [Header("Parameters (assign preset, runtime clone appears on Play)")]
         public PrimordialParams paramsSO;
@@ -85,12 +85,13 @@ namespace Biomes
         {
             public float alpha, beta;              // rad
             public float radiusSq, speed;          // px², px/step
+            public float sizePx;                   // deposit splat radius
             public float noise;                    // rad σ
             public float otherTypeWeight;
             public float fieldDrift;               // px/step per unit field difference
             public float agitationNoise;           // rad σ per unit perception.a
             public float depositAmount, diffuseRate;
-            public float densityFull, densityHueShift, densityGlow;
+            public float densityFloor, densityFull, densityHueShift, densityGlow, sparseDim;
             public float firingSpeedMul, firingDepositAmount;
             public float hue, saturation;
             public float brightness;   // last, matching the HLSL struct
@@ -213,15 +214,18 @@ namespace Biomes
                     beta = t.beta * Mathf.Deg2Rad,
                     radiusSq = r * r,
                     speed = t.speed * u,
+                    sizePx = t.size * u,
                     noise = t.noise * Mathf.Deg2Rad,
                     otherTypeWeight = t.otherTypeWeight,
                     fieldDrift = t.fieldDrift * u,
                     agitationNoise = t.agitationNoise * Mathf.Deg2Rad,
                     depositAmount = t.depositAmount,
                     diffuseRate = t.diffuseRate,
+                    densityFloor = t.densityFloor,
                     densityFull = t.densityFull,
                     densityHueShift = t.densityHueShift,
                     densityGlow = t.densityGlow,
+                    sparseDim = t.sparseDim,
                     firingSpeedMul = t.firingSpeedMul,
                     firingDepositAmount = t.firingDepositAmount,
                     hue = t.hue,

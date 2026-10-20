@@ -18,17 +18,20 @@ MonoBehaviour:
     beta: 17
     radius: 5
     speed: 0.67
+    size: 0.55
     noise: 0
     otherTypeWeight: 1
-    fieldDrift: 0
-    agitationNoise: 0
-    depositAmount: 0.25
-    diffuseRate: 0.9
+    fieldDrift: 1.5
+    agitationNoise: 30
+    depositAmount: 0.35
+    diffuseRate: 0.8
+    densityFloor: 10
     densityFull: 35
-    densityHueShift: 0.25
-    densityGlow: 0.6
-    hue: 0.35
-    saturation: 0.8
+    densityHueShift: 0.12
+    densityGlow: 1
+    sparseDim: 0.85
+    hue: 0.5
+    saturation: 0.9
     brightness: 0.9
     firingSpeedMul: 1.5
     firingDepositAmount: 1
@@ -45,6 +48,9 @@ MonoBehaviour:
   - name: speed
     min: 0.05
     max: 3
+  - name: size
+    min: 0
+    max: 2
   - name: noise
     min: 0
     max: 45
@@ -63,6 +69,9 @@ MonoBehaviour:
   - name: diffuseRate
     min: 0.8
     max: 1
+  - name: densityFloor
+    min: 0
+    max: 40
   - name: densityFull
     min: 5
     max: 80
@@ -72,6 +81,9 @@ MonoBehaviour:
   - name: densityGlow
     min: 0
     max: 2
+  - name: sparseDim
+    min: 0
+    max: 1
   - name: hue
     min: 0
     max: 1

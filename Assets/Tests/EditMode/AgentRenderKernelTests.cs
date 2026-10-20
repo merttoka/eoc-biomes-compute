@@ -27,8 +27,8 @@ public class AgentRenderKernelTests
     private static readonly Layout Physarum = new Layout { file = "PhysarumSim.compute", sim = "Biomes.PhysarumSim", gpuStruct = "PhysarumTypeParamsGPU", floats = 12, hue = 7,  sat = 8,  brightness = 11 };
     private static readonly Layout Boid     = new Layout { file = "BoidSim.compute",     sim = "Biomes.BoidSim",     gpuStruct = "BoidTypeParamsGPU",     floats = 16, hue = 11, sat = 12, brightness = 15 };
     private static readonly Layout Termite  = new Layout { file = "TermiteSim.compute",  sim = "Biomes.TermiteSim",  gpuStruct = "TermiteTypeParamsGPU",  floats = 13, hue = 10, sat = 11, brightness = 12, termite = true };
-    // densityHueShift / densityGlow stay 0 in the test data, so Primordial must reduce to the shared formula.
-    private static readonly Layout Primordial = new Layout { file = "PrimordialSim.compute", sim = "Biomes.PrimordialSim", gpuStruct = "PrimordialTypeParamsGPU", floats = 18, hue = 15, sat = 16, brightness = 17, densityBank = true };
+    // densityHueShift / densityGlow / sparseDim stay 0 in the test data, so Primordial must reduce to the shared formula.
+    private static readonly Layout Primordial = new Layout { file = "PrimordialSim.compute", sim = "Biomes.PrimordialSim", gpuStruct = "PrimordialTypeParamsGPU", floats = 21, hue = 18, sat = 19, brightness = 20, densityBank = true };
 
     // One texel per case; values per type. 1.5 exercises the >1 paths (termite → white).
     private static readonly float[] Type0 = { 1f, 0.5f, 0f, 1.5f };

@@ -20,24 +20,32 @@ namespace Biomes
         public float radius = 5f;
         [Tooltip("Constant speed (su/step). Load-bearing for the life cycle: v/r sets cell size and stability.")]
         public float speed = 0.67f;
+        [Tooltip("Drawn size of one particle (su): its deposit is a soft disc this wide, so membranes read as " +
+                 "bodies at any resolution. Render only. Below ~0.75 px it is a single pixel.")]
+        public float size = 0.55f;
         [Tooltip("Gaussian turn noise σ (deg). Cells survive a few degrees; tens of degrees dissolve them.")]
         public float noise = 0f;
         [Tooltip("How other species count in L/R. 1 = one shared physics, 0 = species pass through each other, < 0 = inverted turning.")]
         public float otherTypeWeight = 1f;
-        [Tooltip("Positional drift along the perceived field gradient (chemotaxis − avoidance), su/step per unit field difference across ±radius. Translates whole cells without breaking them. + = toward, − = away.")]
+        [Tooltip("Positional drift along the perceived field gradient (chemotaxis − avoidance), su/step per unit field difference across ±radius, clamped to half the speed. Translates whole cells without breaking them in a transient field (a dispersal pulse); a standing scent with maxima pulls everything onto them. + = toward, − = away.")]
         public float fieldDrift = 0f;
         [Tooltip("Extra turn noise σ (deg) per unit perceived speed boost (perception A: dispersal, or a predator's scent mapped to SpeedBoost). The lever that shatters cells.")]
-        public float agitationNoise = 0f;
-        public float depositAmount = 0.25f;
-        public float diffuseRate = 0.9f;
-        [Tooltip("Neighbour count N at which the density colour ramp saturates (paper: 35 = nucleus).")]
+        public float agitationNoise = 30f;
+        public float depositAmount = 0.35f;
+        public float diffuseRate = 0.8f;
+        [Tooltip("Neighbour count N where the density colour ramp starts. The free-particle soup sits around " +
+                 "N ≈ 6 at the paper's density; spores ≈ 13–15 (paper colour classes).")]
+        public float densityFloor = 10f;
+        [Tooltip("Neighbour count N where the ramp saturates (paper: 35 = nucleus).")]
         public float densityFull = 35f;
         [Tooltip("Hue offset of dense matter (nuclei, membranes) relative to the sparse nutrient soup.")]
-        public float densityHueShift = 0.25f;
+        public float densityHueShift = 0.12f;
         [Tooltip("Dense matter glows: brighter and paler by this much at full density.")]
-        public float densityGlow = 0.6f;
-        public float hue = 0.35f;
-        public float saturation = 0.8f;
+        public float densityGlow = 1f;
+        [Tooltip("How far the sparse soup (below densityFloor) dims: 0 = as bright as the creatures' base, 1 = dark.")]
+        public float sparseDim = 0.85f;
+        public float hue = 0.5f;
+        public float saturation = 0.9f;
         public float brightness = 0.9f;
         public float firingSpeedMul = 1.5f;
         public float firingDepositAmount = 1f;
@@ -59,15 +67,18 @@ namespace Biomes
             new("beta",            -90f,  90f),
             new("radius",           1f,   20f),
             new("speed",            0.05f, 3f),
+            new("size",             0f,   2f),
             new("noise",            0f,   45f),
             new("otherTypeWeight", -1f,   1f),
             new("fieldDrift",      -20f,  20f),
             new("agitationNoise",   0f,   90f),
             new("depositAmount",    0f,   1f),
             new("diffuseRate",      0.8f, 1f),
+            new("densityFloor",     0f,   40f),
             new("densityFull",      5f,   80f),
             new("densityHueShift", -0.5f, 0.5f),
             new("densityGlow",      0f,   2f),
+            new("sparseDim",        0f,   1f),
             new("hue",              0f,   1f),
             new("saturation",       0f,   1f),
             new("brightness",       0f,   1f),
@@ -91,15 +102,18 @@ namespace Biomes
                 "beta"            => t.beta,
                 "radius"          => t.radius,
                 "speed"           => t.speed,
+                "size"            => t.size,
                 "noise"           => t.noise,
                 "otherTypeWeight" => t.otherTypeWeight,
                 "fieldDrift"      => t.fieldDrift,
                 "agitationNoise"  => t.agitationNoise,
                 "depositAmount"   => t.depositAmount,
                 "diffuseRate"     => t.diffuseRate,
+                "densityFloor"    => t.densityFloor,
                 "densityFull"     => t.densityFull,
                 "densityHueShift" => t.densityHueShift,
                 "densityGlow"     => t.densityGlow,
+                "sparseDim"       => t.sparseDim,
                 "hue"             => t.hue,
                 "saturation"      => t.saturation,
                 "brightness"      => t.brightness,
@@ -117,15 +131,18 @@ namespace Biomes
                 case "beta":            t.beta            = raw; break;
                 case "radius":          t.radius          = raw; break;
                 case "speed":           t.speed           = raw; break;
+                case "size":            t.size            = raw; break;
                 case "noise":           t.noise           = raw; break;
                 case "otherTypeWeight": t.otherTypeWeight = raw; break;
                 case "fieldDrift":      t.fieldDrift      = raw; break;
                 case "agitationNoise":  t.agitationNoise  = raw; break;
                 case "depositAmount":   t.depositAmount   = raw; break;
                 case "diffuseRate":     t.diffuseRate     = raw; break;
+                case "densityFloor":    t.densityFloor    = raw; break;
                 case "densityFull":     t.densityFull     = raw; break;
                 case "densityHueShift": t.densityHueShift = raw; break;
                 case "densityGlow":     t.densityGlow     = raw; break;
+                case "sparseDim":       t.sparseDim       = raw; break;
                 case "hue":             t.hue             = raw; break;
                 case "saturation":      t.saturation      = raw; break;
                 case "brightness":      t.brightness      = raw; break;

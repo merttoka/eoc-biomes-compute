@@ -14,7 +14,7 @@ using Biomes;
 public class PrimordialKernelTests
 {
     private const string Path = "Assets/Workspace/11.0 Biomes/src/computes/PrimordialSim.compute";
-    private const int Floats = 18;   // primordial_type_params.hlsl
+    private const int Floats = 21;   // primordial_type_params.hlsl
     private const int AgentStride = 20;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -58,8 +58,8 @@ public class PrimordialKernelTests
             p[t * Floats + 1] = s.beta;
             p[t * Floats + 2] = s.radius * s.radius;
             p[t * Floats + 3] = s.speed;
-            p[t * Floats + 5] = s.otherTypeWeight;
-            p[t * Floats + 13] = 1f;   // firingSpeedMul
+            p[t * Floats + 6] = s.otherTypeWeight;
+            p[t * Floats + 16] = 1f;   // firingSpeedMul
         }
 
         // Grid as PrimordialSim.BindHashGrid builds it: cells >= the largest radius, tiling exactly.

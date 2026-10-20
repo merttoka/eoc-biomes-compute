@@ -17,7 +17,7 @@
 // Trail texture array (PrimordialSim.TrailLayerCount = 2·typeCount + 1):
 //   [0, T)       per-type trail
 //   T            total (for the trail tensor)
-//   [T+1, 2T]    per-type density-weighted trail: deposit · saturate(N / densityFull)
+//   [T+1, 2T]    per-type density-weighted trail: deposit · ramp(N), ramp = densityFloor → densityFull
 // Both banks diffuse identically, so weighted / trail at a pixel is the deposit-weighted mean
 // neighbourhood density of the light there — it survives blur and fade unchanged.
 Texture2DArray<float> trailRead;
@@ -120,8 +120,8 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     a.position = AltSpawnPosition(id.x, time);
 
     // Mode 0: a hashed share is born in a Gaussian cloud around neuron i % neuronCount —
-    // ~40 particles per neuron at the defaults, one triangle cell's worth — so each neuron
-    // births a creature and its firing (index-mapped, neuron_firing.hlsl) excites exactly it.
+    // ~10 particles per neuron at the defaults, a spore's worth — so each neuron seeds a
+    // creature and its firing (index-mapped, neuron_firing.hlsl) excites exactly it.
     if (spawnMode == 0 && neuronCount > 0
         && Hash1u(id.x * 2654435761u + 0x68E31DA4u) < neuronSeedFraction) {
         float2 n = NeuronPxToFieldPx(neuronPositions[id.x % neuronCount], neuronScale, rez);
@@ -285,12 +285,14 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Drift up (fieldDrift > 0) or down the perceived field: central differences at ±radius.
     // The field varies on the biome grid's scale, far wider than a cell, so the whole cell
     // translates together and its neighbour relations — hence its structure — are unchanged.
+    // Clamped to half the swim speed: a drift that outruns the particles converges everything
+    // onto the field's extrema, compressing the soup into a few points instead of moving cells.
     if (p.fieldDrift != 0) {
         float2 o = sqrt(p.radiusSq) / rez;
         float2 grad = 0.5 * float2(FieldSignal(uv + float2(o.x, 0)) - FieldSignal(uv - float2(o.x, 0)),
                                    FieldSignal(uv + float2(0, o.y)) - FieldSignal(uv - float2(0, o.y)));
         float2 drift = p.fieldDrift * grad;
-        float maxDrift = 2.0 * p.speed;
+        float maxDrift = 0.5 * p.speed;
         float len = length(drift);
         if (len > maxDrift) drift *= maxDrift / len;
         step += drift;
@@ -311,7 +313,20 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
 // ════════════════════════════════════════════════
 // TRAILS
 // ════════════════════════════════════════════════
-[numthreads(1024, 1, 1)]
+// Add `amount` to a pixel's trail and amount·dens to its density-weighted twin. The pair saturates
+// together: clamping the trail alone would let the weighted layer creep up to it under repeated
+// deposits, reading every saturated pixel as fully dense.
+void Deposit(uint2 px, uint type, float amount, float dens) {
+    uint3 tl = uint3(px, type);
+    uint3 wl = uint3(px, typeCount + 1 + type);
+    float t = trailWrite[tl] + amount;
+    float w = trailWrite[wl] + amount * dens;
+    float k = t > 1.0 ? 1.0 / t : 1.0;
+    trailWrite[tl] = t * k;
+    trailWrite[wl] = w * k;
+}
+
+[numthreads(256, 1, 1)]
 void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     if (id.x >= agentsCount) return;
 
@@ -321,17 +336,25 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     uint2 pos = WrapTorus(uint2(round(a.position)), uint2(rezX, rezY));
 
     float dep = (IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount) * substepScale;
-    float dens = saturate(agentDensityRead[id.x] / max(p.densityFull, 1e-3));
+    float dens = saturate((agentDensityRead[id.x] - p.densityFloor) / max(p.densityFull - p.densityFloor, 1e-3));
 
-    uint3 tl = uint3(pos, a.typeId);
-    uint3 wl = uint3(pos, typeCount + 1 + a.typeId);
-    float t = trailWrite[tl] + dep;
-    float w = trailWrite[wl] + dep * dens;
-    // Saturate the pair together: clamping the trail alone would let the weighted layer
-    // creep up to it under repeated deposits, reading every saturated pixel as fully dense.
-    float k = t > 1.0 ? 1.0 / t : 1.0;
-    trailWrite[tl] = t * k;
-    trailWrite[wl] = w * k;
+    if (p.sizePx < 0.75) {
+        Deposit(pos, a.typeId, dep, dens);
+        return;
+    }
+    // A soft disc of radius sizePx (space-unit sized, so a creature's membrane stays a body at
+    // any resolution), centred on the sub-pixel position: moving particles stay smooth.
+    int k = (int)ceil(p.sizePx);
+    int2 base = int2(floor(a.position));
+    float r2 = p.sizePx * p.sizePx;
+    for (int dy = -k; dy <= k; dy++) {
+        for (int dx = -k; dx <= k; dx++) {
+            float2 d = float2(base + int2(dx, dy)) + 0.5 - a.position;
+            float q = 1.0 - dot(d, d) / r2;
+            if (q <= 0) continue;
+            Deposit(uint2(WrapTorus(base + int2(dx, dy), int2(rezX, rezY))), a.typeId, dep * q * q, dens);
+        }
+    }
 }
 
 // Coherence-enhancing anisotropic trail diffusion (structure tensor, à la Weickert) — the
@@ -426,10 +449,11 @@ void RenderKernel(uint3 id : SV_DISPATCHTHREADID) {
         float val = trailRead[uint3(id.xy, t)];
         float dens = val > 1e-5 ? saturate(trailRead[uint3(id.xy, typeCount + 1 + t)] / val) : 0.0;
         PrimordialTypeParams p = typeParams[t];
-        // densityHueShift = densityGlow = 0 → hsb2rgb(hue, sat, brightness·val): the shared formula.
+        // densityHueShift = densityGlow = sparseDim = 0 → hsb2rgb(hue, sat, brightness·val): the
+        // shared formula. Otherwise the soup dims and dense matter shifts hue and glows.
         float hue = frac(p.hue + p.densityHueShift * dens);
         float sat = p.saturation * (1.0 - 0.6 * saturate(p.densityGlow) * dens);
-        float bri = p.brightness * val * (1.0 + p.densityGlow * dens);
+        float bri = p.brightness * val * lerp(1.0 - p.sparseDim, 1.0 + p.densityGlow, dens);
         color += hsb2rgb(float3(hue, sat, bri), val) / typeCount;
     }
     float4 current = outTex[id.xy];
