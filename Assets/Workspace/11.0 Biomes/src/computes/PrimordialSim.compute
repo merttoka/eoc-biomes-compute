@@ -97,6 +97,20 @@ float Gaussian(float2 u) {
     return sqrt(-2.0 * log(max(u.x, 1e-7))) * cos(TWO_PI * u.y);
 }
 
+// The hashed share ResetAgentsKernel births around neuron i % neuronCount (spawn mode 0).
+bool SeededAtNeuron(uint id) {
+    return Hash1u(id * 2654435761u + 0x68E31DA4u) < neuronSeedFraction;
+}
+
+// In mode 0 only the seeded particles fire: index i shares neuron i % 131 with ~80 particles,
+// most of them soup scattered over the canvas, and a firing neuron should excite the creature
+// born on it. Other spawn modes keep the shared index-mapped contract (neuron_firing.hlsl).
+// spawnMode and neuronSeedFraction are set on Reset, so they always describe the live seeding.
+bool Fires(uint id) {
+    bool eligible = spawnMode != 0 || neuronCount == 0 || SeededAtNeuron(id);
+    return eligible && IsFiring(id, neuronCount);
+}
+
 
 // ════════════════════════════════════════════════
 // RESET
@@ -122,8 +136,7 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Mode 0: a hashed share is born in a Gaussian cloud around neuron i % neuronCount —
     // ~10 particles per neuron at the defaults, a spore's worth — so each neuron seeds a
     // creature and its firing (index-mapped, neuron_firing.hlsl) excites exactly it.
-    if (spawnMode == 0 && neuronCount > 0
-        && Hash1u(id.x * 2654435761u + 0x68E31DA4u) < neuronSeedFraction) {
+    if (spawnMode == 0 && neuronCount > 0 && SeededAtNeuron(id.x)) {
         float2 n = NeuronPxToFieldPx(neuronPositions[id.x % neuronCount], neuronScale, rez);
         float2 g = SpawnHash2(id.x, time, 9);
         float2 h = SpawnHash2(id.x, time, 10);
@@ -277,7 +290,7 @@ void MoveAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     sincos(turn, s, c);
     h = normalize(float2(h.x * c + h.y * s, -h.x * s + h.y * c));
 
-    float fireMul = IsFiring(self, neuronCount) ? p.firingSpeedMul : 1.0;
+    float fireMul = Fires(self) ? p.firingSpeedMul : 1.0;
     float speed = p.speed * perc.g * fireMul;
     ApplyDispersalSpeedResponse(speed, perc.a);
     float2 step = h * speed;   // along the NEW heading
@@ -335,7 +348,7 @@ void WriteTrailsKernel(uint3 id : SV_DISPATCHTHREADID) {
     // Wrap, don't clip: round() of a position in [rez-0.5, rez) gives rez (the torus's pixel 0).
     uint2 pos = WrapTorus(uint2(round(a.position)), uint2(rezX, rezY));
 
-    float dep = (IsFiring(id.x, neuronCount) ? p.firingDepositAmount : p.depositAmount) * substepScale;
+    float dep = (Fires(id.x) ? p.firingDepositAmount : p.depositAmount) * substepScale;
     float dens = saturate((agentDensityRead[id.x] - p.densityFloor) / max(p.densityFull - p.densityFloor, 1e-3));
 
     if (p.sizePx < 0.75) {

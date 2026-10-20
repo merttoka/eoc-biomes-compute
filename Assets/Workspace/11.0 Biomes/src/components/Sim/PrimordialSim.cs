@@ -34,7 +34,8 @@ namespace Biomes
                  "denser runs crowd into tissue. Sets the agent count: density × world area in su.")]
         [Range(0.01f, 0.3f)] public float density = 0.08f;
         [Tooltip("PPS iterations per sim step. A paper cell divides in ~10³ iterations (~17 s at 60 Hz with 1); " +
-                 "2–4 make the life cycle legible without speeding up the other sims. Each costs one hash + move.")]
+                 "2–4 make the life cycle legible without speeding up the other sims. Each costs one hash + move. " +
+                 "Keep it ≥ 2: at α = 180° a free particle alternates between two spots, so with 1 the soup strobes at 30 Hz.")]
         [Range(1, 8)] public int substeps = 3;
 
         [Header("Neuron seeding (Spawn Mode = NeuronPositions)")]
@@ -62,7 +63,10 @@ namespace Biomes
 
         // Derived from density on Reset and cached: the manager dispatches biome write-back with
         // GetAgentCount() every step, so a live density edit must not change it before the buffers.
+        // The unit is cached with it — a live spaceUnitPx edit would otherwise rescale every
+        // distance against an unchanged count, silently moving the density off the life-cycle band.
         private int _agentCount;
+        private float _unitPx = 1f;
 
         // Spatial hash
         private int clearCellCountsKernel;
@@ -131,7 +135,7 @@ namespace Biomes
 
         private int DerivedAgentCount()
         {
-            float u = Mathf.Max(0.01f, UnitPx);
+            float u = Mathf.Max(0.01f, _unitPx);
             double count = density * (rezX / u) * (double)(rezY / u);
             return (int)Math.Min(4_000_000, Math.Max(64, Math.Round(count)));
         }
@@ -142,6 +146,7 @@ namespace Biomes
             // clone would serialize into the scene as an orphaned ScriptableObject (see CyclicCASim).
             if (cs == null) return;
             agentParams = CloneParams(paramsSO);
+            _unitPx = UnitPx;
             _agentCount = DerivedAgentCount();
             base.Reset();
         }
@@ -169,7 +174,7 @@ namespace Biomes
             cellOffsetsBuffer = gpu.CreateBuffer(maxCells, sizeof(uint));
             typeParamsBuffer = gpu.CreateBuffer(8, Marshal.SizeOf<PrimordialTypeParamsGPU>());
 
-            float u = UnitPx;
+            float u = _unitPx;
             Debug.Log($"[{SimName}] {n} particles · world {rezX / u:F0}×{rezY / u:F0} su at {u:F2} px/su");
         }
 
@@ -191,22 +196,25 @@ namespace Biomes
             cs.SetInt(s_AgentsCountID, _agentCount);
             BuildNeuronPositions(resetAgentsKernel);
             cs.SetFloat(s_NeuronSeedFractionID, neuronSeedFraction);
-            cs.SetFloat(s_SeedRadiusPxID, seedRadius * UnitPx);
+            cs.SetFloat(s_SeedRadiusPxID, seedRadius * _unitPx);
             cs.SetBuffer(resetAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetBuffer(resetAgentsKernel, s_AgentDensityID, agentDensityBuffer);
             Dispatch(resetAgentsKernel, _agentCount, 1, 1);
             (readAgentsBuffer, writeAgentsBuffer) = (writeAgentsBuffer, readAgentsBuffer);
         }
 
+        // Bound at the allocated type count: the trail arrays hold 2·T + 1 layers for the T they
+        // were allocated with, so a live edit of the type list must not move the layout (or index
+        // past it) before the Reset that reallocates. Slots past a shortened list reuse its last type.
         private void UploadTypeParams()
         {
-            int count = agentParams.types.Count;
+            int count = AllocatedTypeCount > 0 ? AllocatedTypeCount : agentParams.types.Count;
             if (_typeParamsCache == null || _typeParamsCache.Length != count)
                 _typeParamsCache = new PrimordialTypeParamsGPU[count];
-            float u = UnitPx;
+            float u = _unitPx;
             for (int i = 0; i < count; i++)
             {
-                var t = agentParams.types[i];
+                var t = agentParams.types[Mathf.Min(i, agentParams.types.Count - 1)];
                 float r = t.radius * u;
                 _typeParamsCache[i] = new PrimordialTypeParamsGPU
                 {
@@ -214,7 +222,7 @@ namespace Biomes
                     beta = t.beta * Mathf.Deg2Rad,
                     radiusSq = r * r,
                     speed = t.speed * u,
-                    sizePx = t.size * u,
+                    sizePx = Mathf.Clamp(t.size * u, 0f, 16f),   // the splat loop is (2⌈r⌉+1)² per particle
                     noise = t.noise * Mathf.Deg2Rad,
                     otherTypeWeight = t.otherTypeWeight,
                     fieldDrift = t.fieldDrift * u,
@@ -275,8 +283,8 @@ namespace Biomes
         {
             float maxRadius = 0f;
             foreach (var t in agentParams.types)
-                maxRadius = Mathf.Max(maxRadius, t.radius);
-            float cell = Mathf.Max(maxRadius * UnitPx, MinCellPx);
+                maxRadius = Mathf.Max(maxRadius, Mathf.Abs(t.radius));   // the kernel squares it
+            float cell = Mathf.Max(maxRadius * _unitPx, MinCellPx);
             int gw = Mathf.Max(1, Mathf.FloorToInt(rezX / cell));
             int gh = Mathf.Max(1, Mathf.FloorToInt(rezY / cell));
             cs.SetVector(s_CellSizeID, new Vector2((float)rezX / gw, (float)rezY / gh));

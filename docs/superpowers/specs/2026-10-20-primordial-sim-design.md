@@ -68,8 +68,11 @@ param, so `px/su = spaceUnitPx · ResolutionScale`.
   manager dispatches biome write-back with it every step, and a live density edit must not index
   past the buffers. A density or `spaceUnitPx` edit therefore takes effect on the next reset,
   exactly like `agentsCount` on the other sims.
-- `PrimordialParams.ScaleSpatial` is a no-op (the unit carries the scale). `ScaleDensity` scales
-  `depositAmount` (×k), like the other sims.
+- The unit is cached with the count: a live `spaceUnitPx` edit would otherwise rescale every
+  distance against an unchanged population and move the density off the life-cycle band.
+- `PrimordialParams.ScaleSpatial` is a no-op (the unit carries the scale). So is `ScaleDensity`:
+  each particle deposits a disc `size` su wide, which already keeps the per-pixel deposit
+  resolution-independent. The other sims deposit a single pixel and scale ×k.
 
 ## GPU design (`PrimordialSim.compute`)
 
@@ -150,7 +153,10 @@ density-regulated equilibrium of turnover, as in the paper's Fig. 3H.
 Gaussian `seedRadius` (2.5 su) of neuron `i % 131`. At the defaults that puts ≈ 10 particles at each
 neuron, about a spore's worth, so every neuron seeds a creature. (0.3 put ~40 per neuron into 11.3's
 narrow neuron strip, which congealed into tissue.) The rest
-scatter uniformly as the nutrient soup. A firing neuron excites exactly the creature it seeded.
+scatter uniformly as the nutrient soup. In this mode only the seeded share fires (the same hash
+decides both). Index `i` shares neuron `i % 131` with ~80 particles, most of them soup, so this is
+what makes a firing neuron excite the creature born on it rather than scattered soup. Other
+spawn modes keep the shared index-mapped firing.
 `Scatter` = the paper's initial condition. `BottomEdge`/`TopEdge` = the shared band spawns.
 Keep-out eviction matches the other sims.
 
@@ -174,10 +180,14 @@ a **continuous density ramp** instead:
   a single pixel, so a creature's membrane reads as a body at any resolution.
 - `SimulationBase` gains `protected virtual int TrailLayerCount => TypeCount + 1`, so the base
   `Allocate()` (and its `MarkAllocated()`) stays the only allocation path. No `Allocate`
-  override, no second buffer pair to swap in `FadeStep`.
+  override, no second buffer pair to swap in `FadeStep`. The type params are bound at the
+  *allocated* type count (`AllocatedTypeCount`), so a live edit of the type list can't move the
+  layer layout or index past it before the reallocating Reset.
 - `SimulationBase` gains `protected virtual int TrailLayerCount => TypeCount + 1`, so the base
   `Allocate()` (and its `MarkAllocated()`) stays the only allocation path. No `Allocate`
-  override, no second buffer pair to swap in `FadeStep`.
+  override, no second buffer pair to swap in `FadeStep`. The type params are bound at the
+  *allocated* type count (`AllocatedTypeCount`), so a live edit of the type list can't move the
+  layer layout or index past it before the reallocating Reset.
 
 ## Params (`PrimordialParams`, per type)
 

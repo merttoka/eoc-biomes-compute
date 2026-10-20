@@ -336,6 +336,11 @@ namespace Biomes
         // -1 before the first Allocate(), but Step() only runs post-Reset so it's always set.
         protected int AllocatedAgentCount => _allocAgentCount;
 
+        // Type count the trail arrays are allocated for (TrailLayerCount derives from it). A live
+        // edit of the type list only reallocates on the next Reset(); until then a sim whose layer
+        // layout depends on it must bind this, not the live count. -1 before the first Allocate().
+        protected int AllocatedTypeCount => _allocTypeCount;
+
         // rezY / referenceHeight — 1 at the reference height, <1 shorter, >1 taller. Pixel-unit
         // params are multiplied by this on Reset (LiveParamSet.ScaleSpatial/ScaleDensity) so
         // authored values ground at referenceHeight and read the same across output resolutions.

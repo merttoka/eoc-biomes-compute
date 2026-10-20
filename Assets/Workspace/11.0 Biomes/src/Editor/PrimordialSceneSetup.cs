@@ -12,8 +12,10 @@ namespace Biomes
     /// Builds the 11.4 PPS show workspace (ADR-0009): <c>Scene_PPS.unity</c>, copied from the 11.3
     /// rig, keeps Physarum, replaces Boids + Termites with a PrimordialSim, and points every reference
     /// (manager, MFT, OSC, injector, interpolator group, output quads) at the new pair. Assets are
-    /// scene-local copies so the show tunes its own. Find-or-create throughout: re-running re-asserts
-    /// the wiring but never overwrites an asset that already exists, so tuning survives.
+    /// scene-local copies so the show tunes its own. Find-or-create throughout: re-running never
+    /// overwrites an asset that already exists, so params/umwelt tuning survives — but it re-asserts
+    /// the scene objects' wiring AND their settings below (resolutions, Physarum count/weight,
+    /// neuron layout), so tune those in the scene after the last run.
     /// </summary>
     public static class PrimordialSceneSetup
     {
@@ -49,6 +51,9 @@ namespace Biomes
             var ppsUmwelt = CreateOnce<UmweltMapping>(AssetsDir + "/UmweltPrimordial.asset", DefaultPrimordialUmwelt);
             var ppsCompute = AssetDatabase.LoadAssetAtPath<ComputeShader>(ComputePath);
 
+            // Opening Scene_PPS replaces whatever is open: let the user save it first (or cancel).
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                return;
             if (!File.Exists(ScenePath) && !AssetDatabase.CopyAsset(SourceScene, ScenePath))
             {
                 Debug.LogError($"[PrimordialSceneSetup] Could not copy {SourceScene} → {ScenePath}");

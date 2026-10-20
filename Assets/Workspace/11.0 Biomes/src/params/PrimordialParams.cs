@@ -166,12 +166,9 @@ namespace Biomes
         // (spaceUnitPx · rezY/referenceHeight). Scaling radius/speed here too would apply k twice.
         public void ScaleSpatial(float k) { }
 
-        // Trail-density params → ×k so visual density holds across resolutions (see IParamSet).
-        public void ScaleDensity(float k)
-        {
-            foreach (var t in types)
-                t.depositAmount *= k;
-        }
+        // No-op: each particle deposits a disc `size` su wide, so its per-pixel deposit is already
+        // resolution-independent; ×k on top would brighten the whole layer with resolution.
+        public void ScaleDensity(float k) { }
 
         // Randomizes the motion law within its ranges. Most of ⟨α, β⟩ space is not life-like
         // (paper Fig. 7); this is an explorer, not a generator of creatures.

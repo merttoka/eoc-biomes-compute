@@ -38,6 +38,13 @@ the live Editor through the Unity CLI pipeline package, with Play-mode `ExportPN
   It also adds a two-type hunting Physarum, a quiet Pheromone0, a 16:9 neuron layout, and a local
   firing playback loop. The script was verified by deleting the folder and regenerating it.
 
+- Fixes from an independent review of the branch: type params are bound at the allocated type
+  count (a live type-list edit indexed trail layers past the array); the unit is cached on Reset
+  with the count; in neuron spawn mode only the seeded share fires (a neuron's index class is ~80
+  particles, mostly soup); the setup script asks to save a dirty scene first; the splat is clamped
+  to 16 px and the hash uses |radius|; `ScaleDensity` is a no-op (the splat already keeps the
+  per-pixel deposit resolution-independent). Live edits verified in Play. Suite 180/180.
+
 ## Decided
 - [[../adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]: paper units, derived
   population, paper turn convention, coupling through turn noise rather than speed, Nutrient as
