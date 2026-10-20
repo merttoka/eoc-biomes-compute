@@ -15,6 +15,12 @@ namespace Biomes
         [TextArea] public string notes;
         public List<PaletteSwatch> swatches = new();
 
+        [Tooltip("Also recolour the termite walls (the composite's mound overlay) while this palette is " +
+                 "active, fading with the agents. Off = the manager's own Mound Color stays.")]
+        public bool tintsMounds;
+        [Tooltip("Wall colour while active — same convention as SimulationManager.moundColor.")]
+        public Color moundColor = new(0.53f, 0.81f, 0.92f, 1f);
+
         /// <summary>The hue/saturation/brightness that type <paramref name="typeIndex"/> of a
         /// <paramref name="family"/> sim gets; a grey or black swatch keeps the fallbacks. False when
         /// the palette is empty.</summary>

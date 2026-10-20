@@ -395,7 +395,10 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
   late start shows the palette at the fade's current point, never the preset. Triggers: inspector
   buttons, MFT side actions, OSC `/palette_next` · `/palette_prev` · `/palette <i>` (−1 = Preset,
   out of range clamps; main-thread queued). A `ParameterInterpolator` with color toggles on still
-  writes colors and overrides a palette.
+  writes colors and overrides a palette. A palette with `tintsMounds` also recolours the termite
+  walls: the composite paints `paletteCycle.MoundColor(moundColor)`, which fades with the agents
+  and falls back to the manager's own `moundColor` (never mutated) for Preset or a palette that
+  leaves the walls alone. 11.4 ships five such 4-sim schemes (`11.4 PPS Scene/assets/Palettes/`).
 - **`OSCMapping`** — OSC control of the same parameter API (TD / external drivers), plus
   `/index <int>` → `NeuronFiringSource.SetFrame` (the firing playhead). Reset commands
   (`/sim_reset`, `/sim_resetSimsOnly`) are queued and drained on the main thread in `Update()`

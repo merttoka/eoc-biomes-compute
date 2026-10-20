@@ -242,16 +242,24 @@ dissolves, and the gate's avoidance drifts the particles back out (B rises towar
 the drift points away from it, clamped as above). Creatures live in the open chambers between
 walls.
 
-**Colours:** one scheme for the four sims, `assets/Palette_PPS.asset`, carried over from the
-SIGGRAPH show palette so the shows read as one body of work:
-- Physarum: coral-rose veins plus a crimson mesh at 0.65 brightness.
-- Boids: SIGGRAPH's pale silver-greens and periwinkle.
-- Termites: icy. The mound overlay uses SIGGRAPH's silver-blue walls (0.53, 0.81, 0.92).
-- Creatures: base indigo (0.72, 0.5, 0.9), so the dimmed soup reads as SIGGRAPH's indigo
-  specks. `densityHueShift` 0.27 and `densityGlow` 1 ramp them through violet to rose membranes
-  with pale pink-white cores.
+**Colours:** five 4-sim schemes in `assets/Palettes/` (`PPS <name>.asset`). Each tags Physarum
+(veins + mesh), the four Boid types, Termites and the creatures' base, and sets the wall colour
+(`tintsMounds`). All are low in saturation with one accent each, so the shows read as one body of
+work. The first is the authored look, applied to each preset by the setup; all five are in the
+manager's palette cycle (4 s fades; Next/Previous Palette, MFT side actions, OSC `/palette <0-4>`).
 
-The setup applies the palette to each preset when it creates it.
+| scheme | veins / mesh | boids | termites / walls | creatures (soup → cells) |
+|---|---|---|---|---|
+| Siggraph Soft | coral-rose / dim crimson | SIGGRAPH's pale silver-greens + periwinkle | icy / silver-blue | indigo → pale rose |
+| Abyss | teal / deep blue | pale aqua, lilac | gold / slate | teal → violet |
+| Ember Ash | amber / dim red | ash greys | bone / charcoal | rose → orange → gold |
+| Lichen | sage / olive | sage, bone, ochre | rust / warm stone | magenta-rose → peach |
+| Bone | bone / grey | greys | grey / pale grey | purple → rose (the only colour) |
+
+The creatures' hue ramps +0.27 (`densityHueShift`) from the base, so a cell lands at base +
+0.13…0.27. Each base was picked for where it lands; the first Lichen and Bone passes read as the
+veins' colour and were moved. The visuals are toned down from the first scheme: crimson mesh at
+0.42 brightness, `densityGlow` 0.75, Physarum composite weight 0.7, wall overlay 0.45.
 
 **Resolution check** (same scene, 90 s each). At 1920×1080 and 3840×2160 the world is 480×270 su
 with 10,368 particles. At 11.3's 4800×1080 it is 1200×270 su with 25,920: the count grows with

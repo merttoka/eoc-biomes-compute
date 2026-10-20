@@ -22,6 +22,9 @@ namespace Biomes
         [NonSerialized] private float _progress = 1f;    // 1 = settled
         // Each faded sim's per-type colors when the current change began.
         private readonly Dictionary<SimulationBase, (float h, float s, float b)[]> _from = new();
+        // The wall colour last handed to the composite, and where the current change started from.
+        [NonSerialized] private Color _moundShown, _moundFrom;
+        [NonSerialized] private bool _moundShownSet;
 
         public int ActiveIndex => _active;
         public string ActiveName => _active < 0 ? "Preset" : PaletteAt(_active) != null ? PaletteAt(_active).name : "(missing palette)";
@@ -31,6 +34,7 @@ namespace Biomes
         public void Select(int index, IReadOnlyList<SimulationBase> sims, bool instant)
         {
             _active = Mathf.Clamp(index, -1, palettes.Count - 1);
+            _moundFrom = _moundShown;
             _from.Clear();
             foreach (var sim in sims)
             {
@@ -57,6 +61,21 @@ namespace Biomes
         {
             if (_active < 0 && _progress >= 1f) return;   // settled on Preset: the reset already restored it
             Write(sim);
+        }
+
+        /// <summary>The termite-wall colour the composite should paint now: the active palette's when
+        /// it tints mounds, else <paramref name="authored"/> (the manager's own), faded like the agents.
+        /// Call once per composite.</summary>
+        public Color MoundColor(Color authored)
+        {
+            var palette = PaletteAt(_active);
+            Color target = palette != null && palette.tintsMounds ? palette.moundColor : authored;
+            Color c = _progress >= 1f || !_moundShownSet
+                ? target
+                : Color.Lerp(_moundFrom, target, Mathf.SmoothStep(0f, 1f, _progress));
+            _moundShown = c;
+            _moundShownSet = true;
+            return c;
         }
 
         private AgentColorPalette PaletteAt(int i) => i >= 0 && i < palettes.Count ? palettes[i] : null;

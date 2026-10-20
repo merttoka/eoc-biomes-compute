@@ -25,6 +25,7 @@ namespace Biomes
         private const string Root = "Assets/Workspace/11.4 PPS Scene";
         private const string AssetsDir = Root + "/assets";
         private const string MaterialsDir = Root + "/materials";
+        private const string PalettesDir = AssetsDir + "/Palettes";
         private const string ScenePath = Root + "/Scene_PPS.unity";
         private const string ComputePath = "Assets/Workspace/11.0 Biomes/src/computes/PrimordialSim.compute";
 
@@ -40,9 +41,14 @@ namespace Biomes
             EnsureFolder(Root);
             EnsureFolder(AssetsDir);
             EnsureFolder(MaterialsDir);
+            EnsureFolder(PalettesDir);
 
-            // One colour scheme for the four sims, applied to each preset when it is made.
-            var palette = CreateOnce<AgentColorPalette>(AssetsDir + "/Palette_PPS.asset", SiggraphScheme);
+            // Colour schemes for the four sims. The first is the authored look, applied to each preset
+            // when it is made; all of them go in the live cycle (Next/Previous Palette, MFT, OSC).
+            var palettes = new List<AgentColorPalette>();
+            foreach (var scheme in Schemes)
+                palettes.Add(CreateOnce<AgentColorPalette>($"{PalettesDir}/PPS {scheme.name}.asset", scheme.Fill));
+            var palette = palettes[0];
             var physParams = CreateOnce<PhysarumParams>(AssetsDir + "/PhysarumParams.asset",
                 p => { HuntingPhysarum(p); palette.ApplyTo(p); });
             var physUmwelt = CopyOnce<UmweltMapping>(SourceDir + "/assets/UmweltPhysarum_Alt.asset", AssetsDir + "/UmweltPhysarum_PPS.asset", QuietScent);
@@ -61,7 +67,7 @@ namespace Biomes
                 palette.ApplyTo(p);   // indigo soup specks...
                 var t = p.types[0];
                 t.densityHueShift = 0.27f;   // ...through violet to rose membranes,
-                t.densityGlow = 1f;          // pale glowing cores (SIGGRAPH's pink-white glints)
+                t.densityGlow = 0.75f;       // pale glowing cores (SIGGRAPH's pink-white glints)
                 t.sparseDim = 0.8f;
                 t.fieldDrift = 1.5f;         // dispersal pulses push cells outward (a transient field)
             });
@@ -162,7 +168,11 @@ namespace Biomes
             manager.compositeOutMat = compositeMat;
             manager.rezX = 1920;
             manager.rezY = 1080;
-            manager.moundColor = new Color(0.5294118f, 0.8078432f, 0.9215687f, 1f);   // SIGGRAPH's walls: silver-blue
+            manager.moundColor = palette.moundColor;   // the authored scheme's walls
+            manager.moundOverlayStrength = 0.45f;
+            manager.paletteCycle.palettes = palettes;
+            manager.paletteCycle.fadeSeconds = 4f;
+            if (physarum != null) physarum.compositeWeight = 0.7f;   // 1 M at 1080p: a network, not a glare
             if (manager.biome != null)
             {
                 manager.biome.fieldConfig = fieldConfig;
@@ -270,27 +280,70 @@ namespace Biomes
             }
         }
 
-        // The SIGGRAPH show's scheme (11.0 assets/Palettes/Shows/SIGGRAPH.asset) carried over, so the
-        // shows read as one body of work: coral-rose veins with a dimmed crimson mesh, the pale
-        // silver-greens and periwinkle of its boids, icy termites — and the creatures in between,
-        // indigo specks of soup ramping to rose cells (the ramp itself is on PrimordialParams).
-        private static void SiggraphScheme(AgentColorPalette pal)
+        // Four-sim colour schemes, authored as kernel hue/saturation/brightness: Physarum veins + mesh,
+        // the four boid types, the termites, the creatures' base, and the wall colour. Kept low in
+        // saturation with one accent each, so the shows read as one body of work. The creatures' hue
+        // ramps +0.27 (densityHueShift) from their base, so a cell lands at base + 0.13…0.27: each base
+        // is picked for where it lands. The first is the SIGGRAPH show's scheme, softened.
+        private readonly struct Scheme
         {
-            pal.notes = "11.4 PPS: the SIGGRAPH show palette (physarum coral + crimson, boids, termite) " +
-                        "plus the primordial creatures' base colour (indigo soup).";
-            var crimson = AgentColor.FromDisplay(new Color(0.906331753f, 0.194761687f, 0.194761687f));
-            pal.swatches = new List<PaletteSwatch>
+            public readonly string name, notes;
+            public readonly Vector3[] physarum, boids;
+            public readonly Vector3 termite, primordial;
+            public readonly Color walls;
+
+            public Scheme(string name, string notes, Vector3[] physarum, Vector3[] boids, Vector3 termite,
+                          Vector3 primordial, Color walls)
             {
-                new(new Color(0.906331753f, 0.426409386f, 0.426409386f), AgentFamily.Physarum),
-                new(AgentColor.ToDisplay(crimson.h, crimson.s, 0.65f), AgentFamily.Physarum),
-                new(new Color(0.861549971f, 0.906331753f, 0.843562524f), AgentFamily.Boid),
-                new(new Color(0.681466336f, 0.69331847f, 0.906331753f), AgentFamily.Boid),
-                new(new Color(0.85910735f, 0.906331753f, 0.840086442f), AgentFamily.Boid),
-                new(new Color(0.875122273f, 0.906331753f, 0.716905129f), AgentFamily.Boid),
-                new(new Color(0.801456639f, 0.935992437f, 1f), AgentFamily.Termite),
-                new(AgentColor.ToDisplay(0.72f, 0.5f, 0.9f), AgentFamily.Primordial),
-            };
+                this.name = name; this.notes = notes; this.physarum = physarum; this.boids = boids;
+                this.termite = termite; this.primordial = primordial; this.walls = walls;
+            }
+
+            public void Fill(AgentColorPalette pal)
+            {
+                pal.notes = notes;
+                pal.swatches = new List<PaletteSwatch>();
+                foreach (var c in physarum) Add(pal, c, AgentFamily.Physarum);
+                foreach (var c in boids) Add(pal, c, AgentFamily.Boid);
+                Add(pal, termite, AgentFamily.Termite);
+                Add(pal, primordial, AgentFamily.Primordial);
+                pal.tintsMounds = true;
+                pal.moundColor = walls;
+
+                static void Add(AgentColorPalette pal, Vector3 hsb, AgentFamily f) =>
+                    pal.swatches.Add(new PaletteSwatch(AgentColor.ToDisplay(hsb.x, hsb.y, hsb.z), f));
+            }
         }
+
+        private static readonly Scheme[] Schemes =
+        {
+            new("Siggraph Soft", "SIGGRAPH's scheme, softened: coral-rose veins over a dim crimson mesh, " +
+                    "its pale silver-green / periwinkle boids, icy termites on silver-blue walls, indigo " +
+                    "soup ramping to pale rose creatures.",
+                new[] { new Vector3(0f, .55f, .72f), new Vector3(.985f, .6f, .42f) },
+                new[] { new Vector3(.28f, .15f, .7f), new Vector3(.65f, .47f, .7f), new Vector3(.28f, .16f, .7f), new Vector3(.21f, .41f, .7f) },
+                new Vector3(.57f, .35f, .85f), new Vector3(.72f, .45f, .85f), new Color(.45f, .62f, .72f)),
+            new("Abyss", "Deep sea: teal veins over a deep-blue mesh, pale aqua / lilac boids, gold termites " +
+                    "on slate walls, teal soup ramping to violet creatures.",
+                new[] { new Vector3(.48f, .55f, .65f), new Vector3(.6f, .6f, .42f) },
+                new[] { new Vector3(.5f, .15f, .75f), new Vector3(.66f, .35f, .7f), new Vector3(.42f, .25f, .72f), new Vector3(.75f, .2f, .72f) },
+                new Vector3(.12f, .3f, .8f), new Vector3(.45f, .45f, .85f), new Color(.22f, .3f, .4f)),
+            new("Ember Ash", "Embers: amber veins over a dim red mesh, ash-grey boids, bone termites on " +
+                    "charcoal walls, rose soup ramping through orange to gold creatures.",
+                new[] { new Vector3(.07f, .7f, .72f), new Vector3(.02f, .75f, .42f) },
+                new[] { new Vector3(.08f, .08f, .72f), new Vector3(.6f, .07f, .6f), new Vector3(.1f, .12f, .68f), new Vector3(.05f, .2f, .62f) },
+                new Vector3(.1f, .1f, .85f), new Vector3(.93f, .5f, .85f), new Color(.36f, .33f, .31f)),
+            new("Lichen", "Lichen on stone: sage veins over an olive mesh, pale sage / bone / ochre boids, " +
+                    "rust termites on warm stone walls, rose-peach creatures.",
+                new[] { new Vector3(.25f, .45f, .55f), new Vector3(.16f, .5f, .38f) },
+                new[] { new Vector3(.3f, .12f, .75f), new Vector3(.12f, .1f, .8f), new Vector3(.11f, .45f, .65f), new Vector3(.2f, .25f, .75f) },
+                new Vector3(.05f, .45f, .65f), new Vector3(.85f, .55f, .85f), new Color(.52f, .48f, .4f)),
+            new("Bone", "Near-monochrome: bone and grey veins, grey boids and termites on pale grey walls; " +
+                    "the creatures (rose) are the only colour.",
+                new[] { new Vector3(.1f, .07f, .6f), new Vector3(.6f, .05f, .38f) },
+                new[] { new Vector3(.6f, .03f, .7f), new Vector3(.1f, .04f, .65f), new Vector3(.6f, .06f, .6f), new Vector3(.1f, .06f, .72f) },
+                new Vector3(.58f, .1f, .8f), new Vector3(.82f, .65f, .85f), new Color(.55f, .55f, .57f)),
+        };
 
         // 11.3's write rate saturates Pheromone0 (mean 0.38 measured with 250 k agents), so the
         // creatures would be agitated everywhere instead of where the veins are. 0.004 at 250 k held

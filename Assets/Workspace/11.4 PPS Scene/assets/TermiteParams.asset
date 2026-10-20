@@ -24,9 +24,9 @@ MonoBehaviour:
     depositProbability: 0.2
     firingDepositProbability: 0.4
     diffuseRate: 0.993
-    hue: 0.5669291
-    saturation: 0.39370072
-    brightness: 1
+    hue: 0.57
+    saturation: 0.35000005
+    brightness: 0.8500001
   ranges:
   - name: moveSpeed
     min: 0.05

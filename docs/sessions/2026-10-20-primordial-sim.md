@@ -62,6 +62,16 @@ the live Editor through the Unity CLI pipeline package, with Play-mode `ExportPN
     SIGGRAPH swatches + a dimmed crimson + an indigo Primordial base; the creatures ramp through
     violet to pale rose. A first pass read hot magenta; lowering saturation and adding glow fixed it.
 
+- Follow-up 3 (user review: "crimson too much, tone down; a few alternative palettes"):
+  - **Toned down:** the crimson mesh is now 0.42 brightness at 0.6 saturation, and the creatures'
+    glow went 1 → 0.75. Physarum composite weight is 0.7 and the wall overlay 0.6 → 0.45.
+  - **Palettes:** five 4-sim schemes (Siggraph Soft, Abyss, Ember Ash, Lichen, Bone) are in the
+    11.4 palette cycle. Each was compared on contact sheets in Play. Lichen and Bone needed a second
+    pass, because the creatures landed on the veins' hue.
+  - **Engine:** `AgentColorPalette.tintsMounds` + `moundColor`. `AgentPaletteCycler.MoundColor`
+    fades the walls with the agents and the composite paints it; the manager's `moundColor` is
+    never mutated. 3 new cycler tests; suite 183/183.
+
 ## Decided
 - [[../adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]: paper units, derived
   population, paper turn convention, coupling through turn noise rather than speed, Nutrient as

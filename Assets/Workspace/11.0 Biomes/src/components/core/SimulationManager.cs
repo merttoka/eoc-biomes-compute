@@ -690,7 +690,7 @@ namespace Biomes
                 compositeCS.SetTexture(compositeRenderKernel, s_PermFieldID, biome.FieldReadArray);
                 compositeCS.SetInt(s_PermChannelID, BiomeChannel.Permeability);
                 compositeCS.SetFloat(s_PermOpenBaselineOvID, biome.OpenBaseline);
-                compositeCS.SetVector(s_MoundColorID, moundColor);
+                compositeCS.SetVector(s_MoundColorID, paletteCycle.MoundColor(moundColor));
             }
             else
             {
