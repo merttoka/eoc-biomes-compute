@@ -29,6 +29,21 @@ namespace Biomes
         private const string ScenePath = Root + "/Scene_PPS.unity";
         private const string ComputePath = "Assets/Workspace/11.0 Biomes/src/computes/PrimordialSim.compute";
 
+        /// <summary>Rewrites the 11.4 palette assets from <see cref="Schemes"/> (palettes only: no scene,
+        /// params or umwelt is touched), for when the table changes after the scene was built.</summary>
+        [MenuItem("Biomes/Refresh 11.4 PPS Palettes")]
+        public static void RefreshPalettes()
+        {
+            foreach (var scheme in Schemes)
+            {
+                var pal = AssetDatabase.LoadAssetAtPath<AgentColorPalette>($"{PalettesDir}/PPS {scheme.name}.asset");
+                if (pal == null) continue;
+                scheme.Fill(pal);
+                EditorUtility.SetDirty(pal);
+            }
+            AssetDatabase.SaveAssets();
+        }
+
         [MenuItem("Biomes/Setup 11.4 PPS Scene")]
         public static void Run()
         {
@@ -281,19 +296,20 @@ namespace Biomes
         }
 
         // Four-sim colour schemes, authored as kernel hue/saturation/brightness: Physarum veins + mesh,
-        // the four boid types, the termites, the creatures' base, and the wall colour. Kept low in
-        // saturation with one accent each, so the shows read as one body of work. The creatures' hue
-        // ramps +0.27 (densityHueShift) from their base, so a cell lands at base + 0.13…0.27: each base
-        // is picked for where it lands. The first is the SIGGRAPH show's scheme, softened.
+        // the four boid types, the termites, up to four creature species (bases; PaletteAssign gives
+        // species i the i-th, wrapping), and the wall colour. Kept low in saturation with one accent
+        // each, so the shows read as one body of work. The creatures' hue ramps +0.27
+        // (densityHueShift) from their base, so a cell lands at base + 0.13…0.27: each base is picked
+        // for where it lands. The first is the SIGGRAPH show's scheme, softened.
         private readonly struct Scheme
         {
             public readonly string name, notes;
-            public readonly Vector3[] physarum, boids;
-            public readonly Vector3 termite, primordial;
+            public readonly Vector3[] physarum, boids, primordial;
+            public readonly Vector3 termite;
             public readonly Color walls;
 
             public Scheme(string name, string notes, Vector3[] physarum, Vector3[] boids, Vector3 termite,
-                          Vector3 primordial, Color walls)
+                          Vector3[] primordial, Color walls)
             {
                 this.name = name; this.notes = notes; this.physarum = physarum; this.boids = boids;
                 this.termite = termite; this.primordial = primordial; this.walls = walls;
@@ -306,7 +322,7 @@ namespace Biomes
                 foreach (var c in physarum) Add(pal, c, AgentFamily.Physarum);
                 foreach (var c in boids) Add(pal, c, AgentFamily.Boid);
                 Add(pal, termite, AgentFamily.Termite);
-                Add(pal, primordial, AgentFamily.Primordial);
+                foreach (var c in primordial) Add(pal, c, AgentFamily.Primordial);
                 pal.tintsMounds = true;
                 pal.moundColor = walls;
 
@@ -322,27 +338,37 @@ namespace Biomes
                     "soup ramping to pale rose creatures.",
                 new[] { new Vector3(0f, .55f, .72f), new Vector3(.985f, .6f, .42f) },
                 new[] { new Vector3(.28f, .15f, .7f), new Vector3(.65f, .47f, .7f), new Vector3(.28f, .16f, .7f), new Vector3(.21f, .41f, .7f) },
-                new Vector3(.57f, .35f, .85f), new Vector3(.72f, .45f, .85f), new Color(.45f, .62f, .72f)),
+                new Vector3(.57f, .35f, .85f),
+                new[] { new Vector3(.72f, .45f, .85f), new Vector3(.58f, .35f, .8f), new Vector3(.88f, .4f, .85f), new Vector3(.45f, .3f, .8f) },
+                new Color(.45f, .62f, .72f)),
             new("Abyss", "Deep sea: teal veins over a deep-blue mesh, pale aqua / lilac boids, gold termites " +
                     "on slate walls, teal soup ramping to violet creatures.",
                 new[] { new Vector3(.48f, .55f, .65f), new Vector3(.6f, .6f, .42f) },
                 new[] { new Vector3(.5f, .15f, .75f), new Vector3(.66f, .35f, .7f), new Vector3(.42f, .25f, .72f), new Vector3(.75f, .2f, .72f) },
-                new Vector3(.12f, .3f, .8f), new Vector3(.45f, .45f, .85f), new Color(.22f, .3f, .4f)),
+                new Vector3(.12f, .3f, .8f),
+                new[] { new Vector3(.45f, .45f, .85f), new Vector3(.33f, .4f, .8f), new Vector3(.6f, .4f, .85f), new Vector3(0f, .35f, .85f) },
+                new Color(.22f, .3f, .4f)),
             new("Ember Ash", "Embers: amber veins over a dim red mesh, ash-grey boids, bone termites on " +
                     "charcoal walls, rose soup ramping through orange to gold creatures.",
                 new[] { new Vector3(.07f, .7f, .72f), new Vector3(.02f, .75f, .42f) },
                 new[] { new Vector3(.08f, .08f, .72f), new Vector3(.6f, .07f, .6f), new Vector3(.1f, .12f, .68f), new Vector3(.05f, .2f, .62f) },
-                new Vector3(.1f, .1f, .85f), new Vector3(.93f, .5f, .85f), new Color(.36f, .33f, .31f)),
+                new Vector3(.1f, .1f, .85f),
+                new[] { new Vector3(.93f, .5f, .85f), new Vector3(.85f, .45f, .8f), new Vector3(.08f, .1f, .85f), new Vector3(.55f, .3f, .75f) },
+                new Color(.36f, .33f, .31f)),
             new("Lichen", "Lichen on stone: sage veins over an olive mesh, pale sage / bone / ochre boids, " +
                     "rust termites on warm stone walls, rose-peach creatures.",
                 new[] { new Vector3(.25f, .45f, .55f), new Vector3(.16f, .5f, .38f) },
                 new[] { new Vector3(.3f, .12f, .75f), new Vector3(.12f, .1f, .8f), new Vector3(.11f, .45f, .65f), new Vector3(.2f, .25f, .75f) },
-                new Vector3(.05f, .45f, .65f), new Vector3(.85f, .55f, .85f), new Color(.52f, .48f, .4f)),
+                new Vector3(.05f, .45f, .65f),
+                new[] { new Vector3(.85f, .55f, .85f), new Vector3(.95f, .45f, .8f), new Vector3(.4f, .3f, .8f), new Vector3(.7f, .35f, .8f) },
+                new Color(.52f, .48f, .4f)),
             new("Bone", "Near-monochrome: bone and grey veins, grey boids and termites on pale grey walls; " +
                     "the creatures (rose) are the only colour.",
                 new[] { new Vector3(.1f, .07f, .6f), new Vector3(.6f, .05f, .38f) },
                 new[] { new Vector3(.6f, .03f, .7f), new Vector3(.1f, .04f, .65f), new Vector3(.6f, .06f, .6f), new Vector3(.1f, .06f, .72f) },
-                new Vector3(.58f, .1f, .8f), new Vector3(.82f, .65f, .85f), new Color(.55f, .55f, .57f)),
+                new Vector3(.58f, .1f, .8f),
+                new[] { new Vector3(.82f, .65f, .85f), new Vector3(.5f, .5f, .8f), new Vector3(0f, .55f, .8f), new Vector3(.9f, .08f, .85f) },
+                new Color(.55f, .55f, .57f)),
         };
 
         // 11.3's write rate saturates Pheromone0 (mean 0.38 measured with 250 k agents), so the

@@ -75,6 +75,7 @@ uint neuronCount;
 float2 neuronScale;
 float neuronSeedFraction;   // share of particles born around a neuron (the rest scatter)
 float seedRadiusPx;         // Gaussian σ of that birth cloud
+float4 typeEnds[2];         // PrimordialPopulation.TypeEnds: exclusive end id of each type (whole numbers)
 
 #include "includes/random.hlsl"
 #include "includes/primordial_type_params.hlsl"
@@ -149,7 +150,10 @@ void ResetAgentsKernel(uint3 id : SV_DISPATCHTHREADID) {
     }
 
     a.direction = SpawnHeading(id.x, time);
-    a.typeId = (id.x * typeCount) / agentsCount;
+    // Species by share (PrimordialPopulation.TypeOf): the first type whose id range holds this id.
+    uint type = 0;
+    while (type + 1 < typeCount && (float)id.x >= typeEnds[type >> 2][type & 3]) type++;
+    a.typeId = type;
     agentsOut[id.x] = a;
     agentDensity[id.x] = 0;
 }

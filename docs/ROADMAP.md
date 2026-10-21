@@ -83,8 +83,8 @@ firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]
   ([[superpowers/specs/2026-08-15-half-rez-trail-tensor-design|spec]]).
 
 - **Primordial follow-ups** — a dedicated PPS biome channel (v1 writes Nutrient, so a scene that also
-  needs Nutrient for decomposition can't tell them apart); per-type population fractions (types
-  split the count evenly today); the paper's asynchronous update order as an option; a
+  needs Nutrient for decomposition can't tell them apart); the paper's asynchronous update order as
+  an option; per-species α/β morphologies (untested — species so far share the paper's law); a
   symbiosis umwelt that keeps creatures on the veins without the drift collapse (drift up a
   standing scent converges the soup onto its maxima —
   [[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]).

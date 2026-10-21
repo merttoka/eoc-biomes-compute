@@ -72,6 +72,20 @@ the live Editor through the Unity CLI pipeline package, with Play-mode `ExportPN
     fades the walls with the agents and the composite paints it; the manager's `moundColor` is
     never mutated. 3 new cycler tests; suite 183/183.
 
+- Follow-up 4 (user: "does 4 species even mean anything? no agent count anywhere"):
+  - Measured five multi-species setups (spec "Multiple species"). Weight 1 with the same law is
+    cosmetic. Weight 0 needs density × species count. ±weights segregate into territories.
+  - **Shipped:** per-type `share`; GPU type assignment from `PrimordialPopulation.TypeEnds`
+    (verified: 2:1:1:1 of 38,880 → 15,552 / 7,776 / 7,776 / 7,776 on the GPU); the
+    `PrimordialSimEditor` readout (count, own vs felt density, band warnings, bands recalibrated
+    from the runs); `density` up to 0.6; 4 creature swatches per 11.4 palette + a
+    palette-refresh menu. Suite 188/188.
+  - **Incident:** a test run started while `Scene_PPS` had unsaved edits (the user's diurnal-sun
+    injector changes) stalled the Editor until it was restarted. Experiment values had been
+    written into the in-memory `PrimordialParams` and got saved on the way out; the committed
+    preset is restored. Experiments now run on an in-memory copy of the preset, and tests run
+    only on a clean scene.
+
 ## Decided
 - [[../adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]: paper units, derived
   population, paper turn convention, coupling through turn noise rather than speed, Nutrient as

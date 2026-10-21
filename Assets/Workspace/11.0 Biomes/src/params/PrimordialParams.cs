@@ -12,6 +12,10 @@ namespace Biomes
     [Serializable]
     public class PrimordialAgentType
     {
+        [Tooltip("Relative population: this species gets share / Σ shares of the sim's particles. Takes " +
+                 "effect on Reset. A species lives at its own density only when otherTypeWeight is 0 — the " +
+                 "PrimordialSim inspector shows what each one feels.")]
+        public float share = 1f;
         [Tooltip("Fixed turn per step (deg). 180 = isolated particles hold position (they flip back and forth).")]
         public float alpha = 180f;
         [Tooltip("Turn per neighbour (deg): Δφ = α + β·N·sign(R − L), positive = a right turn, so β > 0 turns toward the more crowded side.")]

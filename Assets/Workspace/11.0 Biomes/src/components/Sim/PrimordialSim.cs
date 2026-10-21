@@ -30,9 +30,11 @@ namespace Biomes
                  "spatial param). The world is referenceHeight/spaceUnitPx su tall at any resolution: 8 → " +
                  "480×270 su at 16:9 (~10k particles), cells ≈ 10–30 su. Smaller = more, smaller creatures.")]
         [Range(2f, 32f)] public float spaceUnitPx = 8f;
-        [Tooltip("Particles per su². The paper's soup is 0.08; cells need roughly 0.06–0.12 to emerge, " +
-                 "denser runs crowd into tissue. Sets the agent count: density × world area in su.")]
-        [Range(0.01f, 0.3f)] public float density = 0.08f;
+        [Tooltip("Particles per su², all species together. Each species perceives its own share plus the " +
+                 "others weighted by its otherTypeWeight; cells emerge from ~0.07 (paper: 0.08), denser " +
+                 "than ~0.18 crowds into tissue. So independent species (weight 0) need density × their count. " +
+                 "Sets the agent count: density × world area in su — the inspector shows the split.")]
+        [Range(0.01f, 0.6f)] public float density = 0.08f;
         [Tooltip("PPS iterations per sim step. A paper cell divides in ~10³ iterations (~17 s at 60 Hz with 1); " +
                  "2–4 make the life cycle legible without speeding up the other sims. Each costs one hash + move. " +
                  "Keep it ≥ 2: at α = 180° a free particle alternates between two spots, so with 1 the soup strobes at 30 Hz.")]
@@ -123,22 +125,32 @@ namespace Biomes
         private static readonly int s_NeuronSeedFractionID = Shader.PropertyToID("neuronSeedFraction");
         private static readonly int s_SeedRadiusPxID = Shader.PropertyToID("seedRadiusPx");
 
+        private static readonly int s_TypeEndsID = Shader.PropertyToID("typeEnds");
+        private readonly Vector4[] _typeEnds = new Vector4[2];
+
         public override ComputeBuffer GetAgentPositionBuffer() => readAgentsBuffer;
         public override int GetAgentCount() => _agentCount;
 
         /// <summary>Pixels per space unit at the current resolution.</summary>
         public float UnitPx => spaceUnitPx * (scaleSpatialToResolution ? ResolutionScale : 1f);
+        /// <summary>The unit the running population was built with (cached on Reset).</summary>
+        public float AllocatedUnitPx => _unitPx;
+
+        /// <summary>Exclusive end id of each species in a population of <paramref name="count"/>
+        /// (PrimordialPopulation.TypeEnds over the types' shares).</summary>
+        public static int[] TypeEnds(int count, PrimordialParams p)
+        {
+            var shares = new float[p.types.Count];
+            for (int i = 0; i < shares.Length; i++) shares[i] = p.types[i].share;
+            return PrimordialPopulation.TypeEnds(count, shares);
+        }
 
         // Hash cells never get narrower than this, so the buffers sized for it in InitBuffers hold
         // the grid for any live radius: a smaller radius is floored here, a larger one widens cells.
         private float MinCellPx => Mathf.Max(1f, rezY / 160f);
 
-        private int DerivedAgentCount()
-        {
-            float u = Mathf.Max(0.01f, _unitPx);
-            double count = density * (rezX / u) * (double)(rezY / u);
-            return (int)Math.Min(4_000_000, Math.Max(64, Math.Round(count)));
-        }
+        private int DerivedAgentCount() =>
+            PrimordialPopulation.Count(density, PrimordialPopulation.WorldSu(rezX, rezY, _unitPx));
 
         public override void Reset()
         {
@@ -197,6 +209,10 @@ namespace Biomes
             BuildNeuronPositions(resetAgentsKernel);
             cs.SetFloat(s_NeuronSeedFractionID, neuronSeedFraction);
             cs.SetFloat(s_SeedRadiusPxID, seedRadius * _unitPx);
+            var ends = TypeEnds(_agentCount, agentParams);
+            for (int i = 0; i < 8; i++)
+                _typeEnds[i >> 2][i & 3] = i < ends.Length ? ends[i] : _agentCount;
+            cs.SetVectorArray(s_TypeEndsID, _typeEnds);
             cs.SetBuffer(resetAgentsKernel, s_AgentsOutID, writeAgentsBuffer);
             cs.SetBuffer(resetAgentsKernel, s_AgentDensityID, agentDensityBuffer);
             Dispatch(resetAgentsKernel, _agentCount, 1, 1);

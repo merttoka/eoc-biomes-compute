@@ -280,10 +280,33 @@ nuclei in all three. Creatures keep their on-screen proportion and are crisper a
   biome reads. Spores and then cells must appear within a few thousand steps (checked in Play
   through `ExportPNG` frames).
 
+## Multiple species
+
+The count (`density` × world area) is split by each type's `share`. The reset kernel assigns
+ids from `PrimordialPopulation.TypeEnds`, the same function the inspector readout uses. What
+decides whether a species lives is the density it **feels**: its own, plus each other species'
+weighted by its `otherTypeWeight` (`PrimordialPopulation.FeltDensity`). The `PrimordialSim`
+inspector shows count, own and felt density per type, and warns outside the bands. Measured in
+11.4 (creatures alone, 60 s):
+
+| setup | outcome |
+|---|---|
+| 4 types, weight 1, same law | one physics in four colours: mixed cells average to grey-white |
+| 4 types, weight 0, density 0.08 (0.02 each) | soup only; no cells |
+| 4 types, weight 0, density 0.3 (0.075 each) | four coexisting colonies, each growing its own cells |
+| 2 types, weights +1 / −1 | territorial segregation into domains, few cells |
+| 2 types, weight 0.5, density 0.12 | mostly own cells sharing space (both ~36 % free / 60 % in cells) |
+| shares 2:1:1:1, weight 0, density 0.3 | 0.12 species thrives; the 0.06 ones stay soup from scatter, but take hold when spawned around the neurons (34 % in cells after 45 s) |
+
+Hence the readout bands: cells emerge from ≳ 0.07 felt (the paper's soup is 0.08). Between
+0.03 and 0.07 they survive but need the neuron-seeded spawn. Above 0.18 they crowd into tissue.
+`density` goes up to 0.6, enough for 8 independent species. Each 11.4 palette carries 4 creature
+swatches (`Biomes → Refresh 11.4 PPS Palettes` rewrites them from the setup's table).
+
 ## Non-goals / backlog
 
 Asynchronous update order, the paper's magenta close-range class (`N_r=1.3 > 15`), a dedicated
-PPS biome channel, per-type population fractions, and agent death (the umwelt lifecycle params
+PPS biome channel, and agent death (the umwelt lifecycle params
 stay deferred engine-wide).
 
 ## Unresolved questions

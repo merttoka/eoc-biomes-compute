@@ -31,5 +31,11 @@ MonoBehaviour:
     family: 3
   - color: {r: 0.71353114, g: 0.93092453, b: 0.88980055, a: 1}
     family: 4
+  - color: {r: 0.72228277, g: 0.9063317, b: 0.7220273, a: 1}
+    family: 4
+  - color: {r: 0.7419052, g: 0.8150663, b: 0.93092453, a: 1}
+    family: 4
+  - color: {r: 0.93092453, g: 0.7689311, b: 0.7689311, a: 1}
+    family: 4
   tintsMounds: 1
   moundColor: {r: 0.22, g: 0.3, b: 0.4, a: 1}
