@@ -2240,7 +2240,7 @@ MonoBehaviour:
     radius: 0.5
     falloff: 1.22
     channel: 5
-    gain: 0.9
+    gain: 1.3
     mode: 1
     inputMin: 0
     inputMax: 1
@@ -2249,7 +2249,7 @@ MonoBehaviour:
     valueTimeout: 0
     drive: 1
     phaseSource: 0
-    periodSteps: 7200
+    periodSteps: 180000
     dayFraction: 0.7
     sweepHeight: 0.5
   firingSource: {fileID: 2000144462}
