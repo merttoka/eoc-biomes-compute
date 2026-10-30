@@ -378,9 +378,9 @@ namespace Biomes
         // slow HW it shows the most recent step.
         void LateUpdate()
         {
-            paletteCycle.Tick(Time.unscaledDeltaTime);
+            paletteCycle.Tick(PresentationClock.DeltaTime);
             _outputLevel = _outputFadeSecs > 0f
-                ? Mathf.MoveTowards(_outputLevel, _outputTarget, Time.unscaledDeltaTime / _outputFadeSecs)
+                ? Mathf.MoveTowards(_outputLevel, _outputTarget, PresentationClock.DeltaTime / _outputFadeSecs)
                 : _outputTarget;
             Render();
         }

@@ -177,7 +177,7 @@ namespace Biomes
             _intensity = 0f;
             _frameActivity = 0f;
             _backboneCoherence = 0f;
-            _lastTime = Time.unscaledTime;
+            _lastTime = PresentationClock.Now;
             _dirty = false;
         }
 
@@ -291,9 +291,10 @@ namespace Biomes
                 if (debugLog) Debug.Log($"NeuronFiringSource: frame={_currentFrame} mean={rawMean:F4} activity={_frameActivity:F3}");
             }
 
-            // Decay by real wall-clock time (advances once per rendered frame even if
-            // Step() runs multiple times per frame: Time.unscaledTime is constant within a frame).
-            float now = Time.unscaledTime;
+            // Decay by presentation time: wall clock live (constant within a frame, so it
+            // advances once per rendered frame even if Step() runs several times), the capture
+            // clock during a recorded take.
+            float now = PresentationClock.Now;
             float dt = Mathf.Max(0f, now - _lastTime);
             _lastTime = now;
             if (_intensity > 0f && firingDecaySeconds > 0f)

@@ -551,12 +551,12 @@ namespace Biomes
             _rbValid = true;
         }
 
-        // Backbone scaffold: advance the strength envelope on wall-clock time (playback runs on
-        // unscaled time, so the scaffold keeps pace with the data at any sim step rate), then
-        // feed every backbone node and, optionally, the MST link samples between them.
+        // Backbone scaffold: advance the strength envelope on presentation time (the clock the
+        // data playback runs on), then feed every backbone node and, optionally, the MST link
+        // samples between them.
         private int AppendBackboneStamps(int k)
         {
-            float now = Time.unscaledTime;
+            float now = PresentationClock.Now;
             float dt = _bbLastTime < 0f ? 0f : Mathf.Max(0f, now - _bbLastTime);
             _bbLastTime = now;
 
