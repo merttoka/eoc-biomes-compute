@@ -318,7 +318,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PhysarumSim
   cs: {fileID: 7200000, guid: e1d50df7a7fb64750a1637ff8ae1beab, type: 3}
   outputMat: {fileID: 2100000, guid: faceef0244f64d44b4afea4a27d52bae, type: 2}
-  compositeWeight: 0.7
+  compositeWeight: 1
   renderPersistence: 0.8
   startOnPlay: 1
   fadeOutSeconds: 10
@@ -511,7 +511,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.PrimordialSim
   cs: {fileID: 7200000, guid: 1af7900c40c6c4f559ac5a0c6608ada0, type: 3}
   outputMat: {fileID: 2100000, guid: 10690cc4d8d4412d95d02ed8330a223d, type: 2}
-  compositeWeight: 1
+  compositeWeight: 0.75
   renderPersistence: 0.75
   startOnPlay: 1
   fadeOutSeconds: 10

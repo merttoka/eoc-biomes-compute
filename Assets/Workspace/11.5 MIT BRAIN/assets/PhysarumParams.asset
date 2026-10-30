@@ -22,7 +22,7 @@ MonoBehaviour:
     eatAmount: 0.94
     diffuseRate: 0.9
     hue: 0
-    saturation: 0.8098313
+    saturation: 0.83000004
     brightness: 0.80000013
     firingSpeedMul: 2
     firingDepositAmount: 0.7
@@ -34,7 +34,7 @@ MonoBehaviour:
     eatAmount: 0.96
     diffuseRate: 0.9
     hue: 0
-    saturation: 0.6265164
+    saturation: 0
     brightness: 0.80000013
     firingSpeedMul: 2
     firingDepositAmount: 0.7
@@ -46,8 +46,8 @@ MonoBehaviour:
     eatAmount: 0.35
     diffuseRate: 0.9
     hue: 0
-    saturation: 0.7882761
-    brightness: 0.80000013
+    saturation: 0
+    brightness: 1
     firingSpeedMul: 2
     firingDepositAmount: 0.7
   - senseAngle: 36.94016
@@ -58,8 +58,8 @@ MonoBehaviour:
     eatAmount: 0.44
     diffuseRate: 0.9031496
     hue: 0
-    saturation: 0.29133865
-    brightness: 0.80000013
+    saturation: 0.29999983
+    brightness: 0.8999998
     firingSpeedMul: 2
     firingDepositAmount: 0.7
   - senseAngle: 14.1
@@ -70,7 +70,7 @@ MonoBehaviour:
     eatAmount: 0.01
     diffuseRate: 0.985
     hue: 0
-    saturation: 0.6993895
+    saturation: 0.73
     brightness: 0.80000013
     firingSpeedMul: 2
     firingDepositAmount: 1
@@ -82,8 +82,8 @@ MonoBehaviour:
     eatAmount: 0.01
     diffuseRate: 0.985
     hue: 0
-    saturation: 0.4225135
-    brightness: 0.80000013
+    saturation: 0
+    brightness: 0.9299998
     firingSpeedMul: 2
     firingDepositAmount: 1
   - senseAngle: 27.93
@@ -105,9 +105,9 @@ MonoBehaviour:
     depositAmount: 0.02
     eatAmount: 0.01
     diffuseRate: 0.985
-    hue: 0.63779527
-    saturation: 0.023622062
-    brightness: 0.80000013
+    hue: 0.637794
+    saturation: 0.023622036
+    brightness: 1
     firingSpeedMul: 2
     firingDepositAmount: 1
   ranges:
