@@ -292,6 +292,9 @@ namespace Biomes
 
             _simStepCount = 0;
 
+            // The biome is about to be cleared, so a backbone scaffold built on it goes too.
+            injector?.ResetBackbone();
+
             // Initialize external input (idempotent — keeps its GPU pool across resets)
             if (externalInput != null)
                 externalInput.Initialize();

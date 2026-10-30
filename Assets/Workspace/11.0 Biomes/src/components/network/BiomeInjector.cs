@@ -551,6 +551,13 @@ namespace Biomes
             _rbValid = true;
         }
 
+        /// <summary>Drop the scaffold's strength, e.g. when the biome it was feeding is cleared.</summary>
+        public void ResetBackbone()
+        {
+            backboneStrength = 0f;
+            _bbLastTime = -1f;
+        }
+
         // Backbone scaffold: advance the strength envelope on presentation time (the clock the
         // data playback runs on), then feed every backbone node and, optionally, the MST link
         // samples between them.
