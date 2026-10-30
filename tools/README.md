@@ -162,6 +162,49 @@ data    : frameCount × neuronCount  float16   (row-major: frame, then neuron)
 neuron *k* of the blob. The committed `.f16` is `131 × 180000`; re-run this only if the source
 recording changes. The blob is large (~47 MB, tracked via Git LFS).
 
+---
+
+## `spikes_npy_to_f16.py` — spike raster → firing blob
+
+For spike data instead of the continuous CSV above. Given the lab's timeseries CSVs it
+block-averages their `rates_norm` to `--fps` unchanged. Given a raw raster (`t_spk_mat_*.npy`,
+`units × samples`, spike counts per 1 ms bin) it builds the envelope itself: binned, exponentially
+smoothed, normalized per neuron and contrast-curved to match the distribution the scenes'
+thresholds were tuned on (`organoid_firing.f16`; both sets of stats print after a run).
+Concatenated recordings stay in **one** blob with one normalization so a quiet condition stays
+quiet; the sidecar `.json` lists each segment's frame range and burst-onset frames.
+
+```bash
+# Two-recording set (canonical): the lab's per-recording timeseries CSVs, in playback order.
+# Uses their rates_norm as-is (normalized per unit across both recordings) -> 36000 frames @ 60 fps
+ffmpeg -ss 60 -i ".../imaging.avi" -frames:v 1 -pix_fmt gray mask.pgm
+D=".../dataset"
+tools/.venv/bin/python tools/spikes_npy_to_f16.py \
+    "$D/t_spk_mat_filtered_baseline_timeseries.csv" "$D/t_spk_mat_filtered_ketamine_timeseries.csv" \
+    Assets/StreamingAssets/biomes11/organoid_ketamine.f16 \
+    --sidecar "Assets/Workspace/11.5 MIT BRAIN/data/organoid_ketamine.json" \
+    --positions "Assets/Workspace/11.5 MIT BRAIN/data/labels_positions_ketamine_SYNTHETIC.csv" \
+    --labels "$D/t_spk_mat_filtered_baseline_labels_positions.csv" --mask mask.pgm
+
+# raw raster fallback (envelope built here): t_spk_mat_filtered.npy -> 36006 frames
+tools/.venv/bin/python tools/spikes_npy_to_f16.py t_spk_mat_filtered.npy <dst.f16> ...
+```
+
+A concatenated `.npy` can hold a short gap between recordings with a recording-start artifact:
+`--segments` names the ranges and `--blank` zeroes the gap. The CSVs leave it out.
+Burst onsets merge peaks within 1.5 s.
+The lab's `*_labels_positions.csv` carry only `backbone_labels`,
+no coordinates; `--labels` copies them into the positions CSV's first column.
+The raster carries no unit coordinates, so `--positions` writes a **synthetic** layout:
+classical MDS on baseline co-firing (units that fire together sit together), fitted into the
+organoid footprint from `--mask`. `--xy units.npy` (units × 2, e.g. Kilosort unit positions, same
+order as the spike data) replaces it with real coordinates, fitted with one scale for both axes so
+the electrode array keeps its aspect.
+
+Backbone labels drive the injector's **Backbone scaffold** (`BiomeInjector.backboneEnabled`, off by
+default): while the backbone fires together it feeds Nutrient at those neurons and along a spanning
+tree between them, fading over `backboneReleaseSeconds` once bursting stops.
+
 ## `channel_wiring.py` — channel-wiring boards for `DAC_params` sets
 
 Reads one `DAC_params/<NN_Name>/` folder (BiomeFieldConfig + the three UmweltMapping assets +

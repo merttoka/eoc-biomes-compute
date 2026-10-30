@@ -20,6 +20,9 @@ namespace Biomes
 
         [Tooltip("Seconds for firing intensity to fade to zero when no /index arrives")]
         public float firingDecaySeconds = 0.5f;
+        [Tooltip("Firing value at which a backbone neuron counts toward BackboneCoherence. " +
+                 "Matches the sims' default firingThreshold.")]
+        [Range(0f, 1f)] public float backboneFiringThreshold = 0.1f;
 
         [Tooltip("Log frame changes to the Console (main thread)")]
         public bool debugLog = false;
@@ -69,6 +72,11 @@ namespace Biomes
         // via SimulationManager, every sim's agent spawn seeding + CA ignition.
         private int _posCount;
         private List<Vector2> _posList;
+        // labels_positions.csv column 0 (backbone_labels): units the lab found firing in nearly
+        // every network burst. Same row order as _posList.
+        private bool[] _backbone;
+        private int _backboneCount;
+        private float _backboneCoherence;
 
         public ComputeBuffer Buffer => _buffer;
         public int PositionsCount => _posCount;
@@ -93,6 +101,12 @@ namespace Biomes
         /// burstOnFrameAdvance so a dense /index stream only ignites on synchronous/strong
         /// frames instead of every advance.</summary>
         public float FrameActivity => _frameActivity;
+
+        public int BackboneCount => _backboneCount;
+        public bool IsBackbone(int neuron) => _backbone != null && neuron >= 0 && neuron < _backbone.Length && _backbone[neuron];
+        /// <summary>0..1 fraction of backbone neurons at or above backboneFiringThreshold in the
+        /// current frame. 0 when the CSV labels no backbone.</summary>
+        public float BackboneCoherence => _backboneCoherence;
 
         // ---- Neuron layout mapping -------------------------------------------------
         // The math lives in NeuronLayout (Biomes.Core) so it can be unit-tested against the
@@ -162,6 +176,7 @@ namespace Biomes
             _currentFrame = -1;
             _intensity = 0f;
             _frameActivity = 0f;
+            _backboneCoherence = 0f;
             _lastTime = Time.unscaledTime;
             _dirty = false;
         }
@@ -170,17 +185,22 @@ namespace Biomes
         {
             _posCount = 0;
             _posList = null;
+            _backbone = null;
+            _backboneCount = 0;
             // Per-loaded-CSV, not per-component-lifetime: a newly assigned CSV must be able
             // to re-announce a contract violation or dataset mismatch even if a prior CSV
             // already warned once.
             _warnedPositionsOutOfContract = false;
             _warnedDatasetMismatch = false;
             if (labelsPositionsCsv == null || string.IsNullOrEmpty(labelsPositionsCsv.text)) return;
-            var pts = ParseCsvFloat2(labelsPositionsCsv.text); // normalized 0..1, y-flipped
+            var labels = new List<bool>();
+            var pts = ParseCsvFloat2(labelsPositionsCsv.text, labels); // normalized 0..1, y-flipped
             if (pts == null || pts.Count == 0) return;
             WarnIfOutOfContract(pts);
             _posList = pts;
             _posCount = pts.Count;
+            _backbone = labels.ToArray();
+            foreach (var b in _backbone) if (b) _backboneCount++;
         }
 
         // Contract: labelsPositionsCsv coordinates MUST be normalized 0..1 (ParseCsvFloat2
@@ -205,8 +225,9 @@ namespace Biomes
 
         // Moved from SimulationBase (2026-08-12 single-owner refactor) — this is now the
         // only parse site for labels_positions.csv. y-flips (1 - y) so row order matches
-        // the blob's neuron order top-to-bottom in screen space.
-        private static List<Vector2> ParseCsvFloat2(string csv)
+        // the blob's neuron order top-to-bottom in screen space. backbone gets column 0 > 0.5
+        // per kept row.
+        private static List<Vector2> ParseCsvFloat2(string csv, List<bool> backbone)
         {
             var list = new List<Vector2>();
             var lines = csv.Split('\n');
@@ -219,7 +240,10 @@ namespace Biomes
                 if (parts.Length < 3) continue;
                 if (float.TryParse(parts[1], NumberStyles.Float, inv, out float x) &&
                     float.TryParse(parts[2], NumberStyles.Float, inv, out float y))
+                {
                     list.Add(new Vector2(x, (1 - y)));
+                    backbone.Add(float.TryParse(parts[0], NumberStyles.Float, inv, out float b) && b > 0.5f);
+                }
             }
             return list;
         }
@@ -255,6 +279,15 @@ namespace Biomes
                 // ever reaches ~0.21, so an absolute threshold would need per-recording
                 // recalibration. Guard <= 0 for an empty/silent/unloaded blob.
                 _frameActivity = _maxFrameMean > 0f ? Mathf.Clamp01(rawMean / _maxFrameMean) : 0f;
+
+                int bbFiring = 0;
+                if (_backboneCount > 0)
+                {
+                    int cap = Mathf.Min(_neuronCount, _backbone.Length);
+                    for (int i = 0; i < cap; i++)
+                        if (_backbone[i] && _row[i] >= backboneFiringThreshold) bbFiring++;
+                }
+                _backboneCoherence = _backboneCount > 0 ? (float)bbFiring / _backboneCount : 0f;
                 if (debugLog) Debug.Log($"NeuronFiringSource: frame={_currentFrame} mean={rawMean:F4} activity={_frameActivity:F3}");
             }
 
