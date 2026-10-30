@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 430c8e55daa545d584a1b573a932f5f2, type: 3}
+  m_Name: MIT Brain Ketamine
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.AgentColorPalette
+  notes: 'Ketamine condition for 11.5: MIT Brain drained toward a dim slate blue.
+    Selected by NeuronFiringCues at the ketamine segment.'
+  swatches:
+  - color: {r: 0.44864634, g: 0.52169037, b: 0.5891156, a: 1}
+    family: 1
+  - color: {r: 0.53020406, g: 0.56083804, b: 0.5891156, a: 1}
+    family: 1
+  - color: {r: 0.585, g: 0.6188, b: 0.65, a: 1}
+    family: 1
+  - color: {r: 0.5358335, g: 0.5798843, b: 0.6205466, a: 1}
+    family: 1
+  - color: {r: 0.46451813, g: 0.52930886, b: 0.5891156, a: 1}
+    family: 1
+  - color: {r: 0.56661725, g: 0.5993551, b: 0.6295747, a: 1}
+    family: 1
+  - color: {r: 0.4145739, g: 0.5053356, b: 0.5891156, a: 1}
+    family: 1
+  - color: {r: 0.5833008, g: 0.61798435, b: 0.65, a: 1}
+    family: 1
+  - color: {r: 0.52000403, g: 0.55594206, b: 0.5891156, a: 1}
+    family: 2
+  - color: {r: 0.49366343, g: 0.54329854, b: 0.5891156, a: 1}
+    family: 2
+  - color: {r: 0.5194392, g: 0.5556709, b: 0.5891156, a: 1}
+    family: 2
+  - color: {r: 0.49942222, g: 0.54606277, b: 0.5891156, a: 1}
+    family: 2
+  - color: {r: 0.5527367, g: 0.60331357, b: 0.65, a: 1}
+    family: 3
+  tintsMounds: 0
+  moundColor: {r: 0.53, g: 0.81, b: 0.92, a: 1}

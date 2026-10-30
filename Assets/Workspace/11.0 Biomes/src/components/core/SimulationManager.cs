@@ -981,9 +981,12 @@ namespace Biomes
         /// <summary>Fade every running agent sim to palette <paramref name="index"/> of
         /// <see cref="paletteCycle"/> (−1 = Preset, the authored colors). Public for MIDI/OSC.
         /// Outside Play it applies at once (nothing ticks the fade).</summary>
-        public void SelectPalette(int index)
+        public void SelectPalette(int index) => SelectPalette(index, instant: false);
+
+        /// <summary>As <see cref="SelectPalette(int)"/>; instant skips the fade (e.g. after a seek).</summary>
+        public void SelectPalette(int index, bool instant)
         {
-            paletteCycle.Select(index, simulations, instant: !Application.isPlaying);
+            paletteCycle.Select(index, simulations, instant: instant || !Application.isPlaying);
             Debug.Log($"[SimulationManager] Palette → {paletteCycle.ActiveName}");
         }
 
