@@ -2382,6 +2382,7 @@ GameObject:
   - component: {fileID: 2000144462}
   - component: {fileID: 2000144460}
   - component: {fileID: 2000144463}
+  - component: {fileID: 2000144464}
   m_Layer: 0
   m_Name: SimulationManager
   m_TagString: Untagged
@@ -2474,6 +2475,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 59bfb1521e8947a49be8d621acdb657f, type: 2}
     - {fileID: 11400000, guid: 9ada687fdaba47e7ae4bc96faf0f5b8f, type: 2}
     - {fileID: 11400000, guid: 80f4a4ac35b44fbe86a59b218da9df63, type: 2}
+    - {fileID: 11400000, guid: 6df25edb6d7e14992a26e868fa1c16de, type: 2}
     fadeSeconds: 4
   neuronFiring: {fileID: 2000144462}
   externalInput: {fileID: 39187332}
@@ -2534,6 +2536,38 @@ MonoBehaviour:
   playing: 0
   unscaledTime: 1
   debugLog: 0
+--- !u!114 &2000144464
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2000144458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d76a7020225884241bc46a1695de792e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringCues
+  playback: {fileID: 2000144463}
+  manager: {fileID: 2000144461}
+  cues:
+  - label: baseline
+    frame: 0
+    setPalette: 0
+    palette: {fileID: 0}
+    paletteFadeSeconds: 6
+    reset: 0
+    resetBiome: 1
+    blackoutSeconds: 2.5
+  - label: ketamine
+    frame: 18000
+    setPalette: 0
+    palette: {fileID: 11400000, guid: 6df25edb6d7e14992a26e868fa1c16de, type: 2}
+    paletteFadeSeconds: 6
+    reset: 0
+    resetBiome: 1
+    blackoutSeconds: 2.5
+  seekFrames: 120
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
