@@ -2383,6 +2383,7 @@ GameObject:
   - component: {fileID: 2000144460}
   - component: {fileID: 2000144463}
   - component: {fileID: 2000144464}
+  - component: {fileID: 2000144465}
   m_Layer: 0
   m_Name: SimulationManager
   m_TagString: Untagged
@@ -2568,6 +2569,53 @@ MonoBehaviour:
     resetBiome: 1
     blackoutSeconds: 2.5
   seekFrames: 120
+--- !u!114 &2000144465
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2000144458}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aac2b262583c54a9aab00fbdf7f7d03c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Biomes.NeuronFiringParamMorph
+  playback: {fileID: 2000144463}
+  startFrame: 18000
+  morphSeconds: 30
+  easing:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  includeColor: 0
+  targets:
+  - sim: {fileID: 276895388}
+    preset: {fileID: 11400000, guid: 81802f7fb6feb496a8161fd6a804aa26, type: 2}
+  - sim: {fileID: 1825205988}
+    preset: {fileID: 11400000, guid: d7d82363f64a44251919e38bed36e9fc, type: 2}
+  - sim: {fileID: 1010527583}
+    preset: {fileID: 11400000, guid: 2f6ff9d830c774f1f95e41e572095125, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
