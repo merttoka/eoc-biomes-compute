@@ -2477,6 +2477,7 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 9ada687fdaba47e7ae4bc96faf0f5b8f, type: 2}
     - {fileID: 11400000, guid: 80f4a4ac35b44fbe86a59b218da9df63, type: 2}
     - {fileID: 11400000, guid: 6df25edb6d7e14992a26e868fa1c16de, type: 2}
+    - {fileID: 11400000, guid: 00edf21c81dfe48a5a33d0e6229f0d11, type: 2}
     fadeSeconds: 4
   neuronFiring: {fileID: 2000144462}
   externalInput: {fileID: 39187332}
@@ -2554,7 +2555,7 @@ MonoBehaviour:
   cues:
   - label: baseline
     frame: 0
-    setPalette: 0
+    setPalette: 1
     palette: {fileID: 0}
     paletteFadeSeconds: 6
     reset: 0
@@ -2562,8 +2563,8 @@ MonoBehaviour:
     blackoutSeconds: 2.5
   - label: ketamine
     frame: 18000
-    setPalette: 0
-    palette: {fileID: 11400000, guid: 6df25edb6d7e14992a26e868fa1c16de, type: 2}
+    setPalette: 1
+    palette: {fileID: 11400000, guid: 00edf21c81dfe48a5a33d0e6229f0d11, type: 2}
     paletteFadeSeconds: 6
     reset: 0
     resetBiome: 1
