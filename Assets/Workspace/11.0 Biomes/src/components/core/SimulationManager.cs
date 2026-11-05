@@ -292,6 +292,9 @@ namespace Biomes
 
             _simStepCount = 0;
 
+            // The biome is about to be cleared, so a backbone scaffold built on it goes too.
+            injector?.ResetBackbone();
+
             // Initialize external input (idempotent — keeps its GPU pool across resets)
             if (externalInput != null)
                 externalInput.Initialize();
@@ -378,9 +381,9 @@ namespace Biomes
         // slow HW it shows the most recent step.
         void LateUpdate()
         {
-            paletteCycle.Tick(Time.unscaledDeltaTime);
+            paletteCycle.Tick(PresentationClock.DeltaTime);
             _outputLevel = _outputFadeSecs > 0f
-                ? Mathf.MoveTowards(_outputLevel, _outputTarget, Time.unscaledDeltaTime / _outputFadeSecs)
+                ? Mathf.MoveTowards(_outputLevel, _outputTarget, PresentationClock.DeltaTime / _outputFadeSecs)
                 : _outputTarget;
             Render();
         }
@@ -690,7 +693,7 @@ namespace Biomes
                 compositeCS.SetTexture(compositeRenderKernel, s_PermFieldID, biome.FieldReadArray);
                 compositeCS.SetInt(s_PermChannelID, BiomeChannel.Permeability);
                 compositeCS.SetFloat(s_PermOpenBaselineOvID, biome.OpenBaseline);
-                compositeCS.SetVector(s_MoundColorID, moundColor);
+                compositeCS.SetVector(s_MoundColorID, paletteCycle.MoundColor(moundColor));
             }
             else
             {
@@ -955,6 +958,8 @@ namespace Biomes
         [Button("Stop Boids")]     public void StopBoids()     => StopSimsOfType<BoidSim>();
         [Button("Start Termites")] public void StartTermites() => StartSimsOfType<TermiteSim>();
         [Button("Stop Termites")]  public void StopTermites()  => StopSimsOfType<TermiteSim>();
+        [Button("Start Primordial")] public void StartPrimordial() => StartSimsOfType<PrimordialSim>();
+        [Button("Stop Primordial")]  public void StopPrimordial()  => StopSimsOfType<PrimordialSim>();
         // Field sims (both CA rules) as one family, same reasoning as ResetCellular.
         [Button("Start Cellular")] public void StartCellular() => StartSimsOfType<FieldSimulationBase>();
         [Button("Stop Cellular")]  public void StopCellular()  => StopSimsOfType<FieldSimulationBase>();
@@ -979,9 +984,12 @@ namespace Biomes
         /// <summary>Fade every running agent sim to palette <paramref name="index"/> of
         /// <see cref="paletteCycle"/> (−1 = Preset, the authored colors). Public for MIDI/OSC.
         /// Outside Play it applies at once (nothing ticks the fade).</summary>
-        public void SelectPalette(int index)
+        public void SelectPalette(int index) => SelectPalette(index, instant: false);
+
+        /// <summary>As <see cref="SelectPalette(int)"/>; instant skips the fade (e.g. after a seek).</summary>
+        public void SelectPalette(int index, bool instant)
         {
-            paletteCycle.Select(index, simulations, instant: !Application.isPlaying);
+            paletteCycle.Select(index, simulations, instant: instant || !Application.isPlaying);
             Debug.Log($"[SimulationManager] Palette → {paletteCycle.ActiveName}");
         }
 
@@ -995,6 +1003,7 @@ namespace Biomes
         // sneak-start a sim (use the Start buttons for that).
         [Button("Reset Physarum Only")] public void ResetPhysarum() => ResetSimsOfType<PhysarumSim>();
         [Button("Reset Boids Only")]    public void ResetBoids()    => ResetSimsOfType<BoidSim>();
+        [Button("Reset Primordial Only")] public void ResetPrimordial() => ResetSimsOfType<PrimordialSim>();
         [Button("Reset Termites Only")] public void ResetTermites()
         {
             // Clear the built mounds only when a termite sim actually reset — clearing on a

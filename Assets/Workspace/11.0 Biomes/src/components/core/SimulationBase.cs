@@ -191,6 +191,16 @@ namespace Biomes
 
         protected abstract int TypeCount { get; }
 
+        /// <summary>Layers in each trail texture array: one per type + the total. A sim that keeps
+        /// more per-pixel state in the arrays (Primordial's density-weighted bank) widens this, so
+        /// the base Allocate stays the only allocation path. Derived from TypeCount, which the
+        /// allocation signature already tracks.</summary>
+        protected virtual int TrailLayerCount => TypeCount + 1;
+
+        /// <summary>OSC address prefix: /&lt;prefix&gt;_&lt;param&gt;_&lt;type&gt;. The first letter of
+        /// SimName unless a sim would collide with another family's (Primordial vs Physarum).</summary>
+        public virtual string OscPrefix => SimName.Substring(0, 1).ToLower();
+
         #region Shader Property IDs
         protected static readonly int s_RezXID = Shader.PropertyToID("rezX");
         protected static readonly int s_RezYID = Shader.PropertyToID("rezY");
@@ -326,6 +336,11 @@ namespace Biomes
         // -1 before the first Allocate(), but Step() only runs post-Reset so it's always set.
         protected int AllocatedAgentCount => _allocAgentCount;
 
+        // Type count the trail arrays are allocated for (TrailLayerCount derives from it). A live
+        // edit of the type list only reallocates on the next Reset(); until then a sim whose layer
+        // layout depends on it must bind this, not the live count. -1 before the first Allocate().
+        protected int AllocatedTypeCount => _allocTypeCount;
+
         // rezY / referenceHeight — 1 at the reference height, <1 shorter, >1 taller. Pixel-unit
         // params are multiplied by this on Reset (LiveParamSet.ScaleSpatial/ScaleDensity) so
         // authored values ground at referenceHeight and read the same across output resolutions.
@@ -370,7 +385,7 @@ namespace Biomes
             Release();
             gpu = new GPUResourceManager();
 
-            int layers = TypeCount + 1;
+            int layers = TrailLayerCount;
             trailReadArray = CreateTrailArray(layers, SimName + "_trailRead");
             trailWriteArray = CreateTrailArray(layers, SimName + "_trailWrite");
             // ARGBHalf (8 B/px) instead of ARGBFloat (16 B/px): output color is saturated

@@ -15,6 +15,8 @@ Generic MIDI CC mapping for any controller. Inspector dropdown for param names.
 
 OscJack server (default port 9000). Auto-registers addresses from `ModulatableParams`.
 Convention: `/<simPrefix>_<paramName>_<index>` (e.g. `/p_moveSpeed_0`, `/b_maxSpeed_0`).
+Prefix = first letter of the sim name, lowercased (`p` Physarum, `b` Boid, `t` Termite), except
+Primordial, which uses `pps` (`p` is Physarum's): `/pps_alpha_0`.
 
 Reset commands (arg ignored — any value triggers; all marshalled to the main thread):
 
@@ -25,6 +27,7 @@ Reset commands (arg ignored — any value triggers; all marshalled to the main t
 | `/sim_resetPhysarum` | respawn only Physarum sims (others keep running; step counter untouched) |
 | `/sim_resetBoids` | respawn only Boid sims |
 | `/sim_resetTermites` | respawn only Termite sims |
+| `/sim_resetPrimordial` | respawn only Primordial sims |
 
 Agent palettes (`SimulationManager` → **Agent Palettes**: fill `Palettes`, set `Fade Seconds`; marshalled to the main thread):
 
@@ -112,14 +115,14 @@ HW bank switches are detected automatically via Note On (Ch 3, notes 0-3). The i
 | 2: Visual+Biome  | hue, saturation, brightness, diffuseRate per type + biome cross-field (col 3 of HW bank 4) | Green       |
 | 3: Umwelt+Global | metabolicHeat, O2, permeability per sim + globals (col 3 of HW bank 1)         | Purple/Cyan |
 
-`depositAmount` left bank 2 for brightness; it stays on bank 1 for every sim.
+`depositAmount` left bank 2 for brightness; it stays on bank 1 for every sim except Primordial (OSC-only, see below).
 
 
 Bank 2: type columns fill contiguously from col 0 (families never split mid-page); biome cross-field lives in the last column of HW bank 4. Bank 3 reserves col 3 of HW bank 1 for globals (≤3 sims fit before it).
 
 ### LED Feedback
 
-**Per-type brightness ramp** — SimParam knob color = flat family hue (Physarum=blue 33, Boid=orange 83, Termite=yellow 65); type identity = RGB brightness ramping `typeBrightnessMid` (default 32 ≈ 50%) at type 0 → 47 (max) at the last type. Columns read left→right dim→bright within each family. Single-type sims stay at max. (Hue-gradient variant tried first, confusing on device.)
+**Per-type brightness ramp** — SimParam knob color = flat family hue (Physarum=blue 33, Boid=orange 83, Termite=yellow 65, Primordial=magenta 97 — not green, Biome's 43 shares bank 2); type identity = RGB brightness ramping `typeBrightnessMid` (default 32 ≈ 50%) at type 0 → 47 (max) at the last type. Columns read left→right dim→bright within each family. Single-type sims stay at max. (Hue-gradient variant tried first, confusing on device.)
 
 Fixed: Biome=green(43), Umwelt=cyan(40), Global=purple(110), full brightness. Unbound knobs off.
 
@@ -180,7 +183,7 @@ Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31)
 
 - **Two rows of tabs**: soft bank (param category) + HW bank (column page)
 - **4x4 color-coded grid** shows current page bindings
-- **Color legend**: blue=Physarum, orange=Boid, yellow=Termite, green=Biome, cyan=Umwelt, purple=Global (device LEDs use per-type gradients within each family — see LED Feedback)
+- **Color legend**: blue=Physarum, orange=Boid, yellow=Termite, magenta=Primordial, green=Biome, cyan=Umwelt, purple=Global (device LEDs use per-type gradients within each family — see LED Feedback)
 - Tabs auto-sync when switching banks on the physical MFT
 
 ### Debugging CC Numbers
@@ -214,7 +217,31 @@ maxSpeed, maxForce, separateRange, alignRange, attractRange, depositAmount, eatA
 
 moveSpeed, senseAngle, turnAngle, senseDistance, depositAmount, diffuseRate, hue, saturation, brightness
 
-`brightness` is the HSB value a type renders at full trail (0–1; defaults 0.8 Physarum/Boid, 1.0 Termite — the old hardcoded look).
+### Primordial (17 params, OSC prefix `pps`)
+
+Schmickl et al. PPS motion law: Δφ = α + β·N·sign(R − L). Distances in space units (su), not px.
+
+| Param | Range | Meaning |
+| ----- | ----- | ------- |
+| alpha | −180–180 | fixed turn per step (deg); 180 = isolated particles hold position |
+| beta | −90–90 | turn per neighbour (deg); > 0 turns toward the more crowded side |
+| radius | 1–20 | neighbourhood radius (su) |
+| speed | 0.05–3 | constant speed (su/step); v/r sets cell size and stability |
+| size | 0–2 | drawn particle size (su), render only |
+| noise | 0–45 | Gaussian turn noise σ (deg); tens of degrees dissolve cells |
+| otherTypeWeight | −1–1 | how other species count in L/R: 1 shared physics, 0 pass through, < 0 inverted |
+| fieldDrift | −20–20 | drift along the perceived field gradient (+ toward, − away), clamped to half speed |
+| agitationNoise | 0–90 | extra turn noise σ (deg) per unit perceived speed boost; shatters cells |
+| depositAmount | 0–1 | trail deposit |
+| diffuseRate | 0.8–1 | trail diffusion |
+| densityHueShift | −0.5–0.5 | hue offset of dense matter (nuclei, membranes) vs the sparse soup |
+| densityGlow | 0–2 | dense matter brighter + paler by this much at full density |
+| sparseDim | 0–1 | dimming of the sparse soup: 0 = creature brightness, 1 = dark |
+| hue, saturation, brightness | 0–1 | base HSB |
+
+MFT reach: bank 0 = alpha, beta, radius, speed; bank 1 = size, noise, otherTypeWeight, fieldDrift; bank 2 = hue/saturation/brightness/diffuseRate. agitationNoise, depositAmount, densityHueShift, densityGlow, sparseDim are OSC-only.
+
+`brightness` is the HSB value a type renders at full trail (0–1; defaults 0.8 Physarum/Boid, 1.0 Termite — the old hardcoded look; 0.9 Primordial).
 
 ### Biome Cross-Field (Soft Bank 2, col 3 of HW bank 4)
 

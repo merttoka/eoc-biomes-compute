@@ -34,6 +34,20 @@ render-only sim-resolution mirror of ch7 instead of the coarse biome grid (11.3:
 blocks → thin paths); default off
 ([[adr/0016-mound-detail-render-mirror|ADR-0016]], [[sessions/2026-10-06-mound-detail-layer|session]]).
 
+**Primordial particle system (2026-10-20)** — 4th agent sim: Schmickl's PPS motion law on the GPU in
+paper space units (density-derived population), creatures with membranes/nuclei from a
+density-weighted trail bank, coupled through turn noise (perception A) and a clamped drift (R − B);
+**11.4 PPS Scene** adds it to 11.3's three sims (Nutrient food web: all three hunters graze it; Pheromone0 predation loop, local
+firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
+[[sessions/2026-10-20-primordial-sim|session]]).
+
+**11.5 MIT BRAIN (2026-11-01)** — 11.4's ecology on a two-condition organoid recording (local-only
+dataset, [[adr/0019-unreleased-datasets-stay-local|ADR-0019]]). Executing in the scene: backbone
+scaffold (`BiomeInjector`), palette cues (`NeuronFiringCues`), `PresentationClock`. Built but off in
+11.5: `NeuronFiringParamMorph` (component disabled) and cue blackout resets. `LoopTakeRecorder` records
+frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
+[[sessions/2026-11-04-mit-brain-scene|session]]).
+
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
   [[adr/0010-permeability-agent-built-topography|ADR-0010]] /
@@ -55,6 +69,10 @@ blocks → thin paths); default off
   mounds persist until `ResetTermites`. Decide whether that is the look; if not, relax in wall
   space or store ch7 at higher precision. The mound detail heals with the field either way
   ([[adr/0016-mound-detail-render-mirror|ADR-0016]]).
+- **11.5 MIT BRAIN** 🟡 — the full 10-minute native take has not been recorded, so the loop seam is
+  unproven; the unit layout is synthetic until real coordinates exist (`spikes_npy_to_f16.py --xy`);
+  the scene needs its dataset restored locally to play. No tests yet for cue crossing/wrap, the morph
+  weight, the scaffold envelope or `PresentationClock`.
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing
@@ -74,6 +92,13 @@ blocks → thin paths); default off
   the (already low-frequency) tensor at half rez with double-angle axis encoding; designed, not
   built — measure 11.3's knob-on GPU ms first
   ([[superpowers/specs/2026-08-15-half-rez-trail-tensor-design|spec]]).
+
+- **Primordial follow-ups** — a dedicated PPS biome channel (v1 writes Nutrient, so a scene that also
+  needs Nutrient for decomposition can't tell them apart); the paper's asynchronous update order as
+  an option; per-species α/β morphologies (untested — species so far share the paper's law); a
+  symbiosis umwelt that keeps creatures on the veins without the drift collapse (drift up a
+  standing scent converges the soup onto its maxima —
+  [[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]).
 
 ### Low-stakes polish
 - Injector EMA dt-independence (06-10 #4) — constant `Lerp`, no `deltaTime`.

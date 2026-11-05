@@ -137,6 +137,34 @@ namespace Biomes
         [Range(0f, 1f)] public float dispersalAmount = 0.6f;
         [Range(0f, 1f)] public float dispersalFireThreshold = 0.1f;
 
+        [Header("Backbone scaffold")]
+        [Tooltip("Feeds a channel at the backbone neurons (labels_positions.csv column 0) while they " +
+                 "fire together. Strength rises fast with firingSource.BackboneCoherence and falls slowly, " +
+                 "so the scaffold bridges the gaps between bursts and dissolves once bursting stops.")]
+        public bool backboneEnabled = false;
+        [Tooltip("Nutrient: Physarum, termites and boids all chemotax toward it (and eat it).")]
+        [BiomeChannelField] public int backboneChannel = BiomeChannel.Nutrient;
+        [Tooltip("Coherence where the scaffold starts to feed. Set above the quiet condition's 99th percentile.")]
+        [Range(0f, 1f)] public float backboneCoherenceFloor = 0.3f;
+        [Tooltip("Coherence that drives the scaffold to full strength. Set near where bursts peak.")]
+        [Range(0f, 1f)] public float backboneCoherenceFull = 0.75f;
+        [Min(0.01f)] public float backboneAttackSeconds = 0.3f;
+        [Tooltip("Fade time constant. Should outlast the longest gap between bursts " +
+                 "yet dissolve well inside a quiet stretch.")]
+        [Min(0.01f)] public float backboneReleaseSeconds = 45f;
+        [Tooltip("MaxToward target at full strength. Keep above the channel's resting value " +
+                 "(Nutrient initialValue 0.3) or the scaffold is invisible to chemotaxis.")]
+        [Range(0f, 2f)] public float backboneAmount = 1f;
+        [Range(0.001f, 0.5f)] public float backboneRadius = 0.025f;
+        [Range(0.25f, 6f)] public float backboneFalloff = 1.5f;
+        [Tooltip("Also feed along a minimum spanning tree over the backbone neurons, so they read " +
+                 "as one connected structure rather than separate dots.")]
+        public bool backboneLinks = true;
+        [Range(0.002f, 0.1f)] public float backboneLinkSpacing = 0.012f;
+        [Range(0.001f, 0.5f)] public float backboneLinkRadius = 0.012f;
+        [Range(0f, 1f)] public float backboneLinkAmountScale = 0.7f;
+        [NonSerialized] public float backboneStrength;   // live 0..1 readout
+
         [Header("Centre keep-out (physical screen cutout)")]
         [Tooltip("Normalized width of a centre band where dispersal stamps are attenuated, so " +
                  "the composition survives a central cutout in the physical display. " +
@@ -194,6 +222,14 @@ namespace Biomes
 
         private ComputeBuffer _buffer;
         private Stamp[] _scratch;
+
+        // Backbone scaffold: field-UV nodes + MST link samples, rebuilt when the layout changes.
+        private IReadOnlyList<Vector2> _bbLayout;
+        private Vector2 _bbScale;
+        private float _bbSpacing;
+        private readonly List<Vector2> _bbNodes = new();
+        private readonly List<Vector2> _bbLinkPoints = new();
+        private float _bbLastTime = -1f;
 
         /// <summary>Push a live value (0..1) to a named source — e.g. from an OSC/sensor
         /// callback. Thread-safe: only writes plain fields (no Unity API), so it is safe to
@@ -281,7 +317,7 @@ namespace Biomes
                 var s = sources[i];
                 if (s != null && s.enabled && s.radius > 0f) n++;
             }
-            if (n == 0 && !(firingDispersalEnabled && firingSource != null)) return;
+            if (n == 0 && !((firingDispersalEnabled || backboneEnabled) && firingSource != null)) return;
             if (_scratch == null || _scratch.Length < n) _scratch = new Stamp[Mathf.Max(n, 8)];
 
             float now = Time.time;
@@ -346,6 +382,9 @@ namespace Biomes
                         k = AppendNeuronPositionStamps(scaled, neuronCount, k);
                 }
             }
+
+            if (backboneEnabled && firingSource != null)
+                k = AppendBackboneStamps(k);
 
             if (k == 0) return;
             if (_buffer == null || _buffer.count < k)
@@ -510,6 +549,95 @@ namespace Biomes
             (_rbResult, _rbPending) = (_rbPending, _rbResult);
             _rbResultCount = _rbPendingCount;
             _rbValid = true;
+        }
+
+        /// <summary>Drop the scaffold's strength, e.g. when the biome it was feeding is cleared.</summary>
+        public void ResetBackbone()
+        {
+            backboneStrength = 0f;
+            _bbLastTime = -1f;
+        }
+
+        // Backbone scaffold: advance the strength envelope on presentation time (the clock the
+        // data playback runs on), then feed every backbone node and, optionally, the MST link
+        // samples between them.
+        private int AppendBackboneStamps(int k)
+        {
+            float now = PresentationClock.Now;
+            float dt = _bbLastTime < 0f ? 0f : Mathf.Max(0f, now - _bbLastTime);
+            _bbLastTime = now;
+
+            float span = Mathf.Max(1e-4f, backboneCoherenceFull - backboneCoherenceFloor);
+            float target = Mathf.Clamp01((firingSource.BackboneCoherence - backboneCoherenceFloor) / span);
+            float tau = target > backboneStrength ? backboneAttackSeconds : backboneReleaseSeconds;
+            backboneStrength += (target - backboneStrength) * (1f - Mathf.Exp(-dt / tau));
+            if (backboneStrength < 0.005f) return k;
+
+            RebuildBackboneLayoutIfNeeded();
+            int channel = Mathf.Clamp(backboneChannel, 0, BiomeChannel.Count - 1);
+            float amount = backboneAmount * backboneStrength;
+            foreach (var uv in _bbNodes)
+                k = AddStamp(uv, backboneRadius, channel, amount, k);
+            if (backboneLinks)
+                foreach (var uv in _bbLinkPoints)
+                    k = AddStamp(uv, backboneLinkRadius, channel, amount * backboneLinkAmountScale, k);
+            return k;
+        }
+
+        private int AddStamp(Vector2 uv, float radius, int channel, float amount, int k)
+        {
+            if (k >= _scratch.Length) GrowScratch(k + 1);
+            _scratch[k++] = new Stamp
+            {
+                uv = uv, radius = radius, falloff = backboneFalloff, channel = channel,
+                amount = amount, mode = (int)BlendMode.MaxToward, pad = 0f,
+            };
+            return k;
+        }
+
+        // Nodes in field UV (same transform the sims seed with) + points every
+        // backboneLinkSpacing along a Prim's MST over them. Cached on the layout list identity,
+        // spawn scale and spacing; a CSV swap hands NeuronFiringSource a new list.
+        private void RebuildBackboneLayoutIfNeeded()
+        {
+            var layout = firingSource.PositionsCPU;
+            if (ReferenceEquals(layout, _bbLayout) && _bbScale == firingSource.SpawnScale
+                && Mathf.Approximately(_bbSpacing, backboneLinkSpacing)) return;
+            _bbLayout = layout;
+            _bbScale = firingSource.SpawnScale;
+            _bbSpacing = backboneLinkSpacing;
+            _bbNodes.Clear();
+            _bbLinkPoints.Clear();
+            if (layout == null) return;
+            for (int i = 0; i < layout.Count; i++)
+                if (firingSource.IsBackbone(i)) _bbNodes.Add(firingSource.NeuronToFieldUV(layout[i]));
+
+            int m = _bbNodes.Count;
+            if (m < 2) return;
+            var inTree = new bool[m];
+            var best = new float[m];
+            var parent = new int[m];
+            for (int i = 0; i < m; i++) { best[i] = float.MaxValue; parent[i] = -1; }
+            best[0] = 0f;
+            for (int it = 0; it < m; it++)
+            {
+                int u = -1;
+                for (int i = 0; i < m; i++)
+                    if (!inTree[i] && (u < 0 || best[i] < best[u])) u = i;
+                inTree[u] = true;
+                if (parent[u] >= 0)
+                {
+                    Vector2 a = _bbNodes[parent[u]], b = _bbNodes[u];
+                    int steps = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(a, b) / Mathf.Max(1e-3f, backboneLinkSpacing)));
+                    for (int s = 1; s < steps; s++) _bbLinkPoints.Add(Vector2.Lerp(a, b, s / (float)steps));
+                }
+                for (int i = 0; i < m; i++)
+                {
+                    if (inTree[i]) continue;
+                    float d = Vector2.Distance(_bbNodes[u], _bbNodes[i]);
+                    if (d < best[i]) { best[i] = d; parent[i] = u; }
+                }
+            }
         }
 
         // Append one dispersal stamp at uv with intensity fc (0..1), growing scratch as needed.

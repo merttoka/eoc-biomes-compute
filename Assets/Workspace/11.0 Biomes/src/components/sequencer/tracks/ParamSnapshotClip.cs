@@ -10,8 +10,8 @@ namespace Biomes
     /// hold the clip at weight 1 to hold the look.</summary>
     public class ParamSnapshotClip : PlayableAsset, ITimelineClipAsset
     {
-        /// <summary>A params preset/snapshot asset implementing IParamSet (PhysarumParams, BoidParams, TermiteParams instance).</summary>
-        [Tooltip("A params preset/snapshot asset implementing IParamSet (PhysarumParams, BoidParams, TermiteParams instance).")]
+        /// <summary>A params preset/snapshot asset implementing IParamSet (PhysarumParams, BoidParams, TermiteParams, PrimordialParams instance).</summary>
+        [Tooltip("A params preset/snapshot asset implementing IParamSet (PhysarumParams, BoidParams, TermiteParams, PrimordialParams instance).")]
         public ScriptableObject snapshot;
         /// <summary>Index into SimulationManager.simulations.</summary>
         [Tooltip("Index into SimulationManager.simulations.")]

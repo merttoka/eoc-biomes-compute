@@ -31,8 +31,8 @@ namespace Biomes
         public bool playOnStart = false;
         [Tooltip("Live transport. Toggle in the inspector or via Play/Pause.")]
         public bool playing = false;
-        [Tooltip("Advance by unscaled time so Time.timeScale never desyncs the blob from a video " +
-                 "playing alongside it (the OSC path is wall-clock too).")]
+        [Tooltip("Advance by presentation time (wall clock live, capture clock during a Recorder take) " +
+                 "so Time.timeScale never desyncs the blob from a video playing alongside it. Off = scaled game time.")]
         public bool unscaledTime = true;
         public bool debugLog = false;
 
@@ -59,7 +59,7 @@ namespace Biomes
             SyncConfig();
             WarnIfOutOfBlob();
 
-            float dt = unscaledTime ? Time.unscaledDeltaTime : Time.deltaTime;
+            float dt = unscaledTime ? PresentationClock.DeltaTime : Time.deltaTime;
             int f = _playhead.Advance(dt);
             Push(f);
 

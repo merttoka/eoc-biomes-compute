@@ -201,6 +201,11 @@ ProfilerCaptures/
 Assets/Workspace/11.2 SIGGRAPH Scene/data/
 Assets/Workspace/11.2 SIGGRAPH Scene/data.meta
 
+# 11.5 dataset: public release unconfirmed, stays local (docs/adr/0019-unreleased-datasets-stay-local.md)
+Assets/StreamingAssets/biomes11/organoid_ketamine*
+Assets/Workspace/11.5 MIT BRAIN/data/
+Assets/Workspace/11.5 MIT BRAIN/data.meta
+
 # Unity Recorder output (hundreds of MB per take)
 Assets/Recordings/
 Assets/Recordings.meta

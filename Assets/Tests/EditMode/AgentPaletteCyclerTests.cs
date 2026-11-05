@@ -183,7 +183,53 @@ public class AgentPaletteCyclerTests
         AssertHsb((0f, 1f, 1f), 0);
     }
 
+    [Test]
+    public void MoundColor_FollowsAPaletteThatTintsMounds_AndPresetRestoresTheAuthoredOne()
+    {
+        Palettes.Add(MoundPalette(Color.green));                         // 2
+        Select(2, instant: true);
+        AssertColor(Color.green, Mound(Color.red));
+        Select(-1, instant: true);
+        AssertColor(Color.red, Mound(Color.red));
+    }
+
+    [Test]
+    public void MoundColor_FadesWithTheAgents()
+    {
+        Palettes.Add(MoundPalette(Color.green));
+        Mound(Color.red);                         // the composite has been painting the authored walls
+        Select(2, instant: false);
+        Tick(1f);                                 // smoothstep(0.5) = 0.5
+        AssertColor(Color.Lerp(Color.red, Color.green, 0.5f), Mound(Color.red));
+        Tick(1f);
+        AssertColor(Color.green, Mound(Color.red));
+    }
+
+    [Test]
+    public void PaletteThatLeavesMoundsAlone_KeepsTheAuthoredWalls()
+    {
+        Select(0, instant: true);
+        AssertColor(Color.red, Mound(Color.red));
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    private Color Mound(Color authored) => (Color)Call("MoundColor", authored);
+
+    private ScriptableObject MoundPalette(Color mound)
+    {
+        var palette = Palette(Color.white);
+        palette.GetType().GetField("tintsMounds").SetValue(palette, true);
+        palette.GetType().GetField("moundColor").SetValue(palette, mound);
+        return palette;
+    }
+
+    private static void AssertColor(Color expected, Color actual)
+    {
+        Assert.That(actual.r, Is.EqualTo(expected.r).Within(Eps), "r");
+        Assert.That(actual.g, Is.EqualTo(expected.g).Within(Eps), "g");
+        Assert.That(actual.b, Is.EqualTo(expected.b).Within(Eps), "b");
+    }
 
     private IList Palettes => (IList)_cycler.GetType().GetField("palettes").GetValue(_cycler);
     private int ActiveIndex => (int)_cycler.GetType().GetProperty("ActiveIndex").GetValue(_cycler);

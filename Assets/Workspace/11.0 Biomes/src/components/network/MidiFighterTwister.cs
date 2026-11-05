@@ -94,6 +94,7 @@ namespace Biomes
         private const int RGB_RED      = 1;
         private const int RGB_CYAN     = 40;
         private const int RGB_YELLOW   = 65;
+        private const int RGB_MAGENTA  = 97;  // Primordial (not green: Biome's 43 shares the bank-2 grid)
 
         // MFT LED animation values (sent as CC value on Ch 2)
         // Per DJTT manual: 1-8 strobe, 9-16 pulse, 17-47 RGB brightness (47 = 100%), 127 rainbow
@@ -509,18 +510,13 @@ namespace Biomes
             return columns;
         }
 
+        // Live clone first, else the assigned preset (edit mode, before Reset clones it).
+        // Null-checked as ScriptableObject so Unity's null (unassigned/destroyed) falls through.
         private int GetTypeCount(SimulationBase sim)
         {
-            if (sim is PhysarumSim ps)
-                return ps.agentParams != null ? ps.agentParams.types.Count
-                     : ps.paramsSO != null ? ps.paramsSO.types.Count : 1;
-            if (sim is BoidSim bs)
-                return bs.agentParams != null ? bs.agentParams.types.Count
-                     : bs.paramsSO != null ? bs.paramsSO.types.Count : 1;
-            if (sim is TermiteSim ts)
-                return ts.agentParams != null ? ts.agentParams.types.Count
-                     : ts.paramsSO != null ? ts.paramsSO.types.Count : 1;
-            return 1;
+            var live = sim?.LiveParamSet as ScriptableObject;
+            var set = live != null ? live : sim?.PresetParamSet;
+            return set != null && set is IParamSet p ? p.TypeCount : 1;
         }
 
         #endregion
@@ -1043,9 +1039,10 @@ namespace Biomes
             if (b.simIndex < 0 || b.simIndex >= m_Simulations.Count) return RGB_OFF;
             return m_Simulations[b.simIndex] switch
             {
-                PhysarumSim => RGB_BLUE,
-                TermiteSim  => RGB_YELLOW,
-                _           => RGB_ORANGE,
+                PhysarumSim   => RGB_BLUE,
+                TermiteSim    => RGB_YELLOW,
+                PrimordialSim => RGB_MAGENTA,
+                _             => RGB_ORANGE,
             };
         }
 

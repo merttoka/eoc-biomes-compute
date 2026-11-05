@@ -25,6 +25,8 @@ namespace Biomes
             ResetAll, ResetSimsOnly,
             StartDebugVideo, PauseDebugVideo, StopDebugVideo,
             PlayInterpolators, StopInterpolators, SkipInterpolators,
+            // Serialized as int: append new actions here, never insert above.
+            StartPrimordial, StopPrimordial,
         }
 
         [Serializable]
@@ -179,10 +181,12 @@ namespace Biomes
                 case TimelineAction.StartTermites: StartAll<TermiteSim>(); break;
                 case TimelineAction.StartBoids:    StartAll<BoidSim>(); break;
                 case TimelineAction.StartPhysarum: StartAll<PhysarumSim>(); break;
+                case TimelineAction.StartPrimordial: StartAll<PrimordialSim>(); break;
                 case TimelineAction.StartCellular: StartAll<FieldSimulationBase>(); break;
                 case TimelineAction.StopTermites:  StopAll<TermiteSim>(e.fadeSecondsOverride); break;
                 case TimelineAction.StopBoids:     StopAll<BoidSim>(e.fadeSecondsOverride); break;
                 case TimelineAction.StopPhysarum:  StopAll<PhysarumSim>(e.fadeSecondsOverride); break;
+                case TimelineAction.StopPrimordial: StopAll<PrimordialSim>(e.fadeSecondsOverride); break;
                 case TimelineAction.StopCellular:  StopAll<FieldSimulationBase>(e.fadeSecondsOverride); break;
                 case TimelineAction.ResetAll:      simManager.Reset(); break;
                 case TimelineAction.ResetSimsOnly: simManager.ResetSimsOnly(); break;
