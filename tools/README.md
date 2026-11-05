@@ -174,6 +174,10 @@ thresholds were tuned on (`organoid_firing.f16`; both sets of stats print after 
 Concatenated recordings stay in **one** blob with one normalization so a quiet condition stays
 quiet; the sidecar `.json` lists each segment's frame range and burst-onset frames.
 
+The 11.5 outputs below (blob, sidecar, positions CSV) are local data, not in git
+(`docs/adr/0019-unreleased-datasets-stay-local.md`). Keep each output's `.meta`: the scene references
+the positions CSV by GUID.
+
 ```bash
 # Two-recording set (canonical): the lab's per-recording timeseries CSVs, in playback order.
 # Uses their rates_norm as-is (normalized per unit across both recordings) -> 36000 frames @ 60 fps

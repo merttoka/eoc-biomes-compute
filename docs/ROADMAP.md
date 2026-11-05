@@ -41,6 +41,13 @@ density-weighted trail bank, coupled through turn noise (perception A) and a cla
 firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
 [[sessions/2026-10-20-primordial-sim|session]]).
 
+**11.5 MIT BRAIN (2026-11-01)** — 11.4's ecology on a two-condition organoid recording (local-only
+dataset, [[adr/0019-unreleased-datasets-stay-local|ADR-0019]]). Executing in the scene: backbone
+scaffold (`BiomeInjector`), palette cues (`NeuronFiringCues`), `PresentationClock`. Built but off in
+11.5: `NeuronFiringParamMorph` (component disabled) and cue blackout resets. `LoopTakeRecorder` records
+frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
+[[sessions/2026-11-04-mit-brain-scene|session]]).
+
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
   [[adr/0010-permeability-agent-built-topography|ADR-0010]] /
@@ -62,6 +69,10 @@ firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]
   mounds persist until `ResetTermites`. Decide whether that is the look; if not, relax in wall
   space or store ch7 at higher precision. The mound detail heals with the field either way
   ([[adr/0016-mound-detail-render-mirror|ADR-0016]]).
+- **11.5 MIT BRAIN** 🟡 — the full 10-minute native take has not been recorded, so the loop seam is
+  unproven; the unit layout is synthetic until real coordinates exist (`spikes_npy_to_f16.py --xy`);
+  the scene needs its dataset restored locally to play. No tests yet for cue crossing/wrap, the morph
+  weight, the scaffold envelope or `PresentationClock`.
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing

@@ -54,11 +54,13 @@ Assets/Workspace/
   11.3 Brave New Work Scene/  Brave New Work show — Scene_BraveNewWork.unity (4800×1080 projection)
   11.4 PPS Scene/       primordial-particle ecology — Scene_PPS.unity (11.3's three sims + Primordial), built by
                         Editor/PrimordialSceneSetup.cs
+  11.5 MIT BRAIN/       two-condition organoid scene — Scene_MITBRAIN.unity (clone of 11.4, 3840×3024);
+                        dataset is local-only, so it needs a local copy to play (ADR-0019)
   Includes/             shared compute helpers / shaders (copied verbatim — ADR-0005)
 Assets/Settings/        Unity 6 Build Profiles (macOS standalone)
 Assets/StreamingAssets/ runtime-loaded blobs (e.g. biomes11/organoid_firing.f16, LFS)
 Packages/               UPM deps (klak.spout / klak.ndi / klak.syphon)
-tools/                  offline preprocessors (firing_csv_to_f16.py)
+tools/                  offline preprocessors (firing_csv_to_f16.py, spikes_npy_to_f16.py)
 memory/
   daemon/               Python: folder-watch → SQLite + OSC
   td/                   TouchDesigner files (placeholder)
@@ -83,14 +85,15 @@ src/
     Sim/        BoidSim, PhysarumSim, TermiteSim, PrimordialSim, CyclicCASim, LookupCASim
                 (concrete SimulationBase subclasses)
     network/    MidiFighterTwister, MIDIMapping, OSCMapping, BiomeInjector,
-                NeuronFiringSource, ExternalTexture* (control surfaces + external inputs)
-    utils/      ParameterRecorder, ParameterInterpolator, AgentPaletteCycler, ScreenLayout
+                NeuronFiringSource, NeuronFiringPlayback, NeuronFiringCues, NeuronFiringParamMorph,
+                ExternalTexture* (control surfaces + external inputs)
+    utils/      ParameterRecorder, ParameterInterpolator, AgentPaletteCycler, PresentationClock, ScreenLayout
     sequencer/  CompositeSequencer, BiomeCellRig, tracks/ (Timeline tracks — §3.9)
   sequencer_core/ Biomes.Sequencer.Core — engine-free patch-scheduling logic (§3.9)
   params/     BoidParams, PhysarumParams, TermiteParams, PrimordialParams, ParamRange, ColorPalette, IParamSet,
               IAgentColorParams, AgentColorPalette
   Editor/     custom inspectors (ParamsEditor + AgentColorsGUI, MFT/MIDI editors, ScreenLayoutPreview,
-              sequencer/BiomePaletteWindow — §3.9)
+              sequencer/BiomePaletteWindow — §3.9), LoopTakeRecorder (§3.8)
 ```
 
 ---
@@ -390,7 +393,7 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
 - **`AgentPaletteCycler`** (`SimulationManager.paletteCycle`) — live agent palettes. Cycle =
   Preset (each sim's authored colors, read from `PresetParamSet`) → `palettes` → Preset; a change
   fades every non-stopped agent sim's per-type hue (shortest arc) / saturation / brightness over
-  `fadeSeconds` of unscaled time (ticked in `LateUpdate`; outside Play it applies at once) and
+  `fadeSeconds` of `PresentationClock` time (ticked in `LateUpdate`; outside Play it applies at once) and
   writes the exact target when settled. `ConfigureAndReset` calls `Reimpose(sim)` so a respawn or
   late start shows the palette at the fade's current point, never the preset. Triggers: inspector
   buttons, MFT side actions, OSC `/palette_next` · `/palette_prev` · `/palette <i>` (−1 = Preset,
@@ -414,16 +417,24 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
 - **`NeuronFiringSource`** — the **firing playhead** ([[adr/0006-osc-neuron-firing]]).
   Owns the firing blob + neuron positions; an external patch sends `/index <int>` to scrub
   which frame is shown (file = values, OSC = playhead — no auto-advance). Holds the last
-  frame and **decays firing to quiet** (`firingDecaySeconds`) when silent. Each step it
-  emits a shared 131-float buffer (row × decay) that `SimulationManager` broadcasts to every
-  sim. Thread-safe intake (field + dirty flag, the `BiomeInjector` pattern).
+  frame and **decays firing to quiet** (`firingDecaySeconds`, on `PresentationClock`) when
+  silent. Each step it emits a shared buffer, one float per neuron in the loaded blob
+  (row × decay), that `SimulationManager` broadcasts to every sim. Thread-safe intake (field +
+  dirty flag, the `BiomeInjector` pattern). The positions CSV's `backbone_labels` column marks
+  backbone neurons; `BackboneCoherence` is the fraction of them at or above
+  `backboneFiringThreshold` in the current frame (0 when the CSV labels none).
 - **`BiomeInjector`** — paints **Gaussian stamps** into biome channels (thread-safe intake;
-  per-source raw→0..1 calibration + EMA smoothing; Additive/MaxToward/SetToward modes). Two
-  stamp producers: external **sources** (sensors/OSC → any channel), and **firing-driven
+  per-source raw→0..1 calibration + EMA smoothing; Additive/MaxToward/SetToward modes). Three
+  stamp producers: external **sources** (sensors/OSC → any channel); **firing-driven
   Dispersal** pulses (intensity-scaled, radius-expanding) at either fixed **neuron CSV
   positions** or **live agent positions** of a chosen sim (`FiringDispersalSource`, e.g. the
-  termites — `i % neuronCount` selects the firing neuron; Running sims only). Runs after sim
-  write-back, before `Biome.Step()`, so stamps ride the full field evolution.
+  termites — `i % neuronCount` selects the firing neuron; Running sims only); and the
+  **backbone scaffold** (`backboneEnabled`, default off), MaxToward stamps into `backboneChannel`
+  at backbone nodes and along a Prim's MST between them, cached on the layout. Its strength follows
+  `BackboneCoherence` (mapped through `backboneCoherenceFloor`..`Full`) with fast attack and slow
+  release, so it bridges gaps between bursts and dissolves once bursting stops; a full
+  `SimulationManager.Reset` clears it with the biome. Runs after sim write-back, before
+  `Biome.Step()`, so stamps ride the full field evolution.
   `InjectStampKernel` culls stamps per 8×8 tile (all 64 threads test stamps and OR hits into a
   groupshared mask) and applies each pixel's survivors in index
   order on register copies of the touched channels, writing each texel once (re-reading a
@@ -438,8 +449,20 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
   Umwelt mappings. Note the 11.0 sims **do not read** `externalInfluenceTex` (only the 10.0
   computes did); the receiver's texture reaches agents only through this seeder — the
   manager's per-sim assignment is vestigial plumbing.
+- **`PresentationClock`** — the clock for presentation-paced effects: wall time live, game time
+  while `Time.captureDeltaTime` is set, so they stay in step with the sims in a recorded take
+  ([[adr/0018-presentation-clock-frame-locked-takes]]).
+- **`NeuronFiringCues`** — show actions keyed to blob frames: a palette crossfade from
+  `paletteCycle` (empty = Preset) and/or a fade to black, reset and fade back. Frames are data
+  frames, so cues land identically live and in a take. A loop wrap fires what it crosses; a jump
+  over `seekFrames` fires nothing and snaps the palette to the condition it landed in. 11.5 cues
+  Preset at frame 0 and `MIT Brain CURRENTS` at 18000, resets off.
+- **`NeuronFiringParamMorph`** — morphs sims' live params toward other presets past a blob frame,
+  with the weight a pure function of the playhead (so a seek or take lands the same). Targets are
+  scaled like the sim's own clone; types beyond a preset's count reuse it cyclically; colors are
+  skipped unless `includeColor`. Returning to weight 0 restores the captured values. Disabled in 11.5.
 - **`NeuronFiringPlayback`** — local transport over the firing blob: plays an inclusive
-  frame range over a wall-clock duration (`FramePlayhead`, pure, in `Biomes.Core`) and
+  frame range over a `PresentationClock` duration (`FramePlayhead`, pure, in `Biomes.Core`) and
   pushes frames through `NeuronFiringSource.SetFrame`, identical to the OSC `/index` path.
   Keep `playing` off while TD drives `/index` or the two fight over the frame.
   `SimTimeline.firingPlayback` restarts it on Play and stops it on Stop, so a recorded take's
@@ -530,7 +553,12 @@ packages compile on every platform; availability is gated at runtime
   `PngExport.Save` reads back through a per-size `ReadbackCache` the exporter keeps while
   recording (released on stop/disable) and encodes with `EncodeNativeArrayToPNG` (same bytes as
   `EncodeToPNG`), so a 4K frame no longer puts a ~14 MB array on the managed heap. The encode
-  itself (~370 ms per 4K frame, main thread) dominates export time.
+  itself (~370 ms per 4K frame, main thread) dominates export time. `LoopTakeRecorder.Record`
+  (Editor, called from code or the Unity CLI) automates path (a) for a scene with a
+  `NeuronFiringPlayback`: enters Play, pre-rolls through the end of the range so the sims carry
+  end-of-pass state into the first recorded frame, records one pass (or an excerpt from
+  `fromDataFrame`) as ProRes at a constant frame rate, exits Play, and unassigns a `recorderTarget`
+  it created ([[adr/0018-presentation-clock-frame-locked-takes]]).
 - **Scene cameras (11.2 scenes)** — one HDRP camera renders: `Rendering Camera` (tag
   `Recording`). `Main Camera` only carries the AudioListener (its Camera is off; it was fully
   overdrawn). `Rendering Camera` uses custom frame settings with shadows, screen-space effects,
@@ -656,6 +684,10 @@ Summarized here; authoritative detail in [[migration]] §2.
   stays in `11.0 Biomes/`.
 - [[adr/0017-primordial-sim-paper-units-noise-coupling]] — the PPS sim works in paper space units
   with a density-derived population, and couples to the biome through turn noise, not speed.
+- [[adr/0018-presentation-clock-frame-locked-takes]] — presentation-paced effects share one clock
+  that follows the capture clock during a take.
+- [[adr/0019-unreleased-datasets-stay-local]] — datasets without confirmed public release stay out
+  of git history, and their results and researcher names stay out of the text.
 
 ---
 
