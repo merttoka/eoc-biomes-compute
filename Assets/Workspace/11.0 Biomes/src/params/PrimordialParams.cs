@@ -58,7 +58,7 @@ namespace Biomes
     [CreateAssetMenu(fileName = "PrimordialParams", menuName = "Biomes/PrimordialParams")]
     public class PrimordialParams : ScriptableObject, IAgentColorParams
     {
-        [Range(1, 8)] public int typeCount = 1;
+        [Range(1, 8), KnobIgnore] public int typeCount = 1;
         public List<PrimordialAgentType> types = new()
         {
             new PrimordialAgentType(),

@@ -24,7 +24,7 @@ namespace Biomes
     [CreateAssetMenu(fileName = "PhysarumParams", menuName = "Biomes/PhysarumParams")]
     public class PhysarumParams : ScriptableObject, IAgentColorParams
     {
-        [Range(1, 8)] public int typeCount = 2;
+        [Range(1, 8), KnobIgnore] public int typeCount = 2;
         public List<PhysarumAgentType> types = new()
         {
             new PhysarumAgentType(),

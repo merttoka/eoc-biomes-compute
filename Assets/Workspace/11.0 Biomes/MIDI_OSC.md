@@ -155,13 +155,29 @@ After switching either bank type, encoders are ignored until the physical knob p
 
 ### Encoder Push (configurable)
 
+A press with no turn runs this action, at release, since it can't be known at the press whether a turn will follow.
+
 - **RandomizeParam** — randomize that one knob's param
 - **ResetParamToDefault** — snap to midpoint
-- **ToggleFineTune** — precision mode per encoder
+- **ToggleFineTune** — 1/10 speed on that knob, per soft bank and page
 
-### Shift Layer
+### Press and Turn
 
-Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 4. Code applies 10x precision scaling.
+`Press Turn Scope` sets what moves on a sim param knob. Each value moves by the same share of its range, so offsets between them are kept.
+
+| Scope | What moves |
+| ----- | ---------- |
+| `AllTypesOfSim` (default) | that param on every agent type of the knob's sim |
+| `AllSims` | also the same-named param on other sims; Boid's `maxSpeed` doesn't follow Physarum's `moveSpeed` |
+| `Off` | nothing extra: a normal turn |
+
+Biome, Umwelt and Global knobs move only themselves. Changing soft bank while holding a knob cancels the press.
+
+### Fine Control
+
+Hold keyboard Shift, or use the MFT shift layer, and turn: 1/10 speed, relative to the param's current value. The shift layer is configured per-encoder in the MFT Utility app and sends on Ch 4.
+
+A value already outside its range holds or moves inward, and never snaps to the bound. Sim params need Play mode, where their live copy exists.
 
 ### Side Buttons
 
@@ -178,6 +194,42 @@ Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 
 Other assignable actions: RandomizeAll, ExportPNG, TogglePause, CycleDebugChannel, ClearBiome, ToggleDebugGrid, PrevSoftBank, NextSoftBank, CycleScreen, ToggleScreen, SaveSnapshot (new timestamped preset), SaveToCurrentParams (overwrite the assigned preset asset in place with live params), NextPalette, PreviousPalette (step the `SimulationManager` palette cycle; e.g. put NextPalette on R3 in place of RandomizeColors).
 
 Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31). Same physical button = same action on all HW banks. Only configure HW bank 1 CC numbers in inspector.
+
+### Hover Knob
+
+One knob moves whichever numeric inspector field the mouse is over, with no click or arming. Editor only, in Edit and Play mode. It needs `MidiFighterTwister` in the scene, which opens the MIDI connection.
+
+**Getting there:** soft bank 3 + HW bank 4, an empty page in every scene. From soft bank 0, `PrevSoftBank` reaches bank 3 in one press. The knob is `hoverEncoder` (default 0, top-left): dim white when idle, full white once a field is under the mouse.
+
+| Gesture | Effect |
+| ------- | ------ |
+| Move the mouse onto a field | ring shows its value, and the knob continues from there with no jump |
+| Turn | moves the field, relative to its current value |
+| Hold keyboard Shift, or use the MFT shift layer, and turn | same, at 1/10 speed |
+| Press and turn | moves that field on every element of its array; differences between elements are kept. Outside an array, same as turn |
+
+The target stays locked until 300 ms after the last tick, so a drifting mouse can't jump to the next row. Each gesture is one Undo step. Writes go wherever a mouse edit would: hovering a preset asset edits the asset, while the running sim reads its Play-mode clone.
+
+**Travel:** `[Range]` on the field, else the param set's `ranges` list (`[KnobParam]` names the entry when it differs from the field), else a step of 1% of the current value, stopping at any `[Min]`. At `hoverGain` 1, the knob's 127 MIDI steps cross the whole range. A value already outside its range holds or moves inward, and never snaps to the bound. Ints need a declared range.
+
+**Known issue:** a fine turn still stops for a brief moment on the device (see `docs/ROADMAP.md`).
+
+**Not reachable:** fields marked `[KnobIgnore]` (`typeCount`, whose list sync only runs in its inspector, and `hoverEncoder` itself), and controls not drawn from a `SerializedProperty`, such as a float-only `EditorGUILayout.Slider`.
+
+Change `hoverKnobEnabled` or `hoverEncoder`, then press **Rebuild All Banks**. Why it reads internal Unity data: `docs/adr/0020-mft-hover-knob-imgui-debugger-data.md`.
+
+### Sideways Scroll
+
+Scrolling sideways over a numeric inspector field moves it, with no click or focus. It works in any scene and needs no MFT. Same travel and limits as the hover knob, with a full swipe set by `WheelUnitsPerFullTravel`.
+
+| Gesture | Effect |
+| ------- | ------ |
+| Scroll sideways over a field | moves it; swipe right for up |
+| Hold Shift | 1/10 speed |
+| Hold Ctrl | moves that field on every element of its array |
+| Scroll vertically | scrolls the inspector, and never moves a field however it drifts |
+
+Each gesture is one Undo step. Toggle it per machine under **Biomes > Scroll Sideways To Edit Inspector Fields**. Design: `docs/adr/0021-sideways-scroll-debugger-lease.md`.
 
 ### Inspector
 

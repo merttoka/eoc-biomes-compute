@@ -33,7 +33,10 @@ namespace Biomes
             var palette = DrawPaletteRow(editor.target, p);
             for (int i = 0; i < p.TypeCount; i++)
                 DrawTypeRow(editor, p, i, palette);
-            editor.serializedObject.Update();   // rows write the object directly; refresh before the types list draws
+            // The sliders leave edits pending, which Update would discard. The color fields write the object directly,
+            // so it also has to be refreshed before the types list draws.
+            editor.serializedObject.ApplyModifiedProperties();
+            editor.serializedObject.Update();
         }
 
         private static AgentColorPalette DrawPaletteRow(UnityEngine.Object target, IAgentColorParams p)
@@ -109,15 +112,16 @@ namespace Biomes
             {
                 float labelWidth = EditorGUIUtility.labelWidth;
                 EditorGUIUtility.labelWidth = 14f;
-                EditorGUI.BeginChangeCheck();
-                float nh = EditorGUILayout.Slider("H", h, 0f, 1f);
-                float ns = EditorGUILayout.Slider("S", s, 0f, 1f);
-                float nb = EditorGUILayout.Slider("B", b, 0f, 1f);
-                if (EditorGUI.EndChangeCheck())
-                    Write(target, p, i, (nh, ns, nb));
+                DrawChannelSlider(editor.serializedObject, i, "hue", "H");
+                DrawChannelSlider(editor.serializedObject, i, "saturation", "S");
+                DrawChannelSlider(editor.serializedObject, i, "brightness", "B");
                 EditorGUIUtility.labelWidth = labelWidth;
             }
         }
+
+        // Bound to the property so the hover knob and sideways scroll can find it. Draw applies the SerializedObject.
+        private static void DrawChannelSlider(SerializedObject so, int type, string field, string label) =>
+            EditorGUILayout.Slider(so.FindProperty($"types.Array.data[{type}].{field}"), 0f, 1f, new GUIContent(label));
 
         private static void Write(UnityEngine.Object target, IAgentColorParams p, int i, (float h, float s, float b) c)
         {

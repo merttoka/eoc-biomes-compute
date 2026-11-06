@@ -37,7 +37,7 @@ blocks → thin paths); default off
 **Primordial particle system (2026-10-20)** — 4th agent sim: Schmickl's PPS motion law on the GPU in
 paper space units (density-derived population), creatures with membranes/nuclei from a
 density-weighted trail bank, coupled through turn noise (perception A) and a clamped drift (R − B);
-**11.4 PPS Scene** adds it to 11.3's three sims (Nutrient food web: all three hunters graze it; Pheromone0 predation loop, local
+**11.4 PPS Dev Scene** adds it to 11.3's three sims (Nutrient food web: all three hunters graze it; Pheromone0 predation loop, local
 firing playback) ([[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]],
 [[sessions/2026-10-20-primordial-sim|session]]).
 
@@ -47,6 +47,13 @@ scaffold (`BiomeInjector`), palette cues (`NeuronFiringCues`), `PresentationCloc
 11.5: `NeuronFiringParamMorph` (component disabled) and cue blackout resets. `LoopTakeRecorder` records
 frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
 [[sessions/2026-11-04-mit-brain-scene|session]]).
+
+**MFT hover knob and inspector scroll (2026-11-05)** — on soft bank 3 / HW bank 4, one knob moves the numeric
+inspector field under the mouse; sideways trackpad scroll does the same in any scene with no MFT. Keyboard Shift
+or the MFT shift layer gives 1/10 speed on every knob, and press-and-turn moves a param across agent types.
+Editor only for the first two, device-tested on macOS
+([[adr/0020-mft-hover-knob-imgui-debugger-data|ADR-0020]], [[adr/0021-sideways-scroll-debugger-lease|ADR-0021]],
+[[sessions/2026-11-05-inspector-scroll-fine-control|session]]).
 
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
@@ -73,6 +80,10 @@ frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
   unproven; the unit layout is synthetic until real coordinates exist (`spikes_npy_to_f16.py --xy`);
   the scene needs its dataset restored locally to play. No tests yet for cue crossing/wrap, the morph
   weight, the scaffold envelope or `PresentationClock`.
+- **MFT hover knob fine turn** 🟡 — it still stops for a brief moment during a fine turn on the device; accepted for now.
+  Cause not investigated. A model of the device doesn't show it, but the model has no MIDI or frame latency, so a position
+  sent back after the knob has moved on is one unverified candidate
+  ([[sessions/2026-11-05-inspector-scroll-fine-control|session]]).
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing
@@ -104,6 +115,15 @@ frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
 - Injector EMA dt-independence (06-10 #4) — constant `Lerp`, no `deltaTime`.
 - `decompositionTempSpan` default (06-10 #6) — code default `4`, show assets override to `3`.
 - Parameter-literature grounding (`RESEARCH_BRIEF`).
+- MFT turn model — fine, group and hover are three relative routes beside a parallel value switch; one relative
+  binding, with `_lastValues` as the only record of knob position, would remove the ring caches. Touches the LED path.
+- `typeCount` sync lives in one inspector's change check, hence `[KnobIgnore]`; moving it to the param sets would remove
+  the opt-out. `MIDIMapping`'s delta path still snaps out-of-range values through `ClampDelta`.
+- `HoverKnobMath` holds stepping used by every knob and path helpers used by one editor class; split and rename it.
+- Hover driver edges — it still runs on the hover page when no binding exists; a resting mouse keeps the old objects
+  if a multi-edit selection changes but its first target doesn't; the first repaint wait is a 30 ms guess.
+- Inspector input cost, unprofiled — a write per wheel event, and `wantsMouseMove` running IMGUI on each mouse move on
+  the hover page. Coalesce per frame if a profile shows it matters.
 
 ## 🔭 What's below (deeper biology / future — [[../Assets/Workspace/11.0 Biomes/docs/INTERACTION_DESIGN_II|INTERACTION_DESIGN_II]])
 - Outside-signal routing (audio / organoid / sensors → field, beyond the 4 perception slots).
