@@ -14,6 +14,7 @@ namespace Biomes
         private static readonly Color COL_BIOME        = new(0.3f, 0.8f, 0.3f, 0.35f);
         private static readonly Color COL_UMWELT       = new(0.3f, 0.8f, 0.8f, 0.35f);
         private static readonly Color COL_GLOBAL       = new(0.7f, 0.4f, 0.9f, 0.35f);
+        private static readonly Color COL_HOVER        = new(1f, 1f, 1f, 0.35f);
         private static readonly Color COL_EMPTY        = new(0.3f, 0.3f, 0.3f, 0.15f);
 
         private static readonly string[] BANK_NAMES = {
@@ -134,6 +135,10 @@ namespace Biomes
                             label = $"Global\n{b.label ?? "?"}";
                             bgColor = COL_GLOBAL;
                             break;
+                        case MidiFighterTwister.BindingTarget.Hover:
+                            label = "Hover\nknob";
+                            bgColor = COL_HOVER;
+                            break;
                         default:
                             label = $"CC {idx}\n--";
                             bgColor = COL_EMPTY;
@@ -214,6 +219,7 @@ namespace Biomes
             DrawLegendSwatch(COL_BIOME, "Biome");
             DrawLegendSwatch(COL_UMWELT, "Umwelt");
             DrawLegendSwatch(COL_GLOBAL, "Global");
+            DrawLegendSwatch(COL_HOVER, "Hover");
             EditorGUILayout.EndHorizontal();
 
             // ─── Layout Mode Explanation ───
@@ -261,6 +267,7 @@ namespace Biomes
                     serializedObject.FindProperty("pushMode").enumValueIndex] + "\n" +
                 "Shift layer (hold MFT shift): fine-tune (10x precision)\n" +
                 "Side L-mid / R-mid: cycle software banks\n" +
+                "Hover knob (soft bank 3, HW bank 4): moves the numeric field under the mouse; press and turn for every array element\n" +
                 "LED feedback sends ring positions + RGB colors (needs MIDI output plugin)\n" +
                 "Sim LED colors: Physarum = blue, Boid = orange, Termite = yellow, Primordial = magenta\n\n" +
                 "All sims support 1-8 agent types (set on the params ScriptableObject).\n" +

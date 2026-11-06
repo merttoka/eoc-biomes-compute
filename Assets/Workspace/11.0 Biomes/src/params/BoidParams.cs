@@ -28,7 +28,7 @@ namespace Biomes
     [CreateAssetMenu(fileName = "BoidParams", menuName = "Biomes/BoidParams")]
     public class BoidParams : ScriptableObject, IAgentColorParams
     {
-        [Range(1, 8)] public int typeCount = 1;
+        [Range(1, 8), KnobIgnore] public int typeCount = 1;
         public List<BoidAgentType> types = new() { new BoidAgentType() };
 
         [Header("MIDI/OSC Ranges (min/max for 0-1 mapping)")]
