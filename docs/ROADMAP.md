@@ -80,8 +80,10 @@ Editor only for the first two, device-tested on macOS
   unproven; the unit layout is synthetic until real coordinates exist (`spikes_npy_to_f16.py --xy`);
   the scene needs its dataset restored locally to play. No tests yet for cue crossing/wrap, the morph
   weight, the scaffold envelope or `PresentationClock`.
-- **MFT hover knob fine turn** 🟡 — the end-stop fix passes against a model of the device but awaits a turn on hardware
-  ([[sessions/2026-11-05-inspector-scroll-fine-control|session]]). The other review fixes passed the device test.
+- **MFT hover knob fine turn** 🟡 — it still stops for a brief moment during a fine turn on the device; accepted for now.
+  Cause not investigated. A model of the device doesn't show it, but the model has no MIDI or frame latency, so a position
+  sent back after the knob has moved on is one unverified candidate
+  ([[sessions/2026-11-05-inspector-scroll-fine-control|session]]).
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing

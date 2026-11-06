@@ -212,6 +212,8 @@ The target stays locked until 300 ms after the last tick, so a drifting mouse ca
 
 **Travel:** `[Range]` on the field, else the param set's `ranges` list (`[KnobParam]` names the entry when it differs from the field), else a step of 1% of the current value, stopping at any `[Min]`. At `hoverGain` 1, the knob's 127 MIDI steps cross the whole range. A value already outside its range holds or moves inward, and never snaps to the bound. Ints need a declared range.
 
+**Known issue:** a fine turn still stops for a brief moment on the device (see `docs/ROADMAP.md`).
+
 **Not reachable:** fields marked `[KnobIgnore]` (`typeCount`, whose list sync only runs in its inspector, and `hoverEncoder` itself), and controls not drawn from a `SerializedProperty`, such as a float-only `EditorGUILayout.Slider`.
 
 Change `hoverKnobEnabled` or `hoverEncoder`, then press **Rebuild All Banks**. Why it reads internal Unity data: `docs/adr/0020-mft-hover-knob-imgui-debugger-data.md`.

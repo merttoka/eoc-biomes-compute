@@ -75,3 +75,5 @@ Applied after the owner's device test. Unit tests and simulated gestures cover t
   value hasn't reached. A full-speed turn keeps them together, so it sends nothing, which keeps the feel already tested.
 - **After:** the model reaches 0 and 1 exactly, a field with no range takes all 400 ticks, and a full-speed turn sends
   no position back. EditMode suite 263/263.
+- **Retest of the fix on the MFT:** a fine turn still stops for a brief moment. The owner accepted this for now, so it is
+  logged in `ROADMAP.md`. The cause wasn't investigated, and the model doesn't show it.
