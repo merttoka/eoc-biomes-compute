@@ -52,7 +52,7 @@ Assets/Workspace/
   11.1 CURRENTS Scene/  CURRENTS show — Scene_CURRENTS.unity + curated assets/materials/snapshots
   11.2 SIGGRAPH Scene/  SIGGRAPH show — Scene_SIGGRAPH.unity + leaner curated assets/materials
   11.3 Brave New Work Scene/  Brave New Work show — Scene_BraveNewWork.unity (4800×1080 projection)
-  11.4 PPS Scene/       primordial-particle ecology — Scene_PPS.unity (11.3's three sims + Primordial), built by
+  11.4 PPS Dev Scene/   primordial-particle ecology — Scene_PPS.unity (11.3's three sims + Primordial), built by
                         Editor/PrimordialSceneSetup.cs
   11.5 MIT BRAIN/       two-condition organoid scene — Scene_MITBRAIN.unity (clone of 11.4, 3840×3024);
                         dataset is local-only, so it needs a local copy to play (ADR-0019)
@@ -93,7 +93,7 @@ src/
   params/     BoidParams, PhysarumParams, TermiteParams, PrimordialParams, ParamRange, ColorPalette, IParamSet,
               IAgentColorParams, AgentColorPalette
   Editor/     custom inspectors (ParamsEditor + AgentColorsGUI, MFT/MIDI editors, ScreenLayoutPreview,
-              sequencer/BiomePaletteWindow — §3.9), LoopTakeRecorder (§3.8), MftHoverKnob (§3.7)
+              sequencer/BiomePaletteWindow — §3.9), LoopTakeRecorder (§3.8), MftHoverKnob + InspectorScrollScrub (§3.7)
 ```
 
 ---
@@ -390,11 +390,15 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
   `SetParameter`/`SetParameterDelta`. `SaveParams` action writes timestamped `.asset`
   snapshots (the memory daemon's input). Soft bank 2 rows per type: hue, saturation,
   brightness, diffuseRate. Side actions `NextPalette` / `PreviousPalette` step the palette cycle.
-- **MFT hover knob** (`Editor/MftHoverKnob`, `core_math/HoverKnobMath`) — on soft bank 3 / HW bank 4, one
-  knob moves the numeric inspector field under the mouse. `MidiFighterTwister` holds the binding and sends
-  relative deltas to `IHoverDriver`, implemented in the editor assembly and null in builds. Every inspector
-  here is IMGUI, so the target comes from internal debugger data, read only on that page
-  ([[adr/0020-mft-hover-knob-imgui-debugger-data|ADR-0020]]).
+- **MFT turn routing** — `ApplyTurn` picks absolute or relative per tick. Keyboard Shift (`KeyboardShift`, read from the
+  OS), the shift layer and `ToggleFineTune` give relative 1/10 speed; press-and-turn moves a param across
+  `pressTurnScope`. Relative ticks echo the position straight back so the knob can't reach an end stop first. A press
+  with no turn runs the push action at release (`KnobPressState`).
+- **Inspector field input** (`Editor/InspectorFieldTarget`, `Editor/ImguiPropertyRects`) — one lookup and write path for
+  two inputs. `MftHoverKnob` drives the knob on soft bank 3 / HW bank 4, reached through `IHoverDriver`, which is null
+  in builds. `InspectorScrollScrub` drives sideways trackpad scroll in any scene. Every inspector here is IMGUI, so the
+  target comes from internal debugger data, recorded on a lease
+  ([[adr/0020-mft-hover-knob-imgui-debugger-data|ADR-0020]], [[adr/0021-sideways-scroll-debugger-lease|ADR-0021]]).
 - **`AgentPaletteCycler`** (`SimulationManager.paletteCycle`) — live agent palettes. Cycle =
   Preset (each sim's authored colors, read from `PresetParamSet`) → `palettes` → Preset; a change
   fades every non-stopped agent sim's per-type hue (shortest arc) / saturation / brightness over
@@ -406,7 +410,7 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
   writes colors and overrides a palette. A palette with `tintsMounds` also recolours the termite
   walls: the composite paints `paletteCycle.MoundColor(moundColor)`, which fades with the agents
   and falls back to the manager's own `moundColor` (never mutated) for Preset or a palette that
-  leaves the walls alone. 11.4 ships five such 4-sim schemes (`11.4 PPS Scene/assets/Palettes/`).
+  leaves the walls alone. 11.4 ships five such 4-sim schemes (`11.4 PPS Dev Scene/assets/Palettes/`).
 - **`OSCMapping`** — OSC control of the same parameter API (TD / external drivers), plus
   `/index <int>` → `NeuronFiringSource.SetFrame` (the firing playhead). Reset commands
   (`/sim_reset`, `/sim_resetSimsOnly`) are queued and drained on the main thread in `Update()`
