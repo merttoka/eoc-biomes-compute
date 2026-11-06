@@ -14,14 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Biomes.BoidParams
   typeCount: 4
   types:
-  - separationRange: 50.3937
-    alignmentRange: 63.767315
-    attractionRange: 49.91167
-    maxSpeed: 2.6850393
-    maxForce: 1.2574804
+  - separationRange: 25.19685
+    alignmentRange: 31.883657
+    attractionRange: 24.955835
+    maxSpeed: 1.3425196
+    maxForce: 0.6287402
     depositAmount: 0.070866145
     eatAmount: 0.05
-    foodSensorDistance: 10
+    foodSensorDistance: 5
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.93307084
@@ -30,14 +30,14 @@ MonoBehaviour:
     brightness: 0.6999999
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
-  - separationRange: 36.787403
-    alignmentRange: 30.807276
-    attractionRange: 22.784512
-    maxSpeed: 1.6818898
-    maxForce: 1.6818898
+  - separationRange: 18.393702
+    alignmentRange: 15.403638
+    attractionRange: 11.392256
+    maxSpeed: 0.8409449
+    maxForce: 0.8409449
     depositAmount: 0.11811024
     eatAmount: 0.01
-    foodSensorDistance: 15
+    foodSensorDistance: 7.5
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.9519685
@@ -46,14 +46,14 @@ MonoBehaviour:
     brightness: 0.6999999
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
-  - separationRange: 26.204725
-    alignmentRange: 17.133858
-    attractionRange: 6.3958497
-    maxSpeed: 1.6433071
-    maxForce: 1.759055
+  - separationRange: 13.102363
+    alignmentRange: 8.566929
+    attractionRange: 3.1979249
+    maxSpeed: 0.82165354
+    maxForce: 0.8795275
     depositAmount: 0.10236221
     eatAmount: 0.01
-    foodSensorDistance: 15
+    foodSensorDistance: 7.5
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.9535433
@@ -62,14 +62,14 @@ MonoBehaviour:
     brightness: 0.6999999
     firingSpeedMul: 1.5
     firingDepositAmount: 0.5
-  - separationRange: 39.307087
-    alignmentRange: 40.863094
-    attractionRange: 61.08412
-    maxSpeed: 1.4889765
-    maxForce: 2.8779528
+  - separationRange: 19.653543
+    alignmentRange: 20.431547
+    attractionRange: 30.54206
+    maxSpeed: 0.74448824
+    maxForce: 1.4389764
     depositAmount: 0.11023622
     eatAmount: 0.01
-    foodSensorDistance: 15
+    foodSensorDistance: 7.5
     sensorAngleRad: 0.5235988
     foodSeekingStrength: 0.5
     diffuseRate: 0.97244096
