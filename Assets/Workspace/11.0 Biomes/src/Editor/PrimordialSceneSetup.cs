@@ -22,7 +22,7 @@ namespace Biomes
     {
         private const string SourceDir = "Assets/Workspace/11.3 Brave New Work Scene";
         private const string SourceScene = SourceDir + "/Scene_BraveNewWork.unity";
-        private const string Root = "Assets/Workspace/11.4 PPS Scene";
+        private const string Root = "Assets/Workspace/11.4 PPS Dev Scene";
         private const string AssetsDir = Root + "/assets";
         private const string MaterialsDir = Root + "/materials";
         private const string PalettesDir = AssetsDir + "/Palettes";
@@ -44,7 +44,7 @@ namespace Biomes
             AssetDatabase.SaveAssets();
         }
 
-        [MenuItem("Biomes/Setup 11.4 PPS Scene")]
+        [MenuItem("Biomes/Setup 11.4 PPS Dev Scene")]
         public static void Run()
         {
             if (EditorApplication.isPlaying)
