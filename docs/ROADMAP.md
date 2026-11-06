@@ -80,9 +80,8 @@ Editor only for the first two, device-tested on macOS
   unproven; the unit layout is synthetic until real coordinates exist (`spikes_npy_to_f16.py --xy`);
   the scene needs its dataset restored locally to play. No tests yet for cue crossing/wrap, the morph
   weight, the scaffold envelope or `PresentationClock`.
-- **MFT knob review fixes** 🟡 — ring end-stop handling, press state on device loss and bank change, per-bank
-  fine-tune and flash expiry were applied after the last device test
-  ([[sessions/2026-11-05-inspector-scroll-fine-control|session]]). They need a pass on hardware.
+- **MFT hover knob fine turn** 🟡 — the end-stop fix passes against a model of the device but awaits a turn on hardware
+  ([[sessions/2026-11-05-inspector-scroll-fine-control|session]]). The other review fixes passed the device test.
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing

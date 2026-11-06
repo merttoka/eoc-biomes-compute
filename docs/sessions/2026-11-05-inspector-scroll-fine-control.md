@@ -59,8 +59,19 @@ Applied after the owner's device test. Unit tests and simulated gestures cover t
 - After the deslop pass: compile, suite, simulated gestures through the MIDI handler, synthetic H slider drag.
 
 ## Open / next session
-1. Device-test the review fixes above.
-2. A long fine hover gesture stalls at the knob's end stop until a 300 ms pause.
+1. ~~Device-test the review fixes above.~~ → **done, see below**
+2. ~~A long fine hover gesture stalls at the knob's end stop until a 300 ms pause.~~ → **fixed, see below**
 3. Follow-ups from the review are in `ROADMAP.md`.
-4. The presets in `11.4 PPS Dev Scene/assets` hold values from `SaveToCurrentParams` during testing, left uncommitted
-   for the owner to keep or discard.
+4. ~~The presets in `11.4 PPS Dev Scene/assets` hold values from `SaveToCurrentParams` during testing.~~ → **owner kept them**
+
+## Device retest
+- Passed on the MFT: replug restores LEDs and rings, a held knob across a soft bank change doesn't fire its push action,
+  `ToggleFineTune` stays on its own knob, the flash clears off the hover page in Edit mode, Boid's renamed fields use their range.
+- **Failed:** a fine turn couldn't reach min or max. The knob stopped, and moved a little more only after a pause.
+- **Cause:** the hover path sent no position back during a gesture, so the knob ran ahead of a value moving at 1/10
+  and sat on its end stop until the gesture ended. A model of the device stopped at 0.4496 after 64 ticks; regular knobs
+  reached both limits. Fields with no range stalled the same way after 63 ticks.
+- **Fix:** `HoverKnobMath.NeedsResync` sends the position back once knob and value diverge, or from an end stop the
+  value hasn't reached. A full-speed turn keeps them together, so it sends nothing, which keeps the feel already tested.
+- **After:** the model reaches 0 and 1 exactly, a field with no range takes all 400 ticks, and a full-speed turn sends
+  no position back. EditMode suite 263/263.
