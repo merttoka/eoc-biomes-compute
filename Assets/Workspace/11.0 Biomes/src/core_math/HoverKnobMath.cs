@@ -68,6 +68,19 @@ namespace Biomes
             return Math.Max(1, Math.Min(ring, (int)StepsPerUnit - 1));
         }
 
+        /// <summary>
+        /// Whether a turning knob's position has to be sent back. A slowed or unranged value moves less than the knob, which
+        /// would reach an end stop first. One step apart mid-range is only rounding: sending that back would pull a
+        /// full-speed turn backwards. On an end stop the knob reports nothing further, so even one step matters there.
+        /// </summary>
+        public static bool NeedsResync(int position, float norm)
+        {
+            int ring = RingPosition(norm);
+            if (ring == position) return false;
+            bool onEndStop = position <= 0 || position >= (int)StepsPerUnit;
+            return onEndStop || Math.Abs(ring - position) > 1;
+        }
+
         /// <summary>The innermost array holding this property, or null when it isn't in an array.</summary>
         public static string ArrayPathOf(string propertyPath)
         {

@@ -133,6 +133,43 @@ public class HoverKnobMathTests
         Assert.That(HoverKnobMath.RingPosition(norm), Is.EqualTo(expected));
     }
 
+    // A full-speed turn keeps knob and value together. Sending the position back there would pull a fast turn backwards.
+    [Test]
+    public void NeedsResync_KnobAndValueAgree_IsFalse()
+    {
+        Assert.That(HoverKnobMath.NeedsResync(64, 64f / 127f), Is.False);
+    }
+
+    [TestCase(65)]
+    [TestCase(63)]
+    public void NeedsResync_OneStepApartMidRange_IsFalse_SinceRoundingAloneDoesThat(int position)
+    {
+        Assert.That(HoverKnobMath.NeedsResync(position, 64f / 127f), Is.False);
+    }
+
+    // At 1/10 speed the knob runs ahead of the value, and would reach an end stop long before the value did.
+    [TestCase(66)]
+    [TestCase(62)]
+    public void NeedsResync_KnobRunningAheadOfTheValue_IsTrue(int position)
+    {
+        Assert.That(HoverKnobMath.NeedsResync(position, 64f / 127f), Is.True);
+    }
+
+    // A knob on its end stop reports nothing further, so even one step short of the limit would never be crossed.
+    [TestCase(0, 0.003f)]
+    [TestCase(127, 0.997f)]
+    public void NeedsResync_OnAnEndStop_WithTheValueShortOfIt_IsTrue(int position, float norm)
+    {
+        Assert.That(HoverKnobMath.NeedsResync(position, norm), Is.True);
+    }
+
+    [TestCase(0, 0f)]
+    [TestCase(127, 1f)]
+    public void NeedsResync_OnAnEndStop_WithTheValueThereToo_IsFalse(int position, float norm)
+    {
+        Assert.That(HoverKnobMath.NeedsResync(position, norm), Is.False);
+    }
+
     [TestCase("types.Array.data[2].hue", "types")]
     [TestCase("a.Array.data[1].b.Array.data[2].x", "a.Array.data[1].b")]
     [TestCase("values.Array.data[3]", "values")]

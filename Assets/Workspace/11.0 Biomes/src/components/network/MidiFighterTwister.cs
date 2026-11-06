@@ -784,7 +784,7 @@ namespace Biomes
             if (IsHoverKnob(cc))
             {
                 MarkInput();
-                ApplyHover(delta, gain, pressed);
+                ApplyHover(channel, value, delta, gain, pressed);
             }
             else if (pressed && pressTurnScope != PressTurnScope.Off) ApplyToGroup(cc, channel, delta, gain);
             else if (fine || _fineTune[FineTuneIndex(cc)]) ApplyRelative(cc, channel, delta, HoverKnobMath.FineGain);
@@ -920,7 +920,7 @@ namespace Biomes
         private bool IsHoverKnob(int cc) =>
             _bankBindings != null && _bankBindings[_softBank][cc].target == BindingTarget.Hover;
 
-        private void ApplyHover(float delta, float gain, bool allElements)
+        private void ApplyHover(int channel, float value, float delta, float gain, bool allElements)
         {
             // The knob has moved by itself, so its position must be sent again even if the ring position hasn't changed:
             // with no target, or on a field with no range, it never does, and the knob would run on to an end stop.
@@ -930,6 +930,10 @@ namespace Biomes
             if (driver == null || !driver.HasTarget || delta == 0f) return;
             if (!driver.InGesture) delta = HoverKnobMath.FirstTick(delta);
             driver.Nudge(delta * gain * hoverGain, allElements);
+
+            float norm = driver.Normalized;
+            if (HoverKnobMath.NeedsResync(Mathf.RoundToInt(value * 127f), norm))
+                SendRelativeRing(HoverCC, channel, norm);
         }
 
         /// <summary>
