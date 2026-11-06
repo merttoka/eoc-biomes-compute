@@ -44,6 +44,8 @@ namespace Biomes
 
         [Header("Encoder Push")]
         public EncoderPushMode pushMode = EncoderPushMode.RandomizeParam;
+        [Tooltip("What press-and-turn moves on a sim param knob: every agent type of that sim, or also the same-named param on the other sims. Other knobs move just their own value. The push action above runs on a press with no turn, at release.")]
+        public PressTurnScope pressTurnScope = PressTurnScope.AllTypesOfSim;
 
         [Header("Side Buttons")]
         public SideButtonAction leftTop    = SideButtonAction.Reset;
@@ -67,7 +69,7 @@ namespace Biomes
         [Tooltip("On soft bank 3, HW bank 4: one knob moves whichever numeric field the mouse is over in an inspector. Press and turn moves that field on every array element. Editor only. Press Rebuild All Banks after changing this or the knob.")]
         public bool hoverKnobEnabled = true;
         [Tooltip("The knob on that page, 0-15, left to right then top to bottom.")]
-        [Range(0, 15)] public int hoverEncoder = 0;
+        [Range(0, 15), KnobIgnore] public int hoverEncoder = 0;
         [Tooltip("Speed multiplier. At 1, the knob's 127 MIDI steps cross a ranged field's whole range.")]
         [Range(0.1f, 4f)] public float hoverGain = 1f;
 
@@ -123,8 +125,8 @@ namespace Biomes
         public const int HW_BANK_COUNT = 4;
         public const int ENCODERS_PER_HW_BANK = 16;
         public const int TOTAL_ENCODERS = ENCODERS_PER_HW_BANK * HW_BANK_COUNT; // 64
-        public const int HOVER_SOFT_BANK = SOFT_BANK_COUNT - 1;
-        public const int HOVER_HW_BANK = HW_BANK_COUNT - 1;
+        private const int HOVER_SOFT_BANK = SOFT_BANK_COUNT - 1;
+        private const int HOVER_HW_BANK = HW_BANK_COUNT - 1;
 
         private Dictionary<(int, int), float> _lastValues = new();
         private List<Minis.MidiDevice> _devices = new();
@@ -199,8 +201,9 @@ namespace Biomes
             PreviousPalette,
         }
 
-        // Fine-tune state per encoder
-        private bool[] _fineTune = new bool[16];
+        // Fine-tune state per knob on each soft bank
+        private readonly bool[] _fineTune = new bool[SOFT_BANK_COUNT * TOTAL_ENCODERS];
+        private int FineTuneIndex(int cc) => _softBank * TOTAL_ENCODERS + cc;
 
         #region Lifecycle
 
@@ -217,12 +220,18 @@ namespace Biomes
             OpenMidiOutput();
             UpdateHoverPage();
             SendAllLEDs();
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.update += ExpireFlashInEditor;
+#endif
         }
 
         void OnDisable()
         {
             if (!_initialized) return;
             _initialized = false;
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.update -= ExpireFlashInEditor;
+#endif
             if (HoverPageOwner == this) HoverPageOwner = null;
             DisconnectAllDevices();
             CloseMidiOutput();
@@ -231,8 +240,15 @@ namespace Biomes
 
         void Update() => ServiceLeds();
 
-        /// <summary>Flash expiry and ring refresh. Update runs rarely in Edit mode, so the hover knob's driver also calls this.</summary>
-        public void ServiceLeds()
+#if UNITY_EDITOR
+        // Update runs rarely in Edit mode, so a bank flash would otherwise stay up until the scene next changes.
+        private void ExpireFlashInEditor()
+        {
+            if (_flashUntil > 0f && !FlashActive) ServiceLeds();
+        }
+#endif
+
+        private void ServiceLeds()
         {
             if (_flashUntil > 0f && !FlashActive)
             {
@@ -253,6 +269,7 @@ namespace Biomes
 
         public void BuildAllBanks()
         {
+            ForgetKnobGestures();
             _bankBindings = new EncoderBinding[SOFT_BANK_COUNT][];
             _bankColors = new int[SOFT_BANK_COUNT];
             for (int b = 0; b < SOFT_BANK_COUNT; b++)
@@ -269,6 +286,13 @@ namespace Biomes
 
         // Alias for editor
         public void BuildBindings() => BuildAllBanks();
+
+        /// <summary>Rebuilds the banks and shows the result on the device, for a change made in the inspector.</summary>
+        public void RebuildAndRefreshLeds()
+        {
+            BuildAllBanks();
+            SendAllLEDs();
+        }
 
         /// <summary>Bank 0: Core sim params — same layout logic as before.</summary>
         private void BuildBank0_CoreParams()
@@ -383,9 +407,11 @@ namespace Biomes
                 }
             }
 
+#if UNITY_EDITOR
             // Sims only spill onto this page past 11 of them, so the hover knob gives way instead of overwriting one.
             if (hoverKnobEnabled && bindings[HoverCC].target == BindingTarget.None)
                 bindings[HoverCC] = new EncoderBinding { target = BindingTarget.Hover, simIndex = -1, label = "hover" };
+#endif
         }
 
         // ─── Param layout builders (reused by bank 0 and 1) ───
@@ -548,8 +574,14 @@ namespace Biomes
         {
             if (device is not Minis.MidiDevice) return;
             if (logMidi) Debug.Log($"[MFT] Device {change} ({device.description.product})");
+            // A knob held as its device goes never reports the release.
+            if (change == InputDeviceChange.Removed || change == InputDeviceChange.Disconnected) _knobPress.ReleaseAll();
+            // This fires for every channel Minis sees, so output reopens only when the device has come back. Other MIDI
+            // gear can stay connected meanwhile, so it has to be this device that was gone.
+            bool wasGone = !HasTwister();
             DisconnectAllDevices();
             ConnectAllDevices();
+            if (!_midiOutReady || (wasGone && HasTwister())) OpenMidiOutput();
             SendAllLEDs();
         }
 
@@ -563,41 +595,21 @@ namespace Biomes
             float delta = value - lastValue;
             _lastValues[key] = value;
 
-            // ─── Encoder rotation (Ch 0, CC 0-63) ───
+            // ─── Encoder rotation (Ch 0, or Ch 4 on the shift layer; CC 0-63) ───
             // HW banks extend columns: CC 0-15 = page 0, 16-31 = page 1, 32-47 = page 2, 48-63 = page 3
-            if (ch == CH_ENCODER && num >= 0 && num < 64)
+            if ((ch == CH_ENCODER || ch == CH_SHIFT) && num >= 0 && num < 64)
             {
                 int hwBank = num / 16;
-                int encoderIdx = num % 16;
                 if (hwBank != _hwBank)
                     SetHwBank(hwBank);
-                ApplyEncoder(encoderIdx, value, delta);
-                return;
-            }
-
-            // ─── Shift encoder rotation (Ch 4, CC 0-63) ───
-            if (ch == CH_SHIFT && num >= 0 && num < 64)
-            {
-                int hwBank = num / 16;
-                int encoderIdx = num % 16;
-                if (hwBank != _hwBank)
-                    SetHwBank(hwBank);
-                // A knob set to shift while held reports press-and-turn here, and that stays full speed on the hover knob.
-                ApplyEncoder(encoderIdx, value, IsHoverKnob(num) && _hoverAllElements ? delta : delta * 0.1f);
+                ApplyTurn(num, ch, value, delta);
                 return;
             }
 
             // ─── Encoder push (Ch 1, CC 0-63) ───
             if (ch == CH_PUSH && num >= 0 && num < 64)
             {
-                if (IsHoverKnob(num))
-                {
-                    _hoverAllElements = value > 0.5f;
-                    if (logMidi) Debug.Log($"[MFT] Hover knob all-elements = {_hoverAllElements}");
-                    return;
-                }
-                if (value > 0.5f)
-                    HandleEncoderPush(num % 16);
+                HandlePushEdge(num, value > 0.5f);
                 return;
             }
 
@@ -677,21 +689,14 @@ namespace Biomes
             for (int i = 0; i < _encoderPickedUp.Length; i++) _encoderPickedUp[i] = false;
         }
 
-        private void ApplyEncoder(int encoderIdx, float value, float delta)
+        private void ApplyEncoder(int cc, float value)
         {
             if (_bankBindings == null) return;
-            int globalIdx = _hwBank * ENCODERS_PER_HW_BANK + encoderIdx;
-            if (globalIdx >= TOTAL_ENCODERS) return;
-            var b = _bankBindings[_softBank][globalIdx];
+            int encoderIdx = cc % ENCODERS_PER_HW_BANK;
+            var b = _bankBindings[_softBank][cc];
             if (b.target == BindingTarget.None) return;
 
             MarkInput(); // any bound-encoder turn yields automation to the performer
-
-            if (b.target == BindingTarget.Hover)
-            {
-                ApplyHover(delta);
-                return;
-            }
 
             // Pickup logic: after bank switch, ignore absolute values until
             // the knob crosses through the current param value.
@@ -736,6 +741,154 @@ namespace Biomes
 
         #endregion
 
+        #region Turn Routing
+
+        // A fast turn can report several steps at once. The first turn after a device change reports any size, since
+        // there is no earlier position to measure from.
+        private const float RELATIVE_MAX_STEPS_PER_TICK = 4f;
+        // Past this gap a turn starts again from the param's current value.
+        private const float RELATIVE_IDLE_SECONDS = 0.3f;
+
+        private readonly KnobPressState _knobPress = new(TOTAL_ENCODERS);
+        // Held between ticks so integer params accumulate: each tick can be far smaller than one of their steps.
+        private readonly float[] _relativeRaw = new float[TOTAL_ENCODERS];
+        private readonly float[] _relativeTickTime = new float[TOTAL_ENCODERS];
+
+        // A held press or raw value belongs to the param its knob was on, which may now be a different one.
+        private void ForgetKnobGestures()
+        {
+            _knobPress.ReleaseAll();
+            Array.Clear(_relativeTickTime, 0, _relativeTickTime.Length);
+        }
+
+        private void HandlePushEdge(int cc, bool pressed)
+        {
+            if (pressed)
+            {
+                _knobPress.Press(cc);
+                return;
+            }
+            bool tapped = _knobPress.Release(cc);
+            if (tapped && !IsHoverKnob(cc)) HandleEncoderPush(cc);
+        }
+
+        private void ApplyTurn(int cc, int channel, float value, float delta)
+        {
+            bool pressed = _knobPress.IsPressed(cc);
+            _knobPress.Turned(cc);
+
+            // A knob set to shift while held reports press-and-turn on the shift layer, which isn't a request for fine control.
+            bool fine = (channel == CH_SHIFT && !pressed) || KeyboardShift.IsHeld;
+            float gain = fine ? HoverKnobMath.FineGain : 1f;
+
+            if (IsHoverKnob(cc))
+            {
+                MarkInput();
+                ApplyHover(delta, gain, pressed);
+            }
+            else if (pressed && pressTurnScope != PressTurnScope.Off) ApplyToGroup(cc, channel, delta, gain);
+            else if (fine || _fineTune[FineTuneIndex(cc)]) ApplyRelative(cc, channel, delta, HoverKnobMath.FineGain);
+            else ApplyEncoder(cc, value);
+        }
+
+        /// <summary>
+        /// Moves a regular knob's param relative to its current value. Sends the new position straight back, so the knob's
+        /// own position never reaches an end stop before the param does.
+        /// </summary>
+        private void ApplyRelative(int cc, int channel, float delta, float gain)
+        {
+            if (_bankBindings == null) return;
+            var b = _bankBindings[_softBank][cc];
+            if (!TryGetRaw(b, out float raw, out float min, out float max)) return;
+
+            MarkInput();
+
+            float now = Time.realtimeSinceStartup;
+            if (now - _relativeTickTime[cc] <= RELATIVE_IDLE_SECONDS) raw = _relativeRaw[cc];
+            float step = HoverKnobMath.LimitSteps(delta, RELATIVE_MAX_STEPS_PER_TICK) * gain;
+            raw = HoverKnobMath.Step(raw, step, min, max);
+            _relativeRaw[cc] = raw;
+            _relativeTickTime[cc] = now;
+            SetRaw(b, raw);
+
+            SendRelativeRing(cc, channel, Mathf.InverseLerp(min, max, raw));
+        }
+
+        /// <summary>Press-and-turn: moves a sim param knob's param across its scope, each value keeping its offset from the others.</summary>
+        private void ApplyToGroup(int cc, int channel, float delta, float gain)
+        {
+            if (_bankBindings == null) return;
+            var b = _bankBindings[_softBank][cc];
+            if (b.target != BindingTarget.SimParam)
+            {
+                ApplyRelative(cc, channel, delta, gain);
+                return;
+            }
+            if (b.simIndex < 0 || b.simIndex >= m_Simulations.Count || !SimReady(m_Simulations[b.simIndex])) return;
+
+            MarkInput();
+
+            float step = HoverKnobMath.LimitSteps(delta, RELATIVE_MAX_STEPS_PER_TICK) * gain;
+            var own = m_Simulations[b.simIndex];
+            foreach (var sim in m_Simulations)
+            {
+                if (!SimReady(sim) || !PressTurnScopes.Includes(pressTurnScope, sim == own, HasParam(sim, b.paramName))) continue;
+                var set = sim.LiveParamSet;
+                var (min, max) = set.GetRange(b.paramName);
+                for (int t = 0; t < set.TypeCount; t++)
+                    set.SetValue(b.paramName, t, HoverKnobMath.Step(set.GetValue(b.paramName, t), step, min, max));
+            }
+
+            SendRelativeRing(cc, channel, GetNormalizedValue(b));
+        }
+
+        // Sent even when the ring hasn't changed, which at 1/10 speed is most ticks: this is what returns the knob's
+        // position to the param's, so it can't run ahead to an end stop.
+        private void SendRelativeRing(int cc, int channel, float norm)
+        {
+            if (sendLEDFeedback && _midiOutReady)
+                SendRing(cc, norm, forceShiftLayer: channel == CH_SHIFT);
+        }
+
+        private static bool HasParam(SimulationBase sim, string paramName)
+        {
+            var pars = sim.ModulatableParams;
+            for (int i = 0; i < pars.Count; i++)
+                if (pars[i] == paramName) return true;
+            return false;
+        }
+
+        private bool TryGetRaw(in EncoderBinding b, out float raw, out float min, out float max)
+        {
+            raw = min = max = 0f;
+            switch (b.target)
+            {
+                case BindingTarget.SimParam:
+                    if (b.simIndex < 0 || b.simIndex >= m_Simulations.Count || !SimReady(m_Simulations[b.simIndex])) return false;
+                    var set = m_Simulations[b.simIndex].LiveParamSet;
+                    raw = set.GetValue(b.paramName, b.typeIndex);
+                    (min, max) = set.GetRange(b.paramName);
+                    return true;
+                case BindingTarget.BiomeCrossField:
+                case BindingTarget.Umwelt:
+                case BindingTarget.Global:
+                    if (b.getter == null || b.setter == null) return false;
+                    raw = b.getter();
+                    min = b.min;
+                    max = b.max;
+                    return true;
+            }
+            return false;
+        }
+
+        private void SetRaw(in EncoderBinding b, float raw)
+        {
+            if (b.target == BindingTarget.SimParam) m_Simulations[b.simIndex].LiveParamSet.SetValue(b.paramName, b.typeIndex, raw);
+            else b.setter(raw);
+        }
+
+        #endregion
+
         #region Hover Knob
 
         /// <summary>Resolves the field under the mouse. Implemented in the editor assembly, so it is null in builds.</summary>
@@ -755,27 +908,28 @@ namespace Biomes
         public static MidiFighterTwister HoverPageOwner { get; private set; }
 
         private int HoverCC => HOVER_HW_BANK * ENCODERS_PER_HW_BANK + hoverEncoder;
-        private bool _hoverAllElements;
-        private int _hoverRingSent = -1;
         private bool _hoverLitSent;
 
         private void UpdateHoverPage()
         {
-            _hoverAllElements = false;
-            _hoverRingSent = -1;
+            _shiftRingSent[HoverCC] = -1;
             if (_softBank == HOVER_SOFT_BANK && _hwBank == HOVER_HW_BANK) HoverPageOwner = this;
             else if (HoverPageOwner == this) HoverPageOwner = null;
         }
 
         private bool IsHoverKnob(int cc) =>
-            _bankBindings != null && cc < TOTAL_ENCODERS && _bankBindings[_softBank][cc].target == BindingTarget.Hover;
+            _bankBindings != null && _bankBindings[_softBank][cc].target == BindingTarget.Hover;
 
-        private void ApplyHover(float delta)
+        private void ApplyHover(float delta, float gain, bool allElements)
         {
+            // The knob has moved by itself, so its position must be sent again even if the ring position hasn't changed:
+            // with no target, or on a field with no range, it never does, and the knob would run on to an end stop.
+            _shiftRingSent[HoverCC] = -1;
+
             var driver = HoverDriver;
             if (driver == null || !driver.HasTarget || delta == 0f) return;
             if (!driver.InGesture) delta = HoverKnobMath.FirstTick(delta);
-            driver.Nudge(delta * hoverGain, _hoverAllElements);
+            driver.Nudge(delta * gain * hoverGain, allElements);
         }
 
         /// <summary>
@@ -788,34 +942,27 @@ namespace Biomes
 
             var driver = HoverDriver;
             bool lit = driver != null && driver.HasTarget;
-            int ring = lit ? Mathf.RoundToInt(driver.Normalized * 127f) : 0;
+            float norm = lit ? driver.Normalized : 0f;
+            int sent = _shiftRingSent[HoverCC];
 
-            if (lit != _hoverLitSent || _hoverRingSent < 0)
+            if (lit != _hoverLitSent || sent < 0)
             {
                 SendCC(CH_RGB, HoverCC, RGB_WHITE);
                 SendCC(CH_ANIM, HoverCC, lit ? ANIM_RGB_BRIGHT_MAX : ANIM_HOVER_IDLE);
                 _hoverLitSent = lit;
             }
-            if (ring != _hoverRingSent)
-            {
-                SendCC(CH_ENCODER, HoverCC, ring);
-                SendCC(CH_SHIFT, HoverCC, ring);
-                _lastValues[(CH_ENCODER, HoverCC)] = ring / 127f;
-                _lastValues[(CH_SHIFT, HoverCC)] = ring / 127f;
-                _hoverRingSent = ring;
-            }
+            if (HoverKnobMath.RingPosition(norm) != sent) SendRing(HoverCC, norm);
         }
 
         #endregion
 
         #region Encoder Push
 
-        private void HandleEncoderPush(int encoderIdx)
+        private void HandleEncoderPush(int cc)
         {
             if (_bankBindings == null) return;
-            int globalIdx = _hwBank * ENCODERS_PER_HW_BANK + encoderIdx;
-            if (globalIdx >= TOTAL_ENCODERS) return;
-            var b = _bankBindings[_softBank][globalIdx];
+            int encoderIdx = cc % ENCODERS_PER_HW_BANK;
+            var b = _bankBindings[_softBank][cc];
             if (b.target == BindingTarget.None) return;
 
             MarkInput();
@@ -831,8 +978,9 @@ namespace Biomes
                     break;
 
                 case EncoderPushMode.ToggleFineTune:
-                    _fineTune[encoderIdx] = !_fineTune[encoderIdx];
-                    if (logMidi) Debug.Log($"[MFT] Push {encoderIdx} fine-tune = {_fineTune[encoderIdx]}");
+                    int fineIdx = FineTuneIndex(cc);
+                    _fineTune[fineIdx] = !_fineTune[fineIdx];
+                    if (logMidi) Debug.Log($"[MFT] Push {encoderIdx} fine-tune = {_fineTune[fineIdx]}");
                     break;
             }
         }
@@ -1035,6 +1183,7 @@ namespace Biomes
         private void SetSoftBank(int bank)
         {
             _softBank = bank;
+            ForgetKnobGestures();
             UpdateHoverPage();
             for (int i = 0; i < ENCODERS_PER_HW_BANK; i++) _encoderPickedUp[i] = false;
             if (logMidi)
@@ -1070,6 +1219,7 @@ namespace Biomes
         {
             if (!sendLEDFeedback || _bankBindings == null || !_midiOutReady) return;
 
+            Array.Fill(_shiftRingSent, -1);
             for (int i = 0; i < ENCODERS_PER_HW_BANK; i++)
             {
                 int cc = _hwBank * ENCODERS_PER_HW_BANK + i;
@@ -1078,14 +1228,13 @@ namespace Biomes
                 if (b.target == BindingTarget.None)
                 {
                     SendCC(CH_RGB, cc, RGB_OFF);
-                    SendCC(CH_ENCODER, cc, 0);
+                    SendRing(cc, 0f);
                     SendCC(CH_ANIM, cc, ANIM_NONE);
                     continue;
                 }
 
                 if (b.target == BindingTarget.Hover)
                 {
-                    _hoverRingSent = -1;
                     RefreshHoverKnob();
                     continue;
                 }
@@ -1104,8 +1253,23 @@ namespace Biomes
 
                 float norm = GetNormalizedValue(b);
                 if (norm >= 0f)
-                    SendCC(CH_ENCODER, cc, Mathf.RoundToInt(norm * 127f));
+                    SendRing(cc, norm);
             }
+        }
+
+        // Last ring position sent on the shift layer, so only a change is sent. -1 forces the next send.
+        private readonly int[] _shiftRingSent = new int[TOTAL_ENCODERS];
+
+        /// <summary>Sets a knob's ring on both layers. Holding shift shows its own ring, which has to track the param too.</summary>
+        private void SendRing(int cc, float norm, bool forceShiftLayer = false)
+        {
+            int ring = HoverKnobMath.RingPosition(norm);
+            SendCC(CH_ENCODER, cc, ring);
+            _lastValues[(CH_ENCODER, cc)] = ring / 127f;
+            if (!forceShiftLayer && _shiftRingSent[cc] == ring) return;
+            SendCC(CH_SHIFT, cc, ring);
+            _lastValues[(CH_SHIFT, cc)] = ring / 127f;
+            _shiftRingSent[cc] = ring;
         }
 
         /// <summary>Flash bank identity: top row = softBank+1 knobs in bank color,
@@ -1128,6 +1292,7 @@ namespace Biomes
                 SendCC(CH_RGB, ccBase + i, color);
                 SendCC(CH_ANIM, ccBase + i, color == RGB_OFF ? ANIM_NONE : ANIM_RGB_BRIGHT_MAX);
                 SendCC(CH_ENCODER, ccBase + i, 0); // ring off during flash
+                _lastValues[(CH_ENCODER, ccBase + i)] = 0f; // which is also the knob's position, so a turn measures from there
             }
         }
 
@@ -1141,10 +1306,10 @@ namespace Biomes
             {
                 int cc = _hwBank * ENCODERS_PER_HW_BANK + i;
                 var b = _bankBindings[_softBank][cc];
-                if (b.target == BindingTarget.None || b.target == BindingTarget.Hover) continue;
+                if (b.target == BindingTarget.None) continue;
                 float norm = GetNormalizedValue(b);
                 if (norm >= 0f)
-                    SendCC(CH_ENCODER, cc, Mathf.RoundToInt(norm * 127f));
+                    SendRing(cc, norm);
             }
         }
 
@@ -1171,39 +1336,12 @@ namespace Biomes
             return Mathf.RoundToInt(Mathf.Lerp(typeBrightnessMid, ANIM_RGB_BRIGHT_MAX, t));
         }
 
-        private float GetNormalizedValue(EncoderBinding b)
-        {
-            switch (b.target)
-            {
-                case BindingTarget.SimParam:
-                    if (b.simIndex >= 0 && b.simIndex < m_Simulations.Count)
-                    {
-                        var sim = m_Simulations[b.simIndex];
-                        if (!SimReady(sim)) return -1f;
-                        float raw = sim.GetParameter(b.paramName, b.typeIndex);
-                        var (mn, mx) = GetParamRange(sim, b.paramName);
-                        return Mathf.InverseLerp(mn, mx, raw);
-                    }
-                    break;
-                case BindingTarget.BiomeCrossField:
-                case BindingTarget.Umwelt:
-                case BindingTarget.Global:
-                    if (b.getter != null)
-                        return Mathf.InverseLerp(b.min, b.max, b.getter());
-                    break;
-            }
-            return -1f;
-        }
+        private float GetNormalizedValue(EncoderBinding b) =>
+            TryGetRaw(b, out float raw, out float min, out float max) ? Mathf.InverseLerp(min, max, raw) : -1f;
 
         /// <summary>True if the sim has runtime params (agentParams). False in edit mode.</summary>
         // Any sim with a live param set is controllable (covers Physarum/Boid/Termite/…).
         private bool SimReady(SimulationBase sim) => sim != null && sim.LiveParamSet != null;
-
-        private (float min, float max) GetParamRange(SimulationBase sim, string paramName)
-        {
-            var p = sim != null ? sim.LiveParamSet : null;
-            return p != null ? p.GetRange(paramName) : (0f, 1f);
-        }
 
         private void SendCC(int channel, int ccNumber, int value)
         {
@@ -1236,8 +1374,7 @@ namespace Biomes
                 {
                     string name = _midiOut.GetPortName(i);
                     if (logMidi) Debug.Log($"[MFT] MIDI Out port {i}: {name}");
-                    if (name.IndexOf("Midi Fighter Twister", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        name.IndexOf("MFT", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (IsTwisterName(name))
                     {
                         mftPort = i;
                     }
@@ -1259,6 +1396,12 @@ namespace Biomes
                 Debug.LogWarning($"[MFT] Failed to open MIDI output: {e.Message}");
             }
         }
+
+        private static bool IsTwisterName(string name) =>
+            name.IndexOf("Midi Fighter Twister", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            name.IndexOf("MFT", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private bool HasTwister() => _devices.Exists(d => IsTwisterName(d.description.product));
 
         private void CloseMidiOutput()
         {

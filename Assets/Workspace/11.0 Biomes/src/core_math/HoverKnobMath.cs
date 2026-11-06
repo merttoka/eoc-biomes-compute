@@ -3,17 +3,26 @@ using System.Reflection;
 
 namespace Biomes
 {
-    /// <summary>Excludes a field from the MFT hover knob, for fields whose side effects only run in a custom inspector.</summary>
+    /// <summary>Excludes a field from hover knob and sideways scroll edits, for a field a plain write would leave inconsistent.</summary>
     [AttributeUsage(AttributeTargets.Field)]
     public sealed class KnobIgnoreAttribute : Attribute { }
 
+    /// <summary>Names a field's entry in its param set's "ranges" list, where that differs from the field's own name.</summary>
+    [AttributeUsage(AttributeTargets.Field)]
+    public sealed class KnobParamAttribute : Attribute
+    {
+        public readonly string Name;
+        public KnobParamAttribute(string name) => Name = name;
+    }
+
     /// <summary>
-    /// Value stepping and SerializedProperty path handling for the MFT hover knob. A delta is in knob units:
-    /// 1 is the knob's full travel, one MIDI step is 1/<see cref="StepsPerUnit"/>.
+    /// Value stepping and SerializedProperty path handling for moving a value by knob or scroll. A delta is in knob
+    /// units: 1 is the knob's full travel, one MIDI step is 1/<see cref="StepsPerUnit"/>.
     /// </summary>
     public static class HoverKnobMath
     {
         public const float StepsPerUnit = 127f;
+        public const float FineGain = 0.1f;
 
         private const float FreeFractionPerStep = 0.01f;
         private const float FreeMagnitudeFloor = 0.1f;
@@ -39,10 +48,24 @@ namespace Biomes
         /// The delta to use for a gesture's first tick, limited to one MIDI step. The knob's previous position may
         /// belong to a different target, so the first raw delta can be any size.
         /// </summary>
-        public static float FirstTick(float delta)
+        public static float FirstTick(float delta) => LimitSteps(delta, 1f);
+
+        /// <summary>Limits a delta to a number of MIDI steps, in either direction.</summary>
+        public static float LimitSteps(float delta, float steps)
         {
-            float oneStep = 1f / StepsPerUnit;
-            return Math.Max(-oneStep, Math.Min(delta, oneStep));
+            float limit = steps / StepsPerUnit;
+            return Math.Max(-limit, Math.Min(delta, limit));
+        }
+
+        /// <summary>
+        /// The knob position for a 0-1 value. Only the range's own ends sit on an end stop: a knob there reports nothing
+        /// further, so a value that merely rounded to one could never be turned the rest of the way.
+        /// </summary>
+        public static int RingPosition(float norm)
+        {
+            int ring = (int)Math.Round(norm * StepsPerUnit);
+            if (norm <= 0f || norm >= 1f) return ring;
+            return Math.Max(1, Math.Min(ring, (int)StepsPerUnit - 1));
         }
 
         /// <summary>The innermost array holding this property, or null when it isn't in an array.</summary>
@@ -65,9 +88,6 @@ namespace Biomes
             for (int n = 0; n < arraySize; n++) paths[n] = head + n + tail;
             return paths;
         }
-
-        public static string LeafName(string propertyPath) =>
-            propertyPath.Substring(propertyPath.LastIndexOf('.') + 1);
 
         /// <summary>Finds the field a SerializedProperty path ends on. An array element resolves to the array's field.</summary>
         public static bool TryFindField(Type rootType, string propertyPath, out FieldInfo field)

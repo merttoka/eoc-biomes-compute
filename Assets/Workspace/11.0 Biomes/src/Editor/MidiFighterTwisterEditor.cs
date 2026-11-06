@@ -70,7 +70,7 @@ namespace Biomes
             // ─── Rebuild button ───
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Rebuild All Banks", GUILayout.Height(24)))
-                mft.BuildAllBanks();
+                mft.RebuildAndRefreshLeds();
             EditorGUILayout.EndHorizontal();
 
             // ─── Soft bank tabs ───
@@ -265,7 +265,8 @@ namespace Biomes
             EditorGUILayout.HelpBox(
                 "Encoder push: " + serializedObject.FindProperty("pushMode").enumDisplayNames[
                     serializedObject.FindProperty("pushMode").enumValueIndex] + "\n" +
-                "Shift layer (hold MFT shift): fine-tune (10x precision)\n" +
+                "Press and turn: moves the param per Press Turn Scope. A press with no turn runs the push action, at release\n" +
+                "Hold keyboard Shift, or use the MFT shift layer, and turn: 1/10 speed\n" +
                 "Side L-mid / R-mid: cycle software banks\n" +
                 "Hover knob (soft bank 3, HW bank 4): moves the numeric field under the mouse; press and turn for every array element\n" +
                 "LED feedback sends ring positions + RGB colors (needs MIDI output plugin)\n" +

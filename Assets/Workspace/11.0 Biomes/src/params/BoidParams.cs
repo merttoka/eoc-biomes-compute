@@ -7,16 +7,16 @@ namespace Biomes
     [Serializable]
     public class BoidAgentType
     {
-        public float separationRange = 10f;
-        public float alignmentRange = 10f;
-        public float attractionRange = 10f;
+        [KnobParam("separateRange")] public float separationRange = 10f;
+        [KnobParam("alignRange")] public float alignmentRange = 10f;
+        [KnobParam("attractRange")] public float attractionRange = 10f;
         public float maxSpeed = 1f;
         public float maxForce = 1f;
         public float depositAmount = 0.03f;
         public float eatAmount = 0.01f;
         public float foodSensorDistance = 15f;
         public float sensorAngleRad = Mathf.PI / 6f;
-        public float foodSeekingStrength = 0.5f;
+        [KnobParam("foodSeek")] public float foodSeekingStrength = 0.5f;
         public float diffuseRate = 0.985f;
         public float hue = 0f;
         public float saturation = 0.5f;

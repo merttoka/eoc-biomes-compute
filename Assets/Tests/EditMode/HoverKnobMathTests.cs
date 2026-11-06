@@ -96,13 +96,41 @@ public class HoverKnobMathTests
         Assert.That(HoverKnobMath.FirstTick(delta), Is.EqualTo(expectedSteps * Tick).Within(Eps));
     }
 
-    // Shift-layer turns arrive at a tenth of a step, and must not start with a full-size jump.
     [Test]
     public void FirstTick_SmallerThanOneStep_IsKept()
     {
         float fine = 0.1f * Tick;
         Assert.That(HoverKnobMath.FirstTick(fine), Is.EqualTo(fine).Within(Eps * 0.01f));
         Assert.That(HoverKnobMath.FirstTick(-fine), Is.EqualTo(-fine).Within(Eps * 0.01f));
+    }
+
+    [TestCase(0.6f, 4f)]
+    [TestCase(-0.6f, -4f)]
+    public void LimitSteps_CapsAnOversizedDelta(float delta, float expectedSteps)
+    {
+        Assert.That(HoverKnobMath.LimitSteps(delta, 4f), Is.EqualTo(expectedSteps * Tick).Within(Eps));
+    }
+
+    [Test]
+    public void LimitSteps_KeepsADeltaWithinTheCap()
+    {
+        Assert.That(HoverKnobMath.LimitSteps(2f * Tick, 4f), Is.EqualTo(2f * Tick).Within(Eps));
+    }
+
+    [TestCase(0f, 0)]
+    [TestCase(1f, 127)]
+    [TestCase(0.5f, 64)]
+    public void RingPosition_MapsAcrossTheRing(float norm, int expected)
+    {
+        Assert.That(HoverKnobMath.RingPosition(norm), Is.EqualTo(expected));
+    }
+
+    // A knob on its end stop reports nothing further, so these could never be turned the rest of the way.
+    [TestCase(0.001f, 1)]
+    [TestCase(0.999f, 126)]
+    public void RingPosition_ValueShortOfAnEnd_StaysOffTheEndStop(float norm, int expected)
+    {
+        Assert.That(HoverKnobMath.RingPosition(norm), Is.EqualTo(expected));
     }
 
     [TestCase("types.Array.data[2].hue", "types")]
@@ -145,14 +173,6 @@ public class HoverKnobMathTests
     public void SiblingPaths_SingleField_IsJustItself()
     {
         Assert.That(HoverKnobMath.SiblingPaths("dispersalSpeedMult", 5), Is.EqualTo(new[] { "dispersalSpeedMult" }));
-    }
-
-    [TestCase("types.Array.data[2].hue", "hue")]
-    [TestCase("dispersalSpeedMult", "dispersalSpeedMult")]
-    [TestCase("a.b.c", "c")]
-    public void LeafName_IsLastSegment(string path, string expected)
-    {
-        Assert.That(HoverKnobMath.LeafName(path), Is.EqualTo(expected));
     }
 
     private class FakeBase
