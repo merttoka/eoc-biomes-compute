@@ -161,7 +161,7 @@ After switching either bank type, encoders are ignored until the physical knob p
 
 ### Shift Layer
 
-Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 4. Code applies 10x precision scaling.
+Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 4. Only the hover knob honors it, at 1/10 speed: regular knobs still set the absolute value, so shift gives them no fine control (see `docs/ROADMAP.md`).
 
 ### Side Buttons
 
@@ -178,6 +178,27 @@ Configured per-encoder in the MFT Utility app. When active, encoder sends on Ch 
 Other assignable actions: RandomizeAll, ExportPNG, TogglePause, CycleDebugChannel, ClearBiome, ToggleDebugGrid, PrevSoftBank, NextSoftBank, CycleScreen, ToggleScreen, SaveSnapshot (new timestamped preset), SaveToCurrentParams (overwrite the assigned preset asset in place with live params), NextPalette, PreviousPalette (step the `SimulationManager` palette cycle; e.g. put NextPalette on R3 in place of RandomizeColors).
 
 Side button CCs auto-offset per HW bank (+6 per bank: 8-13, 14-19, 20-25, 26-31). Same physical button = same action on all HW banks. Only configure HW bank 1 CC numbers in inspector.
+
+### Hover Knob
+
+One knob moves whichever numeric inspector field the mouse is over, with no click or arming. Editor only, in Edit and Play mode.
+
+**Getting there:** soft bank 3 + HW bank 4, an empty page in every scene. From soft bank 0, `PrevSoftBank` reaches bank 3 in one press. The knob is `hoverEncoder` (default 0, top-left): dim white when idle, full white once a field is under the mouse.
+
+| Gesture | Effect |
+| ------- | ------ |
+| Move the mouse onto a field | ring shows its value, and the knob continues from there with no jump |
+| Turn | moves the field, relative to its current value |
+| Hold shift and turn | same, at 1/10 speed |
+| Press and turn | moves that field on every element of its array; differences between elements are kept. Outside an array, same as turn |
+
+The target stays locked until 300 ms after the last tick, so a drifting mouse can't jump to the next row. Each gesture is one Undo step. Writes go wherever a mouse edit would: hovering a preset asset edits the asset, while the running sim reads its Play-mode clone.
+
+**Travel:** `[Range]` on the field, else the param set's `ranges` list, else a step of 1% of the current value. At `hoverGain` 1, the knob's 127 MIDI steps cross the whole range. A value already outside its range holds or moves inward, and never snaps to the bound. Ints need a declared range.
+
+**Not reachable:** fields marked `[KnobIgnore]` (`typeCount`, whose list sync only runs in its inspector), and controls not drawn from a `SerializedProperty`, such as a float-only `EditorGUILayout.Slider`.
+
+Change `hoverKnobEnabled` or `hoverEncoder`, then press **Rebuild All Banks**. Why it reads internal Unity data: `docs/adr/0020-mft-hover-knob-imgui-debugger-data.md`.
 
 ### Inspector
 

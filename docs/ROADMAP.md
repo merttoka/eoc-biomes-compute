@@ -48,6 +48,10 @@ scaffold (`BiomeInjector`), palette cues (`NeuronFiringCues`), `PresentationCloc
 frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
 [[sessions/2026-11-04-mit-brain-scene|session]]).
 
+**MFT hover knob (2026-11-05)** — on soft bank 3 / HW bank 4, one knob moves the numeric inspector field
+under the mouse; press and turn moves it on every array element. Editor only, device-tested on macOS
+([[adr/0020-mft-hover-knob-imgui-debugger-data|ADR-0020]], [[sessions/2026-11-05-mft-hover-knob|session]]).
+
 ## 🔧 In design (specs forthcoming)
 - _Permeability mounds **shipped 2026-07-15** (see Shipped /
   [[adr/0010-permeability-agent-built-topography|ADR-0010]] /
@@ -73,6 +77,9 @@ frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
   unproven; the unit layout is synthetic until real coordinates exist (`spikes_npy_to_f16.py --xy`);
   the scene needs its dataset restored locally to play. No tests yet for cue crossing/wrap, the morph
   weight, the scaffold envelope or `PresentationClock`.
+- **MFT shift layer on regular knobs** 🟡 — only the hover knob honors it. `ApplyEncoder` passes `delta` but
+  regular knobs set the absolute `value`, so shift gives no fine control; `EncoderPushMode.ToggleFineTune`
+  flips `_fineTune`, which nothing reads. The MFT inspector's help text still advertises 10x precision.
 
 ### Not started (features)
 - **Agent mortality** — `enableDeath`/thresholds/`corpseWasteAmount` declared, **zero executing
@@ -99,6 +106,9 @@ frame-locked takes ([[adr/0018-presentation-clock-frame-locked-takes|ADR-0018]],
   symbiosis umwelt that keeps creatures on the veins without the drift collapse (drift up a
   standing scent converges the soup onto its maxima —
   [[adr/0017-primordial-sim-paper-units-noise-coupling|ADR-0017]]).
+- **Trackpad scroll over inspector fields** — horizontal scroll moves the field under the mouse, reusing the
+  hover knob's target lookup, so it works without the MFT. Modelled on the lab site's `Slider.tsx`. Needs
+  a way to take the wheel event before the inspector's scroll view, and a lookup that runs off the hover page.
 
 ### Low-stakes polish
 - Injector EMA dt-independence (06-10 #4) — constant `Lerp`, no `deltaTime`.

@@ -93,7 +93,7 @@ src/
   params/     BoidParams, PhysarumParams, TermiteParams, PrimordialParams, ParamRange, ColorPalette, IParamSet,
               IAgentColorParams, AgentColorPalette
   Editor/     custom inspectors (ParamsEditor + AgentColorsGUI, MFT/MIDI editors, ScreenLayoutPreview,
-              sequencer/BiomePaletteWindow — §3.9), LoopTakeRecorder (§3.8)
+              sequencer/BiomePaletteWindow — §3.9), LoopTakeRecorder (§3.8), MftHoverKnob (§3.7)
 ```
 
 ---
@@ -390,6 +390,11 @@ Live cycling: §3.7 `AgentPaletteCycler`. Spec:
   `SetParameter`/`SetParameterDelta`. `SaveParams` action writes timestamped `.asset`
   snapshots (the memory daemon's input). Soft bank 2 rows per type: hue, saturation,
   brightness, diffuseRate. Side actions `NextPalette` / `PreviousPalette` step the palette cycle.
+- **MFT hover knob** (`Editor/MftHoverKnob`, `core_math/HoverKnobMath`) — on soft bank 3 / HW bank 4, one
+  knob moves the numeric inspector field under the mouse. `MidiFighterTwister` holds the binding and sends
+  relative deltas to `IHoverDriver`, implemented in the editor assembly and null in builds. Every inspector
+  here is IMGUI, so the target comes from internal debugger data, read only on that page
+  ([[adr/0020-mft-hover-knob-imgui-debugger-data|ADR-0020]]).
 - **`AgentPaletteCycler`** (`SimulationManager.paletteCycle`) — live agent palettes. Cycle =
   Preset (each sim's authored colors, read from `PresetParamSet`) → `palettes` → Preset; a change
   fades every non-stopped agent sim's per-type hue (shortest arc) / saturation / brightness over
