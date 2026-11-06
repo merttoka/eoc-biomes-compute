@@ -33,7 +33,10 @@ namespace Biomes
             var palette = DrawPaletteRow(editor.target, p);
             for (int i = 0; i < p.TypeCount; i++)
                 DrawTypeRow(editor, p, i, palette);
-            editor.serializedObject.Update();   // rows write the object directly; refresh before the types list draws
+            // The sliders leave edits pending, which Update would discard. The color fields write the object directly,
+            // so it also has to be refreshed before the types list draws.
+            editor.serializedObject.ApplyModifiedProperties();
+            editor.serializedObject.Update();
         }
 
         private static AgentColorPalette DrawPaletteRow(UnityEngine.Object target, IAgentColorParams p)
@@ -116,7 +119,7 @@ namespace Biomes
             }
         }
 
-        // Bound to the property so the MFT hover knob can find it. ParamsEditorGUI applies the SerializedObject.
+        // Bound to the property so the hover knob and sideways scroll can find it. Draw applies the SerializedObject.
         private static void DrawChannelSlider(SerializedObject so, int type, string field, string label) =>
             EditorGUILayout.Slider(so.FindProperty($"types.Array.data[{type}].{field}"), 0f, 1f, new GUIContent(label));
 
